@@ -31,7 +31,7 @@ The system follows the course architecture: CAG → RAG → agents → evals →
 - Commits and pull request titles follow Conventional Commits.
 - Prompts live in versioned files, never as inline strings, so prompt iteration is visible in the Git history.
 - Technical decisions are recorded in `docs/decisions/` (one file per decision: context, options considered, decision, consequences).
-- Data sources are documented in `docs/data-sources.md` (URL, licence, retrieval date).
+- Data sources are documented in [`docs/data-sources/`](docs/data-sources/README.md): one guide per source (endpoints, real responses, gotchas) with runnable examples in `docs/data-sources/examples/`. Reuse their parsing rules and gotchas when implementing clients, and update the guide if a source changes.
 - Tests never call real LLM APIs: mock the provider. Evals are the only code allowed to call real models.
 - Secrets only through environment variables (`.env`, never committed; keep `.env.example` updated).
 - Relevant prompts used to build the project with AI are logged in `prompts.md`.
