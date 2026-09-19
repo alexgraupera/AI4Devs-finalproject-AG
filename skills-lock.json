@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "codely-doc-create": {
+      "source": "codelytv/agent-harness",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/codely-doc-create/SKILL.md",
+      "computedHash": "7946fceeb354d719d3fb38ed84f520a7c934c1c6d73514609c41444a8beb2dc3"
+    },
+    "codely-git-conventional_commit": {
+      "source": "codelytv/agent-harness",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/codely-git-conventional_commit/SKILL.md",
+      "computedHash": "c93b42f2e58e08ce031c383ef30784bb326d1645eccacd3be7d300ad974bc424"
+    },
+    "codely-plan-create-github": {
+      "source": "codelytv/agent-harness",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/codely-plan-create-github/SKILL.md",
+      "computedHash": "41244c5331be094d90729aa5612881257dce37eb27738803aa8100c53cff829d"
+    },
+    "codely-plan-create-subagents": {
+      "source": "codelytv/agent-harness",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/codely-plan-create/SKILL.md",
+      "computedHash": "aeee6352082672da843fe0c865582f103eef33f7b275eac0c1347eefda9a7f0f"
+    },
+    "codely-plan_phase-implement": {
+      "source": "codelytv/agent-harness",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/codely-plan_phase-implement/SKILL.md",
+      "computedHash": "01538e16258d063b6742dfd326b1fbd0201ca56588a83f6eb7454e59ea0a8cc8"
+    },
+    "codely-plan_phase-implement-github": {
+      "source": "codelytv/agent-harness",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/codely-plan_phase-implement-github/SKILL.md",
+      "computedHash": "76c0304591031c256eb15227eecf22dec1324217b3b60e68281da2b8d6b9ab57"
+    }
+  }
+}
