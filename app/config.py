@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     llm_model: str = "anthropic/claude-haiku-4-5"
     llm_max_retries: int = 2
 
+    # Only read to decide whether the moderation layer can run; the providers read their own keys.
+    openai_api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

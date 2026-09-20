@@ -8,6 +8,8 @@ from functools import lru_cache
 
 from app.config import get_settings
 from app.domain.listing_review_service import ListingReviewService
+from app.foundation.guardrails.input import ModerationClient
+from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMModeration
 from app.foundation.llm.wrapper import LLMWrapper
 
 
@@ -18,5 +20,14 @@ def get_llm_wrapper() -> LLMWrapper:
 
 
 @lru_cache
+def get_moderation_client() -> ModerationClient:
+    # The moderation classifier is OpenAI's and needs a key. Without one the service still runs,
+    # with three of the four input layers instead of four.
+    if get_settings().openai_api_key:
+        return LiteLLMModeration()
+    return DisabledModeration()
+
+
+@lru_cache
 def get_listing_review_service() -> ListingReviewService:
-    return ListingReviewService(llm=get_llm_wrapper())
+    return ListingReviewService(llm=get_llm_wrapper(), moderation=get_moderation_client())

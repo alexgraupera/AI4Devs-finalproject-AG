@@ -18,14 +18,20 @@ def is_api_available(api_url: str) -> bool:
     return response.status_code == 200
 
 
-def review_listing(api_url: str, listing: dict[str, Any]) -> dict[str, Any] | None:
-    """Returns the review, or None when the service could not answer."""
+UNEXPECTED_ERROR = "No se ha podido contactar con el servicio. Inténtalo de nuevo."
+
+
+def review_listing(api_url: str, listing: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
+    """Returns (review, error message). The API already words its errors for the person reading."""
     try:
         response = httpx.post(f"{api_url}/api/v1/listings/review", json=listing, timeout=120)
-        response.raise_for_status()
     except httpx.HTTPError:
-        return None
-    return response.json()  # type: ignore[no-any-return]
+        return None, UNEXPECTED_ERROR
+
+    body = response.json()
+    if response.is_success:
+        return body, None
+    return None, str(body.get("error", {}).get("message", UNEXPECTED_ERROR))
 
 
 def render_review(review: dict[str, Any]) -> None:
@@ -91,9 +97,9 @@ if submitted:
         "energy_rating": energy_rating or None,
     }
     with st.spinner("Revisando el anuncio..."):
-        review = review_listing(api_url, listing)
+        review, error = review_listing(api_url, listing)
 
-    if review is None:
-        st.error("No se ha podido generar la revisión. Inténtalo de nuevo.")
-    else:
+    if error is not None:
+        st.error(error)
+    elif review is not None:
         render_review(review)
