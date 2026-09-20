@@ -32,11 +32,14 @@ def test_numbers_every_fragment_so_the_model_can_cite_it() -> None:
     assert "[9]" in context.text
 
 
-def test_orders_the_fragments_by_score() -> None:
+def test_keeps_the_order_it_is_given() -> None:
+    # The caller ranked them: the retriever by similarity, or the reranker after reading them.
+    # Sorting by score here would silently undo the reranker's work, which is how that bug was
+    # introduced in the first place.
     context = build_context([a_chunk(1, score=0.4), a_chunk(2, block_id="a20", score=0.9)])
 
-    assert context.text.index("[2]") < context.text.index("[1]")
-    assert [chunk.chunk_id for chunk in context.chunks] == [2, 1]
+    assert context.text.index("[1]") < context.text.index("[2]")
+    assert [chunk.chunk_id for chunk in context.chunks] == [1, 2]
 
 
 def test_deduplicates_the_pieces_of_the_same_article() -> None:
@@ -54,7 +57,7 @@ def test_the_same_block_id_in_two_different_laws_is_not_a_duplicate() -> None:
 
 
 def test_cuts_at_the_budget_on_a_fragment_boundary() -> None:
-    chunks = [a_chunk(i, block_id=f"a{i}", score=1 - i / 10, text="x" * 400) for i in range(5)]
+    chunks = [a_chunk(i, block_id=f"a{i}", text="x" * 400) for i in range(5)]
 
     context = build_context(chunks, max_chars=1_000)
 

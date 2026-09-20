@@ -18,9 +18,11 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 
 from app.config import get_settings
+from app.foundation.llm.wrapper import LLMWrapper, build_router
 from app.foundation.persistence.database import create_engine, session_factory
 from app.generation.rag.embeddings import PRICE_PER_MILLION_TOKENS, LiteLLMEmbeddings
-from app.generation.rag.retriever import Retriever
+from app.generation.rag.rerank import Reranker
+from app.generation.rag.retriever import CANDIDATE_POOL, Retriever
 from benchmarks.retrieval.metrics import (
     RetrievedRef,
     mean_reciprocal_rank,
@@ -37,11 +39,15 @@ REPORTED_K = (1, 3, 5)
 
 @dataclass(frozen=True)
 class RetrievalVariant:
-    """A named retrieval configuration. Phase #25 adds its flags here."""
+    """A named retrieval configuration: everything a technique needs to be measured like the rest."""
 
     name: str
     k: int = 5
     min_score: float = 0.5
+    rerank: bool = False
+    # How many candidates the reranker reorders. It is the reranker's cost knob: the context it
+    # reads is roughly 350 tokens per candidate.
+    rerank_pool: int = CANDIDATE_POOL
 
 
 @dataclass
@@ -71,26 +77,32 @@ class BenchmarkResult:
     outcomes: list[QuestionOutcome] = field(default_factory=list)
 
 
-# The variants measured today. Only `dense` exists: the k and threshold sweep is what tunes the
-# defaults, and #25 adds reformulation, hybrid and reranking next to them.
+# The baseline first, then one variant per technique, then the combinations worth trying. Every
+# one goes through the same harness: that is what turns "hybrid is better" into a row in a table.
 VARIANTS: tuple[RetrievalVariant, ...] = (
-    RetrievalVariant(name="dense-k5-t0.5", k=5, min_score=0.5),
-    RetrievalVariant(name="dense-k5-t0.3", k=5, min_score=0.3),
-    RetrievalVariant(name="dense-k5-t0.45", k=5, min_score=0.45),
-    RetrievalVariant(name="dense-k5-t0.55", k=5, min_score=0.55),
-    RetrievalVariant(name="dense-k3-t0.5", k=3, min_score=0.5),
-    RetrievalVariant(name="dense-k10-t0.5", k=10, min_score=0.5),
+    RetrievalVariant(name="dense", k=5, min_score=0.5),
+    RetrievalVariant(name="dense+rerank-10", rerank=True, rerank_pool=10),
+    RetrievalVariant(name="dense+rerank-20", rerank=True, rerank_pool=20),
 )
 
 
-async def run(variant: RetrievalVariant, questions: list[Question], retriever: Retriever) -> BenchmarkResult:
+async def run(
+    variant: RetrievalVariant,
+    questions: list[Question],
+    retriever: Retriever,
+    reranker: Reranker | None = None,
+) -> BenchmarkResult:
     outcomes: list[QuestionOutcome] = []
     pairs: list[tuple[Question, list[RetrievedRef]]] = []
     latencies: list[float] = []
 
     for question in questions:
         started = time.perf_counter()
-        chunks = await retriever.search(question.question, k=variant.k, min_score=variant.min_score)
+        # Reranking needs a pool to reorder, so it retrieves wide and cuts afterwards.
+        wanted = variant.rerank_pool if reranker is not None else variant.k
+        chunks = await retriever.search(question.question, k=wanted, min_score=variant.min_score)
+        if reranker is not None:
+            chunks = (await reranker.rerank(question.question, chunks)).chunks
         latency = (time.perf_counter() - started) * 1000
         latencies.append(latency)
 
@@ -192,11 +204,17 @@ async def measure(variants: tuple[RetrievalVariant, ...]) -> list[BenchmarkResul
     questions = load_questions()
     engine = create_engine(settings.database_url)
     client = LiteLLMEmbeddings(model=settings.embedding_model, dimensions=settings.embedding_dimensions)
+    llm = LLMWrapper(
+        router=build_router(settings.llm_model, settings.llm_fallback_model or None, settings.llm_max_retries),
+        max_retries=settings.llm_max_retries,
+    )
     try:
         results = []
         for variant in variants:
             retriever = Retriever(session_factory(engine), client, top_k=variant.k, min_score=variant.min_score)
-            result = await run(variant, questions, retriever)
+            result = await run(
+                variant, questions, retriever, Reranker(llm, top_n=variant.k) if variant.rerank else None
+            )
             # The query cost is the embedding of the question: the same for every variant, so it
             # is attributed per run rather than pretending each variant has its own.
             price = PRICE_PER_MILLION_TOKENS.get(client.model, 0.0)

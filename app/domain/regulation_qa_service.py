@@ -25,10 +25,11 @@ from app.domain.schemas.regulation_answer import (
     RegulationQuestion,
 )
 from app.foundation.guardrails.input import QUESTION, ModerationClient, check_input
-from app.foundation.llm.usage import LLMUsage
+from app.foundation.llm.usage import LLMUsage, combined
 from app.foundation.llm.wrapper import StructuredLLM
 from app.foundation.prompts.loader import render_regulations_qa_prompt
 from app.generation.rag.context import DEFAULT_MAX_CHARS, Context, build_context
+from app.generation.rag.rerank import Reranker
 from app.generation.rag.retriever import RetrievedChunk, Retriever
 
 log = structlog.get_logger()
@@ -63,15 +64,19 @@ class RegulationQAService:
         retriever: Retriever,
         moderation: ModerationClient | None = None,
         *,
+        reranker: Reranker | None = None,
         model: str = "",
         prompt_version: str = PROMPT_VERSION,
         top_k: int | None = None,
         min_score: float | None = None,
+        rerank_pool: int = 20,
         max_context_chars: int = DEFAULT_MAX_CHARS,
     ) -> None:
         self._llm = llm
         self._retriever = retriever
         self._moderation = moderation
+        self._reranker = reranker
+        self._rerank_pool = rerank_pool
         self._model = model
         self._prompt_version = prompt_version
         self._top_k = top_k
@@ -82,12 +87,19 @@ class RegulationQAService:
         await check_input(question.question, moderation=self._moderation, limits=QUESTION)
 
         started = time.perf_counter()
+        # With a reranker, retrieval goes wide and the model picks. That width is what makes it
+        # work: a pool of ten leaves the missing article outside, and nothing can rescue it.
         chunks = await self._retriever.search(
             question.question,
-            k=self._top_k,
+            k=self._rerank_pool if self._reranker is not None else self._top_k,
             min_score=self._min_score,
             jurisdictions=question.jurisdictions,
         )
+        rerank_usage = None
+        if self._reranker is not None and chunks:
+            reranked = await self._reranker.rerank(question.question, chunks)
+            chunks, rerank_usage = reranked.chunks, reranked.usage
+
         context = build_context(chunks, max_chars=self._max_context_chars)
 
         if context.is_empty:
@@ -96,7 +108,9 @@ class RegulationQAService:
 
         system, user = render_regulations_qa_prompt(question.question, context.text, version=self._prompt_version)
         completion = await self._llm.complete_structured(system=system, user=user, schema=AnswerCandidate)
-        usage = completion.usage
+        # The reranker's call is part of what this answer cost: reporting only the generation
+        # would make the cost dashboard of #4 quietly wrong.
+        usage = combined(completion.usage, rerank_usage)
         candidate = completion.output
 
         citations = self._verified_citations(candidate, context)

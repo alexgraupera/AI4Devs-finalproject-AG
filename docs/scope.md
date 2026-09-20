@@ -35,8 +35,9 @@ Answer without calling the model when an equivalent review already exists.
 | Chunking by article, compared against a fixed-size baseline | ✅ #28 |
 | Embeddings in PostgreSQL + pgvector, schema and indexes in migrations, with model and corpus version stored per chunk | ✅ #20, #22 |
 | Top-k with a measured threshold and metadata filters (law, jurisdiction) | ✅ #22 |
-| Query reformulation | 🔜 #25 |
-| Hybrid search and reranking, each kept only if the measurement says it pays | 🔜 #25 |
+| Query reformulation: built, measured, **deleted** (it halved the refusal rate) | ✅ #25 |
+| Reranking with a model that reads the candidates (recall@1 82% → 91%) | ✅ #25 |
+| Hybrid search: built, measured, **deleted** (it made retrieval worse) | ✅ #25 |
 | Answers grounded in the retrieved context, with verifiable citations | ✅ #23 |
 | Hallucination checks over the generated answer | 🔜 #26 |
 | Corpus drift detection: a weekly check opens an issue when the BOE updates a source | ✅ #28 |

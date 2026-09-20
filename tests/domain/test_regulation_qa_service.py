@@ -8,6 +8,7 @@ from app.domain.regulation_qa_service import NO_ANSWER, RegulationQAService
 from app.domain.schemas.regulation_answer import AnswerCandidate, RegulationQuestion
 from app.foundation.guardrails.input import InputGuardrailViolation
 from app.foundation.llm.usage import LLMUsage, StructuredCompletion
+from app.generation.rag.rerank import Reranked
 from app.generation.rag.retriever import RetrievedChunk
 
 T = TypeVar("T", bound=BaseModel)
@@ -19,6 +20,15 @@ A_USAGE = LLMUsage(
     output_tokens=200,
     latency_ms=900,
     estimated_cost_usd=Decimal("0.0030"),
+)
+
+A_RERANK_USAGE = LLMUsage(
+    provider="anthropic",
+    model="claude-haiku-4-5",
+    input_tokens=7_000,
+    output_tokens=300,
+    latency_ms=2_400,
+    estimated_cost_usd=Decimal("0.0086"),
 )
 
 A_QUESTION = RegulationQuestion(question="¿Cuál es la fianza legal en un alquiler de vivienda?")
@@ -222,3 +232,78 @@ async def test_a_refusal_says_what_the_corpus_does_cover() -> None:
 
     assert "Arrendamientos Urbanos" in answered.answer.answer
     assert "fiscalidad" in answered.answer.answer
+
+
+class FakeReranker:
+    def __init__(self, order: list[int] | None = None) -> None:
+        self.order = order
+        self.calls: list[list[int]] = []
+
+    async def rerank(self, query: str, candidates: list[RetrievedChunk]) -> Reranked:
+        self.calls.append([c.chunk_id for c in candidates])
+        if self.order is None:
+            return Reranked(chunks=candidates, usage=A_RERANK_USAGE)
+        by_id = {c.chunk_id: c for c in candidates}
+        return Reranked(chunks=[by_id[i] for i in self.order if i in by_id], usage=A_RERANK_USAGE)
+
+
+def service_with_reranker(llm: FakeLLM, retriever: FakeRetriever, reranker: FakeReranker) -> RegulationQAService:
+    return RegulationQAService(
+        llm=llm,
+        retriever=retriever,  # type: ignore[arg-type]
+        reranker=reranker,  # type: ignore[arg-type]
+        model="claude-haiku-4-5",
+        top_k=5,
+        rerank_pool=20,
+    )
+
+
+async def test_retrieval_goes_wide_when_a_reranker_will_pick() -> None:
+    # A pool of ten leaves the missing article outside, and nothing can rescue it: ADR 0013.
+    retriever = FakeRetriever()
+    reranker = FakeReranker()
+
+    await service_with_reranker(FakeLLM(a_candidate()), retriever, reranker).ask(A_QUESTION)
+
+    assert retriever.calls[0]["k"] == 20
+    assert reranker.calls == [[36]]
+
+
+async def test_the_reranked_order_is_what_reaches_the_model() -> None:
+    chunks = [a_chunk(36), a_chunk(20, block_id="a20", score=0.7)]
+    llm = FakeLLM(a_candidate(cited=[20]))
+
+    answered = await service_with_reranker(llm, FakeRetriever(chunks), FakeReranker(order=[20, 36])).ask(A_QUESTION)
+
+    _, user = llm.prompts[0]
+    assert user.index("[20]") < user.index("[36]")
+    assert [c.chunk_id for c in answered.answer.citations] == [20]
+
+
+async def test_without_a_reranker_retrieval_asks_for_the_top_k_only() -> None:
+    retriever = FakeRetriever()
+
+    await RegulationQAService(
+        llm=FakeLLM(a_candidate()),
+        retriever=retriever,  # type: ignore[arg-type]
+        model="claude-haiku-4-5",
+        top_k=5,
+    ).ask(A_QUESTION)
+
+    assert retriever.calls[0]["k"] == 5
+
+
+async def test_an_empty_retrieval_does_not_reach_the_reranker() -> None:
+    reranker = FakeReranker()
+
+    await service_with_reranker(FakeLLM(a_candidate()), FakeRetriever(chunks=[]), reranker).ask(A_QUESTION)
+
+    assert reranker.calls == []
+
+
+async def test_the_reported_cost_includes_the_reranking() -> None:
+    # Reporting only the generation would make the cost dashboard of #4 quietly wrong.
+    answered = await service_with_reranker(FakeLLM(a_candidate()), FakeRetriever(), FakeReranker()).ask(A_QUESTION)
+
+    assert answered.usage.input_tokens == 2_000 + 7_000
+    assert answered.usage.estimated_cost_usd == Decimal("0.0030") + Decimal("0.0086")

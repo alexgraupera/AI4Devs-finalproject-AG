@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     # Character budget for the retrieved articles handed to the model.
     max_context_chars: int = 12_000
 
+    # A model reads the candidates and reorders them. Measured in ADR 0013: recall@1 goes from
+    # 82% to 91%, for about $0.009 and 2.4 s per question. The pool is what makes it work: with
+    # 10 candidates instead of 20 the gain disappears, because the missing article is not there
+    # to be rescued.
+    rerank_enabled: bool = True
+    rerank_pool: int = 20
+
     # Only read to decide whether the moderation layer can run; the providers read their own keys.
     openai_api_key: str = ""
 
