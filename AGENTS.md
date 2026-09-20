@@ -6,7 +6,7 @@ The system follows the course architecture: CAG → RAG → agents → evals →
 
 ## Planning
 
-- [`docs/course-alignment.md`](docs/course-alignment.md) maps every session of the master to where its content lives here, and states what is out of scope and why. Check it before planning or implementing: the project is assessed against what the programme teaches.
+- [`docs/scope.md`](docs/scope.md) lists the capabilities the system covers, what is deliberately out of scope and why, and the delivery checklist. Check it before planning or implementing, and keep it up to date.
 
 - The work is planned as GitHub issues, one parent issue per layer (labelled `plan`), all under the `Final delivery` milestone (2026-10-06).
 - Plans are created with `/codely-plan-create-github <issue-url>` and implemented one phase at a time with `/codely-plan_phase-implement-github <issue-url>`: one branch and one pull request per phase, merged by the user.
