@@ -1,4 +1,4 @@
-.PHONY: install api ui up down verify
+.PHONY: install api ui up down migrate verify
 
 install:
 	uv sync
@@ -14,6 +14,9 @@ up:
 
 down:
 	docker compose down
+
+migrate:
+	uv run alembic upgrade head
 
 verify:
 	uv run ruff check .

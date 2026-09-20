@@ -6,11 +6,14 @@ of them. Routers and tests import it; nothing else does.
 
 from functools import lru_cache
 
+from sqlalchemy.ext.asyncio import AsyncEngine
+
 from app.config import get_settings
 from app.domain.listing_review_service import ListingReviewService
 from app.foundation.guardrails.input import ModerationClient
 from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMModeration
 from app.foundation.llm.wrapper import LLMWrapper, build_router
+from app.foundation.persistence.database import create_engine
 from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
 
 
@@ -32,6 +35,16 @@ def get_moderation_client() -> ModerationClient:
     if get_settings().openai_api_key:
         return LiteLLMModeration()
     return DisabledModeration()
+
+
+@lru_cache
+def get_engine() -> AsyncEngine | None:
+    # None is a state, not a failure: without a corpus store the review still works, and
+    # /health says the database is disabled instead of pretending it is broken.
+    url = get_settings().database_url
+    if not url:
+        return None
+    return create_engine(url)
 
 
 @lru_cache

@@ -1,14 +1,19 @@
 services:
   api:
     build: .
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # The schema is brought up to date before the first request, never by hand: a container
+    # that starts is a container whose database matches the code it is running.
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
     env_file:
       - path: .env
         required: false
     environment:
       REDIS_URL: redis://cache:6379/0
+      DATABASE_URL: postgresql+asyncpg://rental:rental@db:5432/rental
     depends_on:
       cache:
+        condition: service_healthy
+      db:
         condition: service_healthy
     ports:
       - "8000:8000"
@@ -37,3 +42,24 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  # The corpus store. The port is published because inspecting what was ingested with psql is
+  # part of working on the RAG layer, unlike the cache, which is never read by hand.
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: rental
+      POSTGRES_PASSWORD: rental
+      POSTGRES_DB: rental
+    ports:
+      - "5432:5432"
+    volumes:
+      - corpus:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rental -d rental"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  corpus:

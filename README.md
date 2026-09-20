@@ -72,6 +72,12 @@ make up                 # equivale a: docker compose up --build
 
 - Interfaz (Streamlit): http://localhost:8501
 - API (FastAPI): http://localhost:8000 · documentación OpenAPI en http://localhost:8000/docs
+- Base de datos (PostgreSQL + pgvector): `localhost:5432`, usuario/contraseña/base `rental`
+
+`make up` levanta también la base de datos del corpus y **aplica las migraciones al arrancar el
+contenedor de la API**: no hay ningún paso manual, un contenedor que arranca es un contenedor
+cuyo esquema corresponde al código que ejecuta. Puedes comprobarlo en `GET /health`, que
+informa del estado del almacén (`ok`, `unavailable` o `disabled`).
 
 **Sin Docker (desarrollo):**
 
@@ -79,7 +85,23 @@ make up                 # equivale a: docker compose up --build
 make install   # uv sync
 make api       # API con recarga automática en :8000
 make ui        # en otra terminal: interfaz en :8501
+make migrate   # aplica las migraciones (necesita DATABASE_URL)
 make verify    # lint, formato, tipos y tests
+```
+
+La base de datos es **opcional** mientras trabajas en la revisión de anuncios: sin
+`DATABASE_URL` el servicio arranca igual y `/health` responde `"database": "disabled"`. Para
+usarla en local, levanta solo la base con `docker compose up -d db` y exporta:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental
+```
+
+Los tests que necesitan una base de datos real (los de migraciones) se saltan salvo que
+exportes esa variable, así que `make verify` no depende de ningún servicio:
+
+```bash
+DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental uv run pytest tests/persistence
 ```
 
 ---
@@ -110,12 +132,14 @@ make verify    # lint, formato, tipos y tests
 │   ├── generation/           # Arquitecturas de IA: cag/ (cachés), rag/, agentic/
 │   └── api/                  # Routers finos (transporte)
 ├── streamlit_app.py          # Cliente Streamlit (solo habla con la API por HTTP)
+├── migrations/               # Migraciones Alembic: el esquema del corpus, revisado como código
+├── alembic.ini               # Configuración de Alembic (la URL sale de DATABASE_URL, no de aquí)
 ├── tests/                    # Tests, con la misma estructura que el paquete
 ├── docs/
 │   ├── data-sources/         # Guías y ejemplos ejecutables de las fuentes de datos públicas
 │   └── decisions/            # Registro de decisiones de arquitectura (ADR)
 ├── Dockerfile                # Imagen única para la API y la interfaz
-├── docker-compose.yml        # Servicios api (:8000) y ui (:8501)
+├── docker-compose.yml        # Servicios api (:8000), ui (:8501), cache (Redis) y db (pgvector)
 ├── Makefile                  # Comandos de desarrollo y verificación
 └── .github/workflows/ci.yml  # CI: make verify en cada pull request
 ```
@@ -236,12 +260,60 @@ Los guardrails registran también lo suyo: `guardrail.moderation_unavailable` cu
 
 ### **3.1. Diagrama del modelo de datos:**
 
-> Recomendamos usar mermaid para el modelo de datos, y utilizar todos los parámetros que permite la sintaxis para dar el máximo detalle, por ejemplo las claves primarias y foráneas.
+El modelo de datos es el **corpus normativo**: los documentos oficiales que se ingestan y los
+fragmentos sobre los que se busca. No hay entidades de usuario: el sistema no guarda anuncios ni
+cuentas, solo normativa pública ([ADR 0008](docs/decisions/0008-vector-store-and-migrations.md)).
 
+```mermaid
+erDiagram
+    documents ||--o{ chunks : "se trocea en"
+
+    documents {
+        integer id PK
+        text source_id UK "Identificador BOE, p. ej. BOE-A-1994-26003"
+        text title
+        text jurisdiction "state | catalonia"
+        text doc_type "consolidated_law | resolution"
+        text url "Enlace al texto consolidado"
+        text boe_updated_at "fecha_actualizacion: dispara la reingesta"
+        text corpus_version
+        timestamptz ingested_at
+    }
+
+    chunks {
+        integer id PK
+        integer document_id FK
+        text block_id "Bloque del texto consolidado, p. ej. a36"
+        text article_title
+        integer ordinal "Pieza dentro del bloque: 0 salvo artículos partidos"
+        text text
+        integer char_count
+        jsonb metadata "fecha_vigencia, id_norma, citation_url"
+        text content_hash "SHA-256: hace idempotente la reingesta"
+        timestamptz created_at
+    }
+```
+
+La columna vectorial (`embedding`) y su índice **no están todavía**: llegan con la migración de
+la fase de embeddings, junto al modelo que fija sus dimensiones y a la medición que justifica los
+parámetros del índice.
 
 ### **3.2. Descripción de entidades principales:**
 
-> Recuerda incluir el máximo detalle de cada entidad, como el nombre y tipo de cada atributo, descripción breve si procede, claves primarias y foráneas, relaciones y tipo de relación, restricciones (unique, not null…), etc.
+**`documents`**: una fuente oficial ingestada. `source_id` es único, de modo que una norma existe
+una sola vez en el corpus; `boe_updated_at` guarda la `fecha_actualizacion` que publica el BOE y
+es lo que permite decidir si hay que volver a ingestarla. `jurisdiction` y `doc_type` están
+restringidos por `CHECK` (`state` | `catalonia` y `consolidated_law` | `resolution`): son los ejes
+por los que la recuperación filtra, así que la base de datos los defiende en vez de confiar en
+que la aplicación no se equivoque.
+
+**`chunks`**: el fragmento que se recupera y se cita, normalmente un artículo completo. Relación
+`1:N` con `documents`, con borrado en cascada: reingestar una norma sustituye sus fragmentos sin
+dejar huérfanos. La restricción única `(document_id, block_id, ordinal)` es la que hace que
+ejecutar la ingesta dos veces no duplique nada. `metadata` va en `jsonb` porque sus campos
+(`fecha_vigencia`, `id_norma`, `citation_url`) viajan siempre juntos hacia la cita y ninguno se
+filtra por separado. `content_hash` es el SHA-256 del texto del fragmento: si no cambia, no hay
+nada que reescribir ni que volver a embeber.
 
 ---
 
