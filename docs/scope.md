@@ -33,8 +33,9 @@ Answer without calling the model when an equivalent review already exists.
 |---|---|
 | Ingestion of the BOE corpus: download, parse, normalise and validate, idempotently | ✅ #21, #28 |
 | Chunking by article, compared against a fixed-size baseline | ✅ #28 |
-| Embeddings in PostgreSQL + pgvector, schema and indexes in migrations, with model and corpus version stored per chunk | ✅ #20 (schema), 🔜 #22 (vectors) |
-| Query reformulation, top-k with threshold and metadata filters | 🔜 #22, #25 |
+| Embeddings in PostgreSQL + pgvector, schema and indexes in migrations, with model and corpus version stored per chunk | ✅ #20, #22 |
+| Top-k with a measured threshold and metadata filters (law, jurisdiction) | ✅ #22 |
+| Query reformulation | 🔜 #25 |
 | Hybrid search and reranking, each kept only if the measurement says it pays | 🔜 #25 |
 | Answers grounded in the retrieved context, with verifiable citations and hallucination checks | 🔜 #23, #26 |
 | Corpus drift detection: a weekly check opens an issue when the BOE updates a source | ✅ #28 |
@@ -67,7 +68,7 @@ Answer without calling the model when an equivalent review already exists.
 | Capability | Status |
 |---|---|
 | Containers for the whole stack, self-contained image, migrations on start-up | ✅ #7, 🔜 #5 |
-| CI running lint, typecheck and tests on every pull request | ✅ #7 |
+| CI running lint, typecheck and tests on every pull request, database-backed tests included | ✅ #7, #22 |
 | Service token middleware plus per-router API keys and rate limiting | 🔜 #5 |
 | Public deployment (or a recorded walkthrough) and spend limits on the providers | 🔜 #5 |
 

@@ -9,12 +9,15 @@ from functools import lru_cache
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.config import get_settings
+from app.domain.errors import CorpusUnavailable
 from app.domain.listing_review_service import ListingReviewService
 from app.foundation.guardrails.input import ModerationClient
 from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMModeration
 from app.foundation.llm.wrapper import LLMWrapper, build_router
-from app.foundation.persistence.database import create_engine
+from app.foundation.persistence.database import create_engine, session_factory
 from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
+from app.generation.rag.embeddings import EmbeddingClient, LiteLLMEmbeddings
+from app.generation.rag.retriever import Retriever
 
 
 @lru_cache
@@ -63,4 +66,29 @@ def get_listing_review_service() -> ListingReviewService:
         moderation=get_moderation_client(),
         cache=get_review_cache(),
         model=settings.llm_model,
+    )
+
+
+@lru_cache
+def get_embedding_client() -> EmbeddingClient:
+    settings = get_settings()
+    return LiteLLMEmbeddings(
+        model=settings.embedding_model,
+        dimensions=settings.embedding_dimensions,
+        batch_size=settings.embedding_batch_size,
+    )
+
+
+@lru_cache
+def get_retriever() -> Retriever:
+    engine = get_engine()
+    if engine is None:
+        raise CorpusUnavailable("the corpus store is not configured")
+
+    settings = get_settings()
+    return Retriever(
+        session_factory(engine),
+        get_embedding_client(),
+        top_k=settings.retrieval_top_k,
+        min_score=settings.retrieval_min_score,
     )
