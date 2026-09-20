@@ -10,13 +10,18 @@ from app.config import get_settings
 from app.domain.listing_review_service import ListingReviewService
 from app.foundation.guardrails.input import ModerationClient
 from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMModeration
-from app.foundation.llm.wrapper import LLMWrapper
+from app.foundation.llm.wrapper import LLMWrapper, build_router
 
 
 @lru_cache
 def get_llm_wrapper() -> LLMWrapper:
     settings = get_settings()
-    return LLMWrapper(model=settings.llm_model, max_retries=settings.llm_max_retries)
+    router = build_router(
+        primary_model=settings.llm_model,
+        fallback_model=settings.llm_fallback_model or None,
+        num_retries=settings.llm_max_retries,
+    )
+    return LLMWrapper(router=router, max_retries=settings.llm_max_retries)
 
 
 @lru_cache

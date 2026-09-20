@@ -180,9 +180,13 @@ El acceso al modelo pasa siempre por `LLMWrapper`, el único módulo que importa
 
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
-**Latencia.** Una revisión completa tarda unos 7 segundos con Claude Haiku 4.5. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. La caché (#12) eliminará la llamada al modelo en las revisiones repetidas.
+**Latencia.** Una revisión completa tarda unos 6 segundos con Claude Haiku 4.5 y unos 3 con GPT-5.4 mini. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. La caché (#12) eliminará la llamada al modelo en las revisiones repetidas.
 
-**Coste.** El modelo por defecto es el más barato de su familia, y la tarea (un texto corto, un esquema pequeño) no justifica otro más caro: media revisión cuesta del orden de medio céntimo. Las capas que no necesitan el modelo (tamaño, inyección, datos personales) ahorran la llamada entera. El límite de gasto está configurado en la consola del proveedor. El coste medido por petición llega en #10.
+**Coste.** Cada revisión informa de lo que ha costado, calculado con una tabla de precios propia a partir del modelo que respondió de verdad. Medido sobre el mismo anuncio: **0,0057 $ con Claude Haiku 4.5** (2.340 + 678 tokens) y **0,0030 $ con GPT-5.4 mini** (1.176 + 464 tokens). Las capas que no necesitan el modelo (tamaño, inyección, datos personales) ahorran la llamada entera, y el límite de gasto está configurado en la consola del proveedor.
+
+La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde con la versión fechada del modelo (`claude-haiku-4-5-20251001`) y una búsqueda exacta fallaría y cobraría cero. Un modelo desconocido devuelve coste vacío y deja un aviso en el log: un hueco es honesto, un cero es mentira.
+
+**Disponibilidad.** El código pide al Router un modelo lógico (`listing-reviewer`) y nunca nombra un proveedor. Si Anthropic falla, responde OpenAI sin que el cliente se entere; el proveedor real aparece en `usage`. Probado con una clave primaria inválida: la revisión se completó igual.
 
 **Calidad.** La salida se valida contra el esquema y, si no encaja, se le vuelve a pedir al modelo. El guardrail de salida descarta las incidencias que citan una norma fuera del checklist y recalcula el veredicto. La medición sistemática con métricas y casos de regresión llega en #4.
 
@@ -190,7 +194,20 @@ El acceso al modelo pasa siempre por `LLMWrapper`, el único módulo que importa
 
 ### **2.9. 🆕 Trazabilidad y observabilidad**
 
-> Describe los logs, trazas de agentes y métricas registradas (modelo, tokens, latencia, coste) y cómo ayudan a depurar el sistema.
+Cada revisión deja un evento JSON (`structlog`), pensado para contarse y no solo para leerse:
+
+```json
+{"event": "listing_review.completed", "prompt_version": "v2", "provider": "anthropic",
+ "model": "claude-haiku-4-5-20251001", "input_tokens": 2340, "output_tokens": 678,
+ "latency_ms": 6308, "estimated_cost_usd": 0.00573, "attempts": 1,
+ "is_rental_listing": true, "level": "info", "timestamp": "2026-09-20T07:59:40.699454Z"}
+```
+
+Con esos campos se responde a lo que importa cuando algo va mal: qué versión del prompt se usó, qué proveedor respondió (y por tanto si saltó el fallback), cuánto tardó y cuánto costó.
+
+El coste suma **todos los intentos**, no solo el último. Cuando el modelo devuelve algo que no encaja en el esquema, se le vuelve a pedir, y ese viaje también se paga: contar solo el intento final haría que un modelo que se equivoca a menudo pareciera más barato de lo que es. El campo `attempts` separa las dos causas de una subida de coste: más tokens o más reintentos. El dashboard y las evals de #4 se construyen contando estos eventos, no leyéndolos.
+
+Los guardrails registran también lo suyo: `guardrail.moderation_unavailable` cuando el clasificador falla y se sigue adelante, y `guardrail.dropped_finding` cuando se descarta una incidencia que citaba una norma fuera del checklist.
 
 ### **2.10. 🆕 Decisiones técnicas**
 

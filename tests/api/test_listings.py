@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from decimal import Decimal
 from typing import TypeVar
 
 import pytest
@@ -15,9 +16,19 @@ from app.domain.schemas.listing_review import (
     Severity,
     Verdict,
 )
+from app.foundation.llm.usage import LLMUsage, StructuredCompletion
 from app.main import create_app
 
 T = TypeVar("T", bound=BaseModel)
+
+A_USAGE = LLMUsage(
+    provider="anthropic",
+    model="claude-haiku-4-5",
+    input_tokens=1_000,
+    output_tokens=500,
+    latency_ms=1_234,
+    estimated_cost_usd=Decimal("0.0035"),
+)
 
 A_LISTING_TEXT = (
     "Piso exterior de dos habitaciones en Chamberí, con cocina equipada y ascensor. Se pide fianza de dos meses."
@@ -42,10 +53,10 @@ class FakeLLM:
         )
         self.error = error
 
-    async def complete_structured(self, *, system: str, user: str, schema: type[T]) -> T:
+    async def complete_structured(self, *, system: str, user: str, schema: type[T]) -> StructuredCompletion[T]:
         if self.error is not None:
             raise self.error
-        return self.candidate  # type: ignore[return-value]
+        return StructuredCompletion(output=self.candidate, usage=A_USAGE)  # type: ignore[arg-type]
 
 
 def client_for(llm: FakeLLM) -> Iterator[TestClient]:
@@ -81,6 +92,15 @@ def test_returns_the_structured_review(client: TestClient) -> None:
         ],
         "verdict": "request_changes",
         "summary": "Hay que corregir la fianza",
+        "usage": {
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5",
+            "input_tokens": 1_000,
+            "output_tokens": 500,
+            "latency_ms": 1_234,
+            "estimated_cost_usd": "0.0035",
+            "attempts": 1,
+        },
     }
 
 
