@@ -10,6 +10,9 @@ class Settings(BaseSettings):
 
     api_url: str = "http://localhost:8000"
 
+    llm_model: str = "anthropic/claude-haiku-4-5"
+    llm_max_retries: int = 2
+
 
 @lru_cache
 def get_settings() -> Settings:

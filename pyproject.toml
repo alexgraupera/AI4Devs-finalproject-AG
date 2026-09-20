@@ -4,9 +4,14 @@ version = "0.1.0"
 description = "Rental listing quality and compliance assistant (LIDR AI Engineering final project)"
 readme = "README.md"
 requires-python = ">=3.12"
+# Exact pins for the LLM toolchain: a compromised or breaking release of these
+# packages reaches production silently. Bump them deliberately, never by resolution.
 dependencies = [
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
+    "instructor==1.17.0",
+    "jinja2==3.1.6",
+    "litellm==1.102.0",
     "pydantic-settings>=2.15.0",
     "streamlit>=1.64.0",
     "uvicorn[standard]>=0.53.0",
@@ -37,10 +42,12 @@ packages = ["app", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [dependency-groups]
 dev = [
     "mypy>=2.3.1",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.16.8",
 ]

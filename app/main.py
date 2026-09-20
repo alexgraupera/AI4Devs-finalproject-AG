@@ -7,12 +7,13 @@ nothing else. Business logic lives in `app/domain/`, the AI architectures in
 
 from fastapi import FastAPI
 
-from app.api import health
+from app.api import health, listings
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Rental Assistant API", version="0.1.0")
     app.include_router(health.router)
+    app.include_router(listings.router)
     return app
 
 
