@@ -5,10 +5,13 @@ descriptions are part of the prompt. Keep the summary last: the model writes it
 after having committed to the findings, not before.
 """
 
+from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
+
+from app.foundation.llm.usage import LLMUsage
 
 
 class Listing(BaseModel):
@@ -75,3 +78,11 @@ class ReviewCandidate(BaseModel):
 
     def to_review(self) -> ListingReview:
         return ListingReview(findings=self.findings, verdict=self.verdict, summary=self.summary)
+
+
+@dataclass(frozen=True)
+class ReviewedListing:
+    """What a review costs is part of what a review is: both travel together."""
+
+    review: ListingReview
+    usage: LLMUsage

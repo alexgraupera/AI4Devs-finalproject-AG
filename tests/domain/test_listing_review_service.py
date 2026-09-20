@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import TypeVar
 
 import pytest
@@ -15,8 +16,18 @@ from app.domain.schemas.listing_review import (
     Verdict,
 )
 from app.foundation.guardrails.input import InputGuardrailViolation
+from app.foundation.llm.usage import LLMUsage, StructuredCompletion
 
 T = TypeVar("T", bound=BaseModel)
+
+A_USAGE = LLMUsage(
+    provider="anthropic",
+    model="claude-haiku-4-5",
+    input_tokens=1_000,
+    output_tokens=500,
+    latency_ms=1_234,
+    estimated_cost_usd=Decimal("0.0035"),
+)
 
 A_LISTING = Listing(
     text=(
@@ -55,20 +66,21 @@ class FakeLLM:
         self.system: str | None = None
         self.user: str | None = None
 
-    async def complete_structured(self, *, system: str, user: str, schema: type[T]) -> T:
+    async def complete_structured(self, *, system: str, user: str, schema: type[T]) -> StructuredCompletion[T]:
         self.system = system
         self.user = user
         if self.error is not None:
             raise self.error
-        return self.candidate  # type: ignore[return-value]
+        return StructuredCompletion(output=self.candidate, usage=A_USAGE)  # type: ignore[arg-type]
 
 
 async def test_returns_the_review_produced_by_the_llm() -> None:
     service = ListingReviewService(llm=FakeLLM(a_candidate()))
 
-    review = await service.review(A_LISTING)
+    reviewed = await service.review(A_LISTING)
 
-    assert review == a_candidate().to_review()
+    assert reviewed.review == a_candidate().to_review()
+    assert reviewed.usage == A_USAGE
 
 
 async def test_sends_the_checklist_in_the_system_prompt_and_the_listing_in_the_user_prompt() -> None:
@@ -112,10 +124,10 @@ async def test_rejects_text_that_is_not_a_rental_listing() -> None:
 async def test_drops_findings_citing_a_source_outside_the_checklist() -> None:
     service = ListingReviewService(llm=FakeLLM(a_candidate(legal_basis="LAU art. 99.9")))
 
-    review = await service.review(A_LISTING)
+    reviewed = await service.review(A_LISTING)
 
-    assert review.findings == []
-    assert review.verdict == Verdict.APPROVE
+    assert reviewed.review.findings == []
+    assert reviewed.review.verdict == Verdict.APPROVE
 
 
 @pytest.mark.parametrize("error", [ReviewGenerationError("invalid"), LLMUnavailable("timeout")])
@@ -127,7 +139,6 @@ async def test_propagates_the_llm_errors(error: Exception) -> None:
 
 
 async def test_returns_an_untouched_review_when_everything_is_in_order() -> None:
-    candidate = a_candidate()
-    service = ListingReviewService(llm=FakeLLM(candidate))
+    service = ListingReviewService(llm=FakeLLM(a_candidate()))
 
-    assert isinstance(await service.review(A_LISTING), ListingReview)
+    assert isinstance((await service.review(A_LISTING)).review, ListingReview)

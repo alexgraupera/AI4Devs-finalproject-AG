@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     api_url: str = "http://localhost:8000"
 
     llm_model: str = "anthropic/claude-haiku-4-5"
+    # Empty disables the fallback: one provider, and a failure is a failure.
+    llm_fallback_model: str = "openai/gpt-5.4-mini"
     llm_max_retries: int = 2
 
     # Only read to decide whether the moderation layer can run; the providers read their own keys.
