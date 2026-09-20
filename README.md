@@ -156,7 +156,8 @@ migraciones, que hacen `downgrade` y borran las tablas, corren contra una base a
 │   ├── generation/           # Arquitecturas de IA: cag/ (cachés), rag/, agentic/
 │   ├── ingestion/            # Corpus del BOE: descarga, validación, troceo y escritura
 │   └── api/                  # Routers finos (transporte)
-├── streamlit_app.py          # Cliente Streamlit (solo habla con la API por HTTP)
+├── streamlit_app.py          # Cliente Streamlit: portada y estado de la API
+├── pages/                    # Páginas del cliente (revisión de anuncios, consulta de normativa)
 ├── migrations/               # Migraciones Alembic: el esquema del corpus, revisado como código
 ├── alembic.ini               # Configuración de Alembic (la URL sale de DATABASE_URL, no de aquí)
 ├── tests/                    # Tests, con la misma estructura que el paquete
@@ -281,7 +282,34 @@ Los 380 fragmentos tienen vector en pgvector y se buscan por similitud coseno co
 
 **Cada vector sabe qué modelo lo hizo.** `EMBEDDING_MODEL` es configuración, y la búsqueda solo compara fragmentos embebidos con el modelo configurado: mezclar dos espacios vectoriales en un índice no falla, simplemente devuelve ruido. Cambiar de modelo es una variable más `make embed`.
 
-**Generación fundamentada (pendiente)**: respuestas construidas solo con los artículos recuperados, con cita verificable.
+**Generación fundamentada (implementado)**
+
+```
+POST /api/v1/regulations/ask
+  └→ app/api/regulations.py                       (transporte)
+       └→ app/domain/regulation_qa_service.py     (conductor)
+            1. guardrails de entrada              (límites de pregunta, inyección, PII, moderación)
+            2. app/generation/rag/retriever.py    (top-k con umbral; si no hay nada, termina aquí)
+            3. app/generation/rag/context.py      (deduplica, ordena, numera, etiqueta el ámbito)
+            4. prompts regulations_qa/v1          (responde solo con el contexto numerado)
+            5. verificación de citas              (un número no recuperado se descarta)
+```
+
+**El modelo nunca escribe una cita.** Se le muestran fragmentos numerados y devuelve los **números** que ha usado; el servicio construye la cita a partir del fragmento recuperado. Un modelo al que le pides una URL te da una URL verosímil, y un enlace verosímil al artículo equivocado es peor que no tener enlace: quien lo sigue aterriza en el BOE y se fía de todo lo demás.
+
+Si una respuesta se queda sin ninguna cita válida, se convierte en un "no lo sé". Una respuesta que nadie puede comprobar vale menos que admitir que no se sabe, porque desde fuera no se distinguen.
+
+Medido de punta a punta contra el corpus y el modelo reales:
+
+| Pregunta | Resultado | Latencia | Coste |
+|---|---|---|---|
+| "¿Cuál es la fianza legal en un alquiler de vivienda?" | responde citando **LAU art. 36** | 1,7 s | 0,0054 $ |
+| "¿Qué información hay que dar en una oferta de alquiler?" (Cataluña) | responde citando **Ley 18/2007 art. 61** | 2,9 s | 0,0065 $ |
+| "¿Qué tiempo hará mañana en Bilbao?" | rechaza **sin llamar al modelo** | 0,9 s | 0 $ |
+
+Detalles y límites en [ADR 0011](docs/decisions/0011-grounded-answers-and-citations.md).
+
+**Control de alucinación y securización (pendiente)**: la verificación actual es estructural (el artículo citado **se recuperó**), no semántica (el artículo **sostiene** la frase). Esa diferencia la cierra la fase de grounding.
 
 **Agentes (pendiente)**: un agente con function calling que decide qué consultar (normativa, Catastro, precio de mercado) y un paso crítico que descarta las incidencias sin cita.
 
@@ -398,6 +426,7 @@ La especificación completa se genera sola y está en `http://localhost:8000/doc
 |---|---|
 | `POST /api/v1/listings/review` | Revisa un anuncio de alquiler y devuelve incidencias, veredicto y coste |
 | `POST /api/v1/regulations/search` | Busca en la normativa y devuelve los fragmentos con su puntuación |
+| `POST /api/v1/regulations/ask` | Responde una pregunta sobre normativa con citas verificables al BOE |
 | `GET /health` | Estado del servicio y del almacén del corpus |
 
 ```yaml

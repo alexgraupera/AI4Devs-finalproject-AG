@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.config import get_settings
 from app.domain.errors import CorpusUnavailable
 from app.domain.listing_review_service import ListingReviewService
+from app.domain.regulation_qa_service import RegulationQAService
 from app.foundation.guardrails.input import ModerationClient
 from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMModeration
 from app.foundation.llm.wrapper import LLMWrapper, build_router
@@ -91,4 +92,16 @@ def get_retriever() -> Retriever:
         get_embedding_client(),
         top_k=settings.retrieval_top_k,
         min_score=settings.retrieval_min_score,
+    )
+
+
+@lru_cache
+def get_regulation_qa_service() -> RegulationQAService:
+    settings = get_settings()
+    return RegulationQAService(
+        llm=get_llm_wrapper(),
+        retriever=get_retriever(),
+        moderation=get_moderation_client(),
+        model=settings.llm_model,
+        max_context_chars=settings.max_context_chars,
     )
