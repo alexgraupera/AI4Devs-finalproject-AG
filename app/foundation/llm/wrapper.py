@@ -28,7 +28,7 @@ from pydantic import BaseModel
 
 from app.domain.errors import LLMUnavailable, ReviewGenerationError
 from app.foundation.llm.pricing import estimate_cost, provider_of
-from app.foundation.llm.usage import LLMUsage, StructuredCompletion
+from app.foundation.llm.usage import LLMUsage, StructuredCompletion, UsageAccumulator, current_usage
 
 log = structlog.get_logger()
 
@@ -67,9 +67,14 @@ class LLMWrapper:
         # from_litellm picks the sync or async client from the callable it gets; Router.acompletion
         # is a coroutine function, and async_client makes that explicit instead of inferred.
         self._client = instructor.from_litellm(router.acompletion, async_client=True)
+        # Instructor fires this once per attempt, re-prompts included, which is the only way to
+        # bill a call for everything it actually spent instead of for its last try.
+        self._client.on("completion:response", _record_attempt)
 
     async def complete_structured(self, *, system: str, user: str, schema: type[T]) -> StructuredCompletion[T]:
         started = time.perf_counter()
+        accumulator = UsageAccumulator()
+        token = current_usage.set(accumulator)
         try:
             output, raw = await self._client.chat.completions.create_with_completion(
                 model=LOGICAL_MODEL,
@@ -92,27 +97,40 @@ class LLMWrapper:
             # Every LiteLLM provider error derives from this one. What is left here (bad request,
             # auth, unknown model) is ours to fix, not something worth retrying.
             raise ReviewGenerationError(str(error)) from error
+        finally:
+            current_usage.reset(token)
 
         latency_ms = int((time.perf_counter() - started) * 1000)
-        return StructuredCompletion(output=output, usage=self._usage_of(raw, latency_ms))
+        return StructuredCompletion(output=output, usage=usage_of(accumulator, raw, latency_ms))
 
-    def _usage_of(self, raw: Any, latency_ms: int) -> LLMUsage:
-        """Read the usage off the raw completion, and price it.
 
-        Known limit: when Instructor re-prompts on an invalid answer, the usage describes the
-        FINAL attempt, not the sum of them, so a heavily retried call under-reports.
-        """
-        # The answering model is what the Router resolved, not the logical name we asked for.
-        model = getattr(raw, "model", None) or LOGICAL_MODEL
-        usage = getattr(raw, "usage", None)
-        input_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
-        output_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+def _record_attempt(response: Any) -> None:
+    accumulator = current_usage.get()
+    if accumulator is not None:
+        accumulator.record(response)
 
-        return LLMUsage(
-            provider=provider_of(model),
-            model=model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            latency_ms=latency_ms,
-            estimated_cost_usd=estimate_cost(model, input_tokens, output_tokens),
-        )
+
+def usage_of(accumulator: UsageAccumulator, raw: Any, latency_ms: int) -> LLMUsage:
+    """Price a call by everything it spent, attempts included.
+
+    The accumulator is fed by the per-attempt hook. When no attempt was recorded (a client that
+    does not fire hooks), it falls back to the final completion, which is better than reporting
+    nothing at all.
+    """
+    if accumulator.attempts == 0:
+        accumulator.record(raw)
+
+    # The answering model is what the Router resolved, not the logical name we asked for.
+    model = accumulator.model or getattr(raw, "model", None) or LOGICAL_MODEL
+    input_tokens = accumulator.input_tokens
+    output_tokens = accumulator.output_tokens
+
+    return LLMUsage(
+        provider=provider_of(model),
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        latency_ms=latency_ms,
+        estimated_cost_usd=estimate_cost(model, input_tokens, output_tokens),
+        attempts=max(accumulator.attempts, 1),
+    )

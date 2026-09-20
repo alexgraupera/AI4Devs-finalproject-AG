@@ -199,11 +199,13 @@ Cada revisión deja un evento JSON (`structlog`), pensado para contarse y no sol
 ```json
 {"event": "listing_review.completed", "prompt_version": "v2", "provider": "anthropic",
  "model": "claude-haiku-4-5-20251001", "input_tokens": 2340, "output_tokens": 678,
- "latency_ms": 6308, "estimated_cost_usd": 0.00573, "is_rental_listing": true,
- "level": "info", "timestamp": "2026-09-20T07:59:40.699454Z"}
+ "latency_ms": 6308, "estimated_cost_usd": 0.00573, "attempts": 1,
+ "is_rental_listing": true, "level": "info", "timestamp": "2026-09-20T07:59:40.699454Z"}
 ```
 
-Con esos campos se responde a lo que importa cuando algo va mal: qué versión del prompt se usó, qué proveedor respondió (y por tanto si saltó el fallback), cuánto tardó y cuánto costó. El dashboard y las evals de #4 se construyen contando estos eventos, no leyéndolos.
+Con esos campos se responde a lo que importa cuando algo va mal: qué versión del prompt se usó, qué proveedor respondió (y por tanto si saltó el fallback), cuánto tardó y cuánto costó.
+
+El coste suma **todos los intentos**, no solo el último. Cuando el modelo devuelve algo que no encaja en el esquema, se le vuelve a pedir, y ese viaje también se paga: contar solo el intento final haría que un modelo que se equivoca a menudo pareciera más barato de lo que es. El campo `attempts` separa las dos causas de una subida de coste: más tokens o más reintentos. El dashboard y las evals de #4 se construyen contando estos eventos, no leyéndolos.
 
 Los guardrails registran también lo suyo: `guardrail.moderation_unavailable` cuando el clasificador falla y se sigue adelante, y `guardrail.dropped_finding` cuando se descarta una incidencia que citaba una norma fuera del checklist.
 

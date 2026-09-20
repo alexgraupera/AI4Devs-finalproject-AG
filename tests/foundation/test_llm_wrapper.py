@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -6,19 +7,35 @@ from litellm.exceptions import RateLimitError
 
 from app.domain.errors import LLMUnavailable, ReviewGenerationError
 from app.domain.schemas.listing_review import ListingReview, Verdict
-from app.foundation.llm.wrapper import FALLBACK_MODEL, LOGICAL_MODEL, LLMWrapper, build_router
+from app.foundation.llm.usage import UsageAccumulator, current_usage
+from app.foundation.llm.wrapper import (
+    FALLBACK_MODEL,
+    LOGICAL_MODEL,
+    LLMWrapper,
+    build_router,
+    usage_of,
+)
 
 
 class FakeCompletions:
-    """Stands in for Instructor's client: returns a canned answer, or raises."""
+    """Stands in for Instructor's client: returns a canned answer, or raises.
 
-    def __init__(self, raw: Any = None, error: Exception | None = None) -> None:
+    `attempts` are the responses the per-attempt hook would see, so a re-prompted call can be
+    reproduced without a network.
+    """
+
+    def __init__(self, raw: Any = None, error: Exception | None = None, attempts: list[Any] | None = None) -> None:
         self.raw = raw
         self.error = error
+        self.attempts = attempts or ([raw] if raw is not None else [])
         self.called_with: dict[str, Any] | None = None
 
     async def create_with_completion(self, **kwargs: Any) -> tuple[ListingReview, Any]:
         self.called_with = kwargs
+        accumulator = current_usage.get()
+        if accumulator is not None:
+            for attempt in self.attempts:
+                accumulator.record(attempt)
         if self.error is not None:
             raise self.error
         return ListingReview(findings=[], verdict=Verdict.APPROVE, summary="Todo correcto"), self.raw
@@ -120,3 +137,41 @@ async def test_looks_past_instructor_when_the_real_cause_is_the_provider() -> No
 
     with pytest.raises(LLMUnavailable):
         await complete(wrapper_with(FakeCompletions(error=error)))
+
+
+async def test_bills_every_attempt_of_a_re_prompted_call() -> None:
+    # The model answered twice: the first answer did not fit the schema, both were billed.
+    completions = FakeCompletions(
+        raw=RawCompletion("claude-haiku-4-5", 1_100, 200),
+        attempts=[
+            RawCompletion("claude-haiku-4-5", 1_000, 300),
+            RawCompletion("claude-haiku-4-5", 1_100, 200),
+        ],
+    )
+
+    usage = (await complete(wrapper_with(completions))).usage
+
+    assert usage.attempts == 2
+    assert usage.input_tokens == 2_100
+    assert usage.output_tokens == 500
+    # 2100 input at 1 USD/MTok + 500 output at 5 USD/MTok.
+    assert usage.estimated_cost_usd == Decimal("0.0046")
+
+
+async def test_reports_one_attempt_when_the_answer_fits_the_first_time() -> None:
+    completions = FakeCompletions(RawCompletion("claude-haiku-4-5", 1_000, 500))
+
+    assert (await complete(wrapper_with(completions))).usage.attempts == 1
+
+
+async def test_falls_back_to_the_final_completion_when_no_attempt_was_recorded() -> None:
+    raw = RawCompletion("claude-haiku-4-5", 1_000, 500)
+
+    usage = usage_of(UsageAccumulator(), raw, latency_ms=10)
+
+    assert usage.attempts == 1
+    assert usage.input_tokens == 1_000
+
+
+def test_isolates_the_accumulator_of_each_call() -> None:
+    assert current_usage.get() is None

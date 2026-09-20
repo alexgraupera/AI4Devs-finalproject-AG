@@ -20,7 +20,7 @@ Prices come from the providers' public pricing pages, with the date recorded nex
 
 **One structured event per review.** `listing_review.completed` carries prompt version, provider, model, tokens, latency, cost and whether the text was a listing at all. It is a JSON line, not a sentence, because the dashboard and the evals of #4 are built by counting these events, not by reading them.
 
-**A documented limit**: when Instructor re-prompts after an invalid answer, the usage describes the final attempt, not the sum of the attempts, so a heavily retried call under-reports its cost. Stated in the code where the number is produced.
+**A call is billed for every attempt it needed.** Instructor re-prompts when the answer does not fit the schema, and each of those round trips is charged. Reading the usage off the final completion, which is the obvious implementation, would hide exactly the cost that hurts: the worse the model behaves, the cheaper it would look. Instead, a per-attempt hook accumulates tokens for the call, and the number of attempts travels in the usage, so a rise in cost can be told apart from a rise in re-prompts. The accumulator lives in a `ContextVar`, so two reviews in flight do not add up together.
 
 ## Consequences
 
@@ -28,3 +28,4 @@ Prices come from the providers' public pricing pages, with the date recorded nex
 - Two providers mean two bills and two spend limits to keep an eye on.
 - The price table is maintenance: a model added in a later phase must be added here, or its calls report no cost.
 - Cost per review is now a number we can compare: 0.0057 USD on Haiku 4.5 and 0.0030 USD on GPT-5.4 mini for the same listing, which is the kind of evidence #4 needs to choose a model on quality rather than on impressions.
+- `attempts` turns a silent tax into a visible one: a prompt or schema change that doubles the re-prompts shows up as cost, and the evals can gate on it.

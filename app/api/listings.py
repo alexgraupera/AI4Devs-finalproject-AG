@@ -20,6 +20,7 @@ class UsageResponse(BaseModel):
     output_tokens: int
     latency_ms: int
     estimated_cost_usd: Decimal | None
+    attempts: int
 
 
 class ListingReviewResponse(BaseModel):

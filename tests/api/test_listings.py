@@ -99,6 +99,7 @@ def test_returns_the_structured_review(client: TestClient) -> None:
             "output_tokens": 500,
             "latency_ms": 1_234,
             "estimated_cost_usd": "0.0035",
+            "attempts": 1,
         },
     }
 

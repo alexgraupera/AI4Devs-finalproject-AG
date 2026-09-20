@@ -46,6 +46,7 @@ class ListingReviewService:
             output_tokens=usage.output_tokens,
             latency_ms=usage.latency_ms,
             estimated_cost_usd=float(usage.estimated_cost_usd) if usage.estimated_cost_usd is not None else None,
+            attempts=usage.attempts,
             is_rental_listing=completion.output.is_rental_listing,
         )
 
