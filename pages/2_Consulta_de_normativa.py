@@ -97,6 +97,24 @@ st.caption(
     "proceden. No es asesoramiento legal."
 )
 
+with st.expander("Qué normativa puedo consultar"):
+    st.markdown(
+        """
+        - **Ley 29/1994, de Arrendamientos Urbanos (LAU)**: fianza, duración, prórrogas,
+          actualización de la renta, gastos, incumplimientos.
+        - **Ley 12/2023, por el derecho a la vivienda**: información mínima al arrendatario,
+          zonas de mercado residencial tensionado.
+        - **Real Decreto 390/2021**: certificado y etiqueta de eficiencia energética.
+        - **Ley 18/2007, del derecho a la vivienda (Cataluña)**: oferta de alquiler, cédula de
+          habitabilidad, registro de fianzas.
+        - **Resoluciones de zonas tensionadas** publicadas en el BOE.
+
+        **Fuera de alcance**: fiscalidad del alquiler (IRPF), comunidades de propietarios,
+        procedimientos judiciales de desahucio, seguros y normativa autonómica distinta de la
+        catalana. Sobre eso el asistente dirá que no lo sabe, que es lo correcto.
+        """
+    )
+
 api_url = get_settings().api_url
 if not is_api_available(api_url):
     st.error("API no disponible")

@@ -300,6 +300,10 @@ POST /api/v1/regulations/ask
 
 Si una respuesta se queda sin ninguna cita válida, se convierte en un "no lo sé". Una respuesta que nadie puede comprobar vale menos que admitir que no se sabe, porque desde fuera no se distinguen.
 
+**La primera frase tiene que seguir siendo cierta al final.** El prompt `v2` prohíbe abrir con un veredicto que la respuesta vaya a desdecir después: probando a mano apareció un "No, el casero no puede pedir 3 meses de fianza" que terminaba en "el máximo total sería tres meses". Todo era verdad por separado, y quien leyera solo la primera frase se llevaba lo contrario de la conclusión.
+
+**Y el rechazo dice dónde está el borde**: nombra las cuatro normas indexadas y los temas que quedan fuera (fiscalidad, comunidades de propietarios, procedimientos judiciales), para que quien pregunte distinga "lo has preguntado mal" de "eso no lo leo".
+
 Medido de punta a punta contra el corpus y el modelo reales:
 
 | Pregunta | Resultado | Latencia | Coste |

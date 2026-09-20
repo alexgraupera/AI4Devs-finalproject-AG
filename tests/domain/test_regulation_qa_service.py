@@ -185,3 +185,40 @@ async def test_an_empty_question_is_rejected_before_anything_is_searched() -> No
 
     assert retriever.calls == []
     assert llm.calls == 0
+
+
+async def test_strips_the_fragment_numbers_the_model_copies_into_the_prose() -> None:
+    # The regression of #34: "[38]" in the answer means nothing to the person reading it.
+    llm = FakeLLM(a_candidate(answer="La fianza es de una mensualidad [36]. Y de dos en locales [36]."))
+
+    answered = await service(llm, FakeRetriever()).ask(A_QUESTION)
+
+    assert answered.answer.answer == "La fianza es de una mensualidad. Y de dos en locales."
+
+
+async def test_leaves_an_answer_without_markers_untouched() -> None:
+    clean = "Según el artículo 36 de la LAU, la fianza es de una mensualidad."
+    llm = FakeLLM(a_candidate(answer=clean))
+
+    answered = await service(llm, FakeRetriever()).ask(A_QUESTION)
+
+    assert answered.answer.answer == clean
+
+
+async def test_an_answer_that_is_only_a_marker_is_not_an_answer() -> None:
+    llm = FakeLLM(a_candidate(answer="[36]"))
+
+    answered = await service(llm, FakeRetriever()).ask(A_QUESTION)
+
+    assert not answered.answer.has_answer
+
+
+async def test_a_refusal_says_what_the_corpus_does_cover() -> None:
+    # A refusal that only says "not found" is a dead end: someone asking about rental income tax
+    # cannot tell whether they phrased it badly or asked outside the four indexed laws.
+    answered = await service(FakeLLM(a_candidate()), FakeRetriever(chunks=[])).ask(
+        RegulationQuestion(question="¿Debo declarar en la renta el alquiler?")
+    )
+
+    assert "Arrendamientos Urbanos" in answered.answer.answer
+    assert "fiscalidad" in answered.answer.answer
