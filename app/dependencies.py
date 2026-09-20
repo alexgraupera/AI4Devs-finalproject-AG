@@ -11,6 +11,7 @@ from app.domain.listing_review_service import ListingReviewService
 from app.foundation.guardrails.input import ModerationClient
 from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMModeration
 from app.foundation.llm.wrapper import LLMWrapper, build_router
+from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
 
 
 @lru_cache
@@ -34,5 +35,19 @@ def get_moderation_client() -> ModerationClient:
 
 
 @lru_cache
+def get_review_cache() -> ReviewStore:
+    settings = get_settings()
+    if not settings.redis_url:
+        return NullCache()
+    return ReviewCache.from_url(settings.redis_url, ttl_seconds=settings.cache_ttl_seconds)
+
+
+@lru_cache
 def get_listing_review_service() -> ListingReviewService:
-    return ListingReviewService(llm=get_llm_wrapper(), moderation=get_moderation_client())
+    settings = get_settings()
+    return ListingReviewService(
+        llm=get_llm_wrapper(),
+        moderation=get_moderation_client(),
+        cache=get_review_cache(),
+        model=settings.llm_model,
+    )

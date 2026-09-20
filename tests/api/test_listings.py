@@ -101,6 +101,7 @@ def test_returns_the_structured_review(client: TestClient) -> None:
             "estimated_cost_usd": "0.0035",
             "attempts": 1,
         },
+        "cached": False,
     }
 
 

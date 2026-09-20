@@ -28,6 +28,7 @@ class ListingReviewResponse(BaseModel):
     verdict: Verdict
     summary: str
     usage: UsageResponse
+    cached: bool
 
     @classmethod
     def of(cls, reviewed: ReviewedListing) -> "ListingReviewResponse":
@@ -36,6 +37,7 @@ class ListingReviewResponse(BaseModel):
             verdict=reviewed.review.verdict,
             summary=reviewed.review.summary,
             usage=UsageResponse(**vars(reviewed.usage)),
+            cached=reviewed.cached,
         )
 
 

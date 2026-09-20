@@ -86,3 +86,4 @@ class ReviewedListing:
 
     review: ListingReview
     usage: LLMUsage
+    cached: bool = False
