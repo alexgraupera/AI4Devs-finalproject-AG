@@ -89,6 +89,17 @@ make migrate   # aplica las migraciones (necesita DATABASE_URL)
 make verify    # lint, formato, tipos y tests
 ```
 
+**Inspeccionar el corpus normativo:**
+
+```bash
+make corpus-report   # descarga las seis fuentes del BOE, las valida e imprime el informe
+```
+
+No escribe nada: descarga, parsea y valida la normativa para comprobar que las fuentes siguen
+siendo lo que dice [`docs/data-sources/`](docs/data-sources/README.md) (artículos en vigor,
+tamaños, rechazos). Si el BOE cambia una norma o tumba un endpoint, este comando lo dice antes
+de que el fallo aparezca disfrazado de mala respuesta del asistente.
+
 La base de datos es **opcional** mientras trabajas en la revisión de anuncios: sin
 `DATABASE_URL` el servicio arranca igual y `/health` responde `"database": "disabled"`. Para
 usarla en local, levanta solo la base con `docker compose up -d db` y exporta:
@@ -130,6 +141,7 @@ DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental uv run pyt
 │   ├── foundation/           # Plomería sin opinión de arquitectura IA (llm, prompts, guardrails…)
 │   ├── domain/               # Contrato (schemas) y servicio conductor
 │   ├── generation/           # Arquitecturas de IA: cag/ (cachés), rag/, agentic/
+│   ├── ingestion/            # Descarga, parseo y validación del corpus del BOE
 │   └── api/                  # Routers finos (transporte)
 ├── streamlit_app.py          # Cliente Streamlit (solo habla con la API por HTTP)
 ├── migrations/               # Migraciones Alembic: el esquema del corpus, revisado como código

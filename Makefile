@@ -1,4 +1,4 @@
-.PHONY: install api ui up down migrate verify
+.PHONY: install api ui up down migrate corpus-report verify
 
 install:
 	uv sync
@@ -17,6 +17,9 @@ down:
 
 migrate:
 	uv run alembic upgrade head
+
+corpus-report:
+	uv run python -m app.ingestion.report
 
 verify:
 	uv run ruff check .

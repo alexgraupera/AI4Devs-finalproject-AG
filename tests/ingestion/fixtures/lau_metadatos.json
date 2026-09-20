@@ -1,0 +1,40 @@
+{
+    "status": {
+        "code": "200",
+        "text": "ok"
+    },
+    "data": [
+        {
+            "fecha_actualizacion": "20260430T073359Z",
+            "identificador": "BOE-A-1994-26003",
+            "ambito": {
+                "codigo": "1",
+                "texto": "Estatal"
+            },
+            "departamento": {
+                "codigo": "7723",
+                "texto": "Jefatura del Estado"
+            },
+            "rango": {
+                "codigo": "1300",
+                "texto": "Ley"
+            },
+            "fecha_disposicion": "19941124",
+            "numero_oficial": "29\/1994",
+            "titulo": "Ley 29\/1994, de 24 de noviembre, de Arrendamientos Urbanos.",
+            "diario": "Bolet\u00edn Oficial del Estado",
+            "fecha_publicacion": "19941125",
+            "diario_numero": "282",
+            "fecha_vigencia": "19950101",
+            "estatus_derogacion": "N",
+            "estatus_anulacion": "N",
+            "vigencia_agotada": "N",
+            "estado_consolidacion": {
+                "codigo": "3",
+                "texto": "Finalizado"
+            },
+            "url_eli": "https:\/\/www.boe.es\/eli\/es\/l\/1994\/11\/24\/29",
+            "url_html_consolidada": "https:\/\/www.boe.es\/buscar\/act.php?id=BOE-A-1994-26003"
+        }
+    ]
+}
