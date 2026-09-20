@@ -14,12 +14,19 @@ Official consolidated (in force) text of Spanish laws, from the BOE open data AP
 | `BOE-A-1994-26003` | Ley 29/1994 de Arrendamientos Urbanos (LAU) | Rental contracts: deposit, expenses, duration, rent updates | 2026-04-30 |
 | `BOE-A-2023-12203` | Ley 12/2023 por el derecho a la vivienda | Minimum information for tenants, stressed areas | 2026-08-03 |
 | `BOE-A-2021-9176` | Real Decreto 390/2021, energy performance certificate | Energy label in every listing | 2026-07-23 |
+| `BOE-A-2008-3657` | Ley 18/2007, del derecho a la vivienda (Cataluña) | Regional duties on a rental offer: art. 61 requires giving sufficient information on the essential conditions before taking any payment on account | 2026-07-13 |
+
+> Regional laws live in this same API (`ambito` is `Autonómico` instead of `Estatal`) and have
+> the same block structure, so **one parser serves both**. What changes is the jurisdiction the
+> chunks are tagged with, which is what lets a query be restricted to, or contrasted between,
+> state and regional rules.
 
 Articles checked during the validation (they support the listing checklist):
 
 | Article | Content | Block id |
 |---|---|---|
 | LAU art. 36 | Deposit of one monthly rent for housing | `a36` |
+| Ley 18/2007 art. 61 | Information required in a rental offer, before any payment on account | `a61` |
 | LAU art. 20.1 | Real estate management and contract formalisation costs are paid by the landlord | `a20` |
 | Ley 12/2023 art. 31 | Minimum information available to people interested in buying or renting | `a3-3` |
 | RD 390/2021 art. 15.2 | The energy label must be included in every offer and advertisement for sale or rent | `a1-7` |
@@ -153,16 +160,24 @@ Artículo 36. Fianza.
 
 ## Size and chunking
 
-| Law | Articles in force | Characters |
-|---|---|---|
-| LAU | 64 | 103,813 |
-| Ley 12/2023 | 56 | 105,288 |
-| RD 390/2021 | 44 | 105,401 |
+Measured with `make corpus-report` on 2026-09-20, over the articles **in force** (`precepto`
+blocks only):
 
-Counting every block (preamble and provisions included) the corpus is ~458k characters (~115k tokens).
+| Law | Articles in force | Characters | p50 | p95 | Longest |
+|---|---|---|---|---|---|
+| LAU | 64 | 103,813 | 821 | 3,996 | 14,939 (`dtsegunda`) |
+| Ley 12/2023 | 56 | 105,288 | 1,410 | 6,535 | 8,023 (`a3`) |
+| RD 390/2021 | 44 | 105,401 | 1,175 | 8,029 | 13,446 (`ai-6`) |
+| Ley 18/2007 (Cataluña) | 189 | 298,769 | 1,190 | 3,764 | 8,051 (`a3`) |
+
+With the stressed-areas resolutions the corpus is **364 items and ~617k characters** (roughly
+150k tokens). The Catalan law alone is about half of it.
 
 - Most articles are a few thousand characters: **one chunk per article** keeps citations exact.
-- Some blocks are much longer (up to ~60k characters, e.g. final provisions that amend other laws): split them by paragraph (`<p>`), keeping the article metadata in every chunk.
+- The ~60k-character blocks are **preambles**, not articles (LAU 21k, Ley 18/2007 39k), and the
+  parser leaves them out: they are legislative justification, not rules to cite. The longest
+  actual article is 15k characters (LAU `dtsegunda`, a transitional provision), and p95 sits
+  between 3.7k and 8k, so paragraph splitting affects a handful of blocks rather than many.
 - Keep as chunk metadata: `law_id`, law title, `block_id`, article title, `fecha_vigencia`, `id_norma` and the citation URL.
 
 ## Gotchas

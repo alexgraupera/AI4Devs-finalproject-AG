@@ -1,0 +1,40 @@
+{
+    "status": {
+        "code": "200",
+        "text": "ok"
+    },
+    "data": [
+        {
+            "fecha_actualizacion": "20260713T115710Z",
+            "identificador": "BOE-A-2008-3657",
+            "ambito": {
+                "codigo": "2",
+                "texto": "Auton\u00f3mico"
+            },
+            "departamento": {
+                "codigo": "8070",
+                "texto": "Comunidad Aut\u00f3noma de Catalu\u00f1a"
+            },
+            "rango": {
+                "codigo": "1300",
+                "texto": "Ley"
+            },
+            "fecha_disposicion": "20071228",
+            "numero_oficial": "18\/2007",
+            "titulo": "Ley 18\/2007, de 28 de diciembre, del derecho a la vivienda.",
+            "diario": "Bolet\u00edn Oficial del Estado",
+            "fecha_publicacion": "20080227",
+            "diario_numero": "50",
+            "fecha_vigencia": "20080409",
+            "estatus_derogacion": "N",
+            "estatus_anulacion": "N",
+            "vigencia_agotada": "N",
+            "estado_consolidacion": {
+                "codigo": "4",
+                "texto": "Desactualizado"
+            },
+            "url_eli": "https:\/\/www.boe.es\/eli\/es-ct\/l\/2007\/12\/28\/18",
+            "url_html_consolidada": "https:\/\/www.boe.es\/buscar\/act.php?id=BOE-A-2008-3657"
+        }
+    ]
+}

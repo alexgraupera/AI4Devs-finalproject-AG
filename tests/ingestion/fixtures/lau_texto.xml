@@ -1,0 +1,227 @@
+<?xml version='1.0' encoding='utf-8'?>
+<response>
+  <status>
+    <code>200</code>
+    <text>ok</text>
+  </status>
+  <data>
+    <texto>
+      <bloque id="ti" tipo="encabezado" titulo="TÍTULO I">
+        <version id_norma="BOE-A-1994-26003" fecha_publicacion="19941125" fecha_vigencia="19950101">
+          <p class="titulo_num">TÍTULO I</p>
+          <p class="titulo_tit">Ámbito de la ley</p>
+        </version>
+      </bloque>
+      <bloque id="a20" tipo="precepto" titulo="Artículo 20">
+        <version id_norma="BOE-A-1994-26003" fecha_publicacion="19941125" fecha_vigencia="19950101">
+          <p class="articulo">Artículo 20. Gastos generales y de servicios individuales.</p>
+          <p class="parrafo">1. Las partes podrán pactar que los gastos generales para el adecuado sostenimiento del inmueble, sus servicios, tributos, cargas y responsabilidades que no sean susceptibles de individualización y que correspondan a la vivienda arrendada o a sus accesorios, sean a cargo del arrendatario.</p>
+          <p class="parrafo">En edificios en régimen de propiedad horizontal tales gastos serán los que correspondan a la finca arrendada en función de su cuota de participación.</p>
+          <p class="parrafo">En edificios que no se encuentren en régimen de propiedad horizontal, tales gastos serán los que se hayan asignado a la finca arrendada en función de su superficie.</p>
+          <p class="parrafo">Para su validez, este pacto deberá constar por escrito y determinar el importe anual de dichos gastos a la fecha del contrato. El pacto que se refiera a tributos no afectará a la Administración.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de vigencia del contrato, la suma que el arrendatario haya de abonar por el concepto a que se refiere el apartado anterior, con excepción de los tributos, sólo podrá incrementarse anualmente, y nunca en un porcentaje superior al doble de aquél en que pueda incrementarse la renta conforme a lo dispuesto en el artículo 18.1.</p>
+          <p class="parrafo">3. Los gastos por servicios con que cuente la finca arrendada que se individualicen mediante aparatos contadores serán en todo caso de cuenta del arrendatario.</p>
+          <p class="parrafo">4. El pago de los gastos a que se refiere el presente artículo se acreditará en la forma prevista en el artículo 17.4.</p>
+        </version>
+        <version id_norma="BOE-A-2013-5941" fecha_publicacion="20130605" fecha_vigencia="20130606">
+          <p class="articulo">Artículo 20. Gastos generales y de servicios individuales.</p>
+          <p class="parrafo">1. Las partes podrán pactar que los gastos generales para el adecuado sostenimiento del inmueble, sus servicios, tributos, cargas y responsabilidades que no sean susceptibles de individualización y que correspondan a la vivienda arrendada o a sus accesorios, sean a cargo del arrendatario.</p>
+          <p class="parrafo">En edificios en régimen de propiedad horizontal tales gastos serán los que correspondan a la finca arrendada en función de su cuota de participación.</p>
+          <p class="parrafo">En edificios que no se encuentren en régimen de propiedad horizontal, tales gastos serán los que se hayan asignado a la finca arrendada en función de su superficie.</p>
+          <p class="parrafo">Para su validez, este pacto deberá constar por escrito y determinar el importe anual de dichos gastos a la fecha del contrato. El pacto que se refiera a tributos no afectará a la Administración.</p>
+          <p class="parrafo">2. Durante los tres primeros años de vigencia del contrato, la suma que el arrendatario haya de abonar por el concepto a que se refiere el apartado anterior, con excepción de los tributos, sólo podrá incrementarse, por acuerdo de las partes, anualmente, y nunca en un porcentaje superior al doble de aquel en que pueda incrementarse la renta conforme a lo dispuesto en el apartado 1 del artículo 18.</p>
+          <p class="parrafo">3. Los gastos por servicios con que cuente la finca arrendada que se individualicen mediante aparatos contadores serán en todo caso de cuenta del arrendatario.</p>
+          <p class="parrafo">4. El pago de los gastos a que se refiere el presente artículo se acreditará en la forma prevista en el artículo 17.4.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 1.14 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2018-17293" fecha_publicacion="20181218" fecha_vigencia="20181219">
+          <p class="articulo">Artículo 20. Gastos generales y de servicios individuales.</p>
+          <p class="parrafo">1. Las partes podrán pactar que los gastos generales para el adecuado sostenimiento del inmueble, sus servicios, tributos, cargas y responsabilidades que no sean susceptibles de individualización y que correspondan a la vivienda arrendada o a sus accesorios, sean a cargo del arrendatario.</p>
+          <p class="parrafo">En edificios en régimen de propiedad horizontal tales gastos serán los que correspondan a la finca arrendada en función de su cuota de participación.</p>
+          <p class="parrafo">En edificios que no se encuentren en régimen de propiedad horizontal, tales gastos serán los que se hayan asignado a la finca arrendada en función de su superficie.</p>
+          <p class="parrafo">Para su validez, este pacto deberá constar por escrito y determinar el importe anual de dichos gastos a la fecha del contrato. El pacto que se refiera a tributos no afectará a la Administración.</p>
+          <p class="parrafo">Los gastos de gestión inmobiliaria y de formalización del contrato serán a cargo del arrendador, cuando este sea persona jurídica, salvo en el caso de aquellos servicios que hayan sido contratados por iniciativa directa del arrendatario.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de vigencia del contrato, o durante los siete primeros años si el arrendador fuese persona jurídica, la suma que el arrendatario haya de abonar por el concepto a que se refiere el apartado anterior, con excepción de los tributos, sólo podrá incrementarse, por acuerdo de las partes, anualmente, y nunca en un porcentaje superior al doble de aquel en que pueda incrementarse la renta conforme a lo dispuesto en el apartado 1 del artículo 18.</p>
+          <p class="parrafo">3. Los gastos por servicios con que cuente la finca arrendada que se individualicen mediante aparatos contadores serán en todo caso de cuenta del arrendatario.</p>
+          <p class="parrafo">4. El pago de los gastos a que se refiere el presente artículo se acreditará en la forma prevista en el artículo 17.4.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifican los apartados 1 y 2 por el art. 1.8 y 9 del Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2018-17293#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 1.14 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2019-799" fecha_publicacion="20190124" fecha_vigencia="20190124">
+          <p class="articulo">Artículo 20. Gastos generales y de servicios individuales.</p>
+          <p class="parrafo">1. Las partes podrán pactar que los gastos generales para el adecuado sostenimiento del inmueble, sus servicios, tributos, cargas y responsabilidades que no sean susceptibles de individualización y que correspondan a la vivienda arrendada o a sus accesorios, sean a cargo del arrendatario.</p>
+          <p class="parrafo">En edificios en régimen de propiedad horizontal tales gastos serán los que correspondan a la finca arrendada en función de su cuota de participación.</p>
+          <p class="parrafo">En edificios que no se encuentren en régimen de propiedad horizontal, tales gastos serán los que se hayan asignado a la finca arrendada en función de su superficie.</p>
+          <p class="parrafo">Para su validez, este pacto deberá constar por escrito y determinar el importe anual de dichos gastos a la fecha del contrato. El pacto que se refiera a tributos no afectará a la Administración.</p>
+          <p class="parrafo">2. Durante los tres primeros años de vigencia del contrato, la suma que el arrendatario haya de abonar por el concepto a que se refiere el apartado anterior, con excepción de los tributos, sólo podrá incrementarse, por acuerdo de las partes, anualmente, y nunca en un porcentaje superior al doble de aquel en que pueda incrementarse la renta conforme a lo dispuesto en el apartado 1 del artículo 18.</p>
+          <p class="parrafo">3. Los gastos por servicios con que cuente la finca arrendada que se individualicen mediante aparatos contadores serán en todo caso de cuenta del arrendatario.</p>
+          <p class="parrafo">4. El pago de los gastos a que se refiere el presente artículo se acreditará en la forma prevista en el artículo 17.4.</p>
+          <blockquote>
+            <p class="nota_pie">Se deja sin efecto la modificación de los apartados 1 y 2 por Resolución de 22 de enero de 2019 que publica el Acuerdo del Congreso de los Diputados por el que se deroga el Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2019-799</a></p>
+            <p class="nota_pie">Se modifican los apartados 1 y 2 por el art. 1.8 y 9 del Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2018-17293#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 1.14 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2019-3108" fecha_publicacion="20190305" fecha_vigencia="20190306">
+          <p class="articulo">Artículo 20. Gastos generales y de servicios individuales.</p>
+          <p class="parrafo">1. Las partes podrán pactar que los gastos generales para el adecuado sostenimiento del inmueble, sus servicios, tributos, cargas y responsabilidades que no sean susceptibles de individualización y que correspondan a la vivienda arrendada o a sus accesorios, sean a cargo del arrendatario.</p>
+          <p class="parrafo">En edificios en régimen de propiedad horizontal tales gastos serán los que correspondan a la finca arrendada en función de su cuota de participación.</p>
+          <p class="parrafo">En edificios que no se encuentren en régimen de propiedad horizontal, tales gastos serán los que se hayan asignado a la finca arrendada en función de su superficie.</p>
+          <p class="parrafo">Para su validez, este pacto deberá constar por escrito y determinar el importe anual de dichos gastos a la fecha del contrato. El pacto que se refiera a tributos no afectará a la Administración.</p>
+          <p class="parrafo">Los gastos de gestión inmobiliaria y de formalización del contrato serán a cargo del arrendador, cuando este sea persona jurídica.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de vigencia del contrato, o durante los siete primeros años si el arrendador fuese persona jurídica, la suma que el arrendatario haya de abonar por el concepto a que se refiere el apartado anterior, con excepción de los tributos, sólo podrá incrementarse, por acuerdo de las partes, anualmente, y nunca en un porcentaje superior al doble de aquel en que pueda incrementarse la renta conforme a lo dispuesto en el apartado 1 del artículo 18.</p>
+          <p class="parrafo">3. Los gastos por servicios con que cuente la finca arrendada que se individualicen mediante aparatos contadores serán en todo caso de cuenta del arrendatario.</p>
+          <p class="parrafo">4. El pago de los gastos a que se refiere el presente artículo se acreditará en la forma prevista en el artículo 17.4.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifican los apartados 1 y 2 por el art. 1.11 y 12 del Real Decreto-ley 7/2019, de 1 de marzo. <a class="refPost">Ref. BOE-A-2019-3108#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se deja sin efecto la modificación de los apartados 1 y 2 por Resolución de 22 de enero de 2019 que publica el Acuerdo del Congreso de los Diputados por el que se deroga el Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2019-799</a></p>
+            <p class="nota_pie">Se modifican los apartados 1 y 2 por el art. 1.8 y 9 del Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2018-17293#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 1.14 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2023-12203" fecha_publicacion="20230525" fecha_vigencia="20230526">
+          <p class="articulo">Artículo 20. Gastos generales y de servicios individuales.</p>
+          <p class="parrafo">1. Las partes podrán pactar que los gastos generales para el adecuado sostenimiento del inmueble, sus servicios, tributos, cargas y responsabilidades que no sean susceptibles de individualización y que correspondan a la vivienda arrendada o a sus accesorios, sean a cargo del arrendatario.</p>
+          <p class="parrafo">En edificios en régimen de propiedad horizontal tales gastos serán los que correspondan a la finca arrendada en función de su cuota de participación.</p>
+          <p class="parrafo">En edificios que no se encuentren en régimen de propiedad horizontal, tales gastos serán los que se hayan asignado a la finca arrendada en función de su superficie.</p>
+          <p class="parrafo">Para su validez, este pacto deberá constar por escrito y determinar el importe anual de dichos gastos a la fecha del contrato. El pacto que se refiera a tributos no afectará a la Administración.</p>
+          <p class="parrafo">Los gastos de gestión inmobiliaria y los de formalización del contrato serán a cargo del arrendador.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de vigencia del contrato, o durante los siete primeros años si el arrendador fuese persona jurídica, la suma que el arrendatario haya de abonar por el concepto a que se refiere el apartado anterior, con excepción de los tributos, sólo podrá incrementarse, por acuerdo de las partes, anualmente, y nunca en un porcentaje superior al doble de aquel en que pueda incrementarse la renta conforme a lo dispuesto en el apartado 1 del artículo 18.</p>
+          <p class="parrafo">3. Los gastos por servicios con que cuente la finca arrendada que se individualicen mediante aparatos contadores serán en todo caso de cuenta del arrendatario.</p>
+          <p class="parrafo">4. El pago de los gastos a que se refiere el presente artículo se acreditará en la forma prevista en el artículo 17.4.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifica el apartado 1 por la disposición final 1.4 de la Ley 12/2023, de 24 de mayo. <a class="refPost">Ref. BOE-A-2023-12203#df</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 4 de la citada Ley.</p>
+            <p class="nota_pie">Se modifican los apartados 1 y 2 por el art. 1.11 y 12 del Real Decreto-ley 7/2019, de 1 de marzo. <a class="refPost">Ref. BOE-A-2019-3108#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se deja sin efecto la modificación de los apartados 1 y 2 por Resolución de 22 de enero de 2019 que publica el Acuerdo del Congreso de los Diputados por el que se deroga el Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2019-799</a></p>
+            <p class="nota_pie">Se modifican los apartados 1 y 2 por el art. 1.8 y 9 del Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2018-17293#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 1.14 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+          </blockquote>
+        </version>
+      </bloque>
+      <bloque id="a36" tipo="precepto" titulo="Artículo 36">
+        <version id_norma="BOE-A-1994-26003" fecha_publicacion="19941125" fecha_vigencia="19950101">
+          <p class="articulo">Artículo 36. Fianza.</p>
+          <p class="parrafo">1. A la celebración del contrato será obligatoria la exigencia y prestación de fianza en metálico en cantidad equivalente a una mensualidad de renta en el arrendamiento de viviendas y de dos en el arrendamiento para uso distinto del de vivienda.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de duración del contrato, la fianza no estará sujeta a actualización. Pero cada vez que el arrendamiento se prorrogue, el arrendador podrá exigir que la fianza sea incrementada, o el arrendatario que disminuya, hasta hacerse igual a una o dos mensualidades de la renta vigente, según proceda, al tiempo de la prórroga.</p>
+          <p class="parrafo">3. La actualización de la fianza durante el período de tiempo en que el plazo pactado para el arrendamiento exceda de cinco años, se regirá por lo estipulado al efecto por las partes. A falta de pacto específico, lo acordado sobre actualización de la renta se presumirá querido también para la actualización de la fianza.</p>
+          <p class="parrafo">4. El saldo de la fianza en metálico que deba ser restituido al arrendatario al final del arriendo, devengará el interés legal, transcurrido un mes desde la entrega de las llaves por el mismo sin que se hubiere hecho efectiva dicha restitución.</p>
+          <p class="parrafo">5. Las partes podrán pactar cualquier tipo de garantía del cumplimiento por el arrendatario de sus obligaciones arrendaticias adicional a la fianza en metálico.</p>
+        </version>
+        <version id_norma="BOE-A-1996-29117" fecha_publicacion="19961231" fecha_vigencia="19970101">
+          <p class="articulo">Artículo 36. Fianza.</p>
+          <p class="parrafo">1. A la celebración del contrato será obligatoria la exigencia y prestación de fianza en metálico en cantidad equivalente a una mensualidad de renta en el arrendamiento de viviendas y de dos en el arrendamiento para uso distinto del de vivienda.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de duración del contrato, la fianza no estará sujeta a actualización. Pero cada vez que el arrendamiento se prorrogue, el arrendador podrá exigir que la fianza sea incrementada, o el arrendatario que disminuya, hasta hacerse igual a una o dos mensualidades de la renta vigente, según proceda, al tiempo de la prórroga.</p>
+          <p class="parrafo">3. La actualización de la fianza durante el período de tiempo en que el plazo pactado para el arrendamiento exceda de cinco años, se regirá por lo estipulado al efecto por las partes. A falta de pacto específico, lo acordado sobre actualización de la renta se presumirá querido también para la actualización de la fianza.</p>
+          <p class="parrafo">4. El saldo de la fianza en metálico que deba ser restituido al arrendatario al final del arriendo, devengará el interés legal, transcurrido un mes desde la entrega de las llaves por el mismo sin que se hubiere hecho efectiva dicha restitución.</p>
+          <p class="parrafo">5. Las partes podrán pactar cualquier tipo de garantía del cumplimiento por el arrendatario de sus obligaciones arrendaticias adicional a la fianza en metálico.</p>
+          <p class="parrafo">6. Quedan exceptuadas de la obligación de prestar fianza las Administraciones Públicas, la Administración General del Estado, las Administraciones de las Comunidades Autónomas y las entidades que integran la Administración Local, así como los organismos autónomos, entidades de derecho público y demás entes públicos dependientes de ellas, cuando la renta haya de ser satisfecha con cargo a sus respectivos presupuestos.</p>
+          <blockquote>
+            <p class="nota_pie">Se añade el apartado 6 por el art. 145 de la Ley 13/1996, de 30 de diciembre. <a class="refPost">Ref. BOE-A-1996-29117</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2010-19703" fecha_publicacion="20101223" fecha_vigencia="20110101">
+          <p class="articulo">Artículo 36. Fianza.</p>
+          <p class="parrafo">1. A la celebración del contrato será obligatoria la exigencia y prestación de fianza en metálico en cantidad equivalente a una mensualidad de renta en el arrendamiento de viviendas y de dos en el arrendamiento para uso distinto del de vivienda.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de duración del contrato, la fianza no estará sujeta a actualización. Pero cada vez que el arrendamiento se prorrogue, el arrendador podrá exigir que la fianza sea incrementada, o el arrendatario que disminuya, hasta hacerse igual a una o dos mensualidades de la renta vigente, según proceda, al tiempo de la prórroga.</p>
+          <p class="parrafo">3. La actualización de la fianza durante el período de tiempo en que el plazo pactado para el arrendamiento exceda de cinco años, se regirá por lo estipulado al efecto por las partes. A falta de pacto específico, lo acordado sobre actualización de la renta se presumirá querido también para la actualización de la fianza.</p>
+          <p class="parrafo">4. El saldo de la fianza en metálico que deba ser restituido al arrendatario al final del arriendo, devengará el interés legal, transcurrido un mes desde la entrega de las llaves por el mismo sin que se hubiere hecho efectiva dicha restitución.</p>
+          <p class="parrafo">5. Las partes podrán pactar cualquier tipo de garantía del cumplimiento por el arrendatario de sus obligaciones arrendaticias adicional a la fianza en metálico.</p>
+          <p class="parrafo">6. Quedan exceptuadas de la obligación de prestar fianza la Administración General del Estado, las Administraciones de las Comunidades Autónomas y las entidades que integran la Administración Local, los organismos autónomos, las entidades públicas empresariales y demás entes públicos vinculados o dependientes de ellas, y las Mutuas de Accidentes de Trabajo y Enfermedades Profesionales de la Seguridad Social en su función pública de colaboración en la gestión de la Seguridad Social, así como sus Centros y Entidades Mancomunados, cuando la renta haya de ser satisfecha con cargo a sus respectivos presupuestos.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifica el apartado 6 por la disposición final.4 de la Ley 39/2010, de 22 de diciembre. <a class="refPost">Ref. BOE-A-2010-19703</a>.</p>
+            <p class="nota_pie">Se añade el apartado 6 por el art. 145 de la Ley 13/1996, de 30 de diciembre. <a class="refPost">Ref. BOE-A-1996-29117</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2013-5941" fecha_publicacion="20130605" fecha_vigencia="20130606">
+          <p class="articulo">Artículo 36. Fianza.</p>
+          <p class="parrafo">1. A la celebración del contrato será obligatoria la exigencia y prestación de fianza en metálico en cantidad equivalente a una mensualidad de renta en el arrendamiento de viviendas y de dos en el arrendamiento para uso distinto del de vivienda.</p>
+          <p class="parrafo">2. Durante los tres primeros años de duración del contrato, la fianza no estará sujeta a actualización. Pero cada vez que el arrendamiento se prorrogue, el arrendador podrá exigir que la fianza sea incrementada, o el arrendatario que disminuya, hasta hacerse igual a una o dos mensualidades de la renta vigente, según proceda, al tiempo de la prórroga.</p>
+          <p class="parrafo">3. La actualización de la fianza durante el período de tiempo en que el plazo pactado para el arrendamiento exceda de tres años, se regirá por lo estipulado al efecto por las partes. A falta de pacto específico, lo acordado sobre actualización de la renta se presumirá querido también para la actualización de la fianza.</p>
+          <p class="parrafo">4. El saldo de la fianza en metálico que deba ser restituido al arrendatario al final del arriendo, devengará el interés legal, transcurrido un mes desde la entrega de las llaves por el mismo sin que se hubiere hecho efectiva dicha restitución.</p>
+          <p class="parrafo">5. Las partes podrán pactar cualquier tipo de garantía del cumplimiento por el arrendatario de sus obligaciones arrendaticias adicional a la fianza en metálico.</p>
+          <p class="parrafo">6. Quedan exceptuadas de la obligación de prestar fianza la Administración General del Estado, las Administraciones de las Comunidades Autónomas y las entidades que integran la Administración Local, los organismos autónomos, las entidades públicas empresariales y demás entes públicos vinculados o dependientes de ellas, y las Mutuas de Accidentes de Trabajo y Enfermedades Profesionales de la Seguridad Social en su función pública de colaboración en la gestión de la Seguridad Social, así como sus Centros y Entidades Mancomunados, cuando la renta haya de ser satisfecha con cargo a sus respectivos presupuestos.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifican los apartados 2 y 3 por el art. 1.20 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+            <p class="nota_pie">Se modifica el apartado 6 por la disposición final.4 de la Ley 39/2010, de 22 de diciembre. <a class="refPost">Ref. BOE-A-2010-19703</a>.</p>
+            <p class="nota_pie">Se añade el apartado 6 por el art. 145 de la Ley 13/1996, de 30 de diciembre. <a class="refPost">Ref. BOE-A-1996-29117</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2018-17293" fecha_publicacion="20181218" fecha_vigencia="20181219">
+          <p class="articulo">Artículo 36. Fianza.</p>
+          <p class="parrafo">1. A la celebración del contrato será obligatoria la exigencia y prestación de fianza en metálico en cantidad equivalente a una mensualidad de renta en el arrendamiento de viviendas y de dos en el arrendamiento para uso distinto del de vivienda.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de duración del contrato, o durante los siete primeros años si el arrendador fuese persona jurídica, la fianza no estará sujeta a actualización. Pero cada vez que el arrendamiento se prorrogue, el arrendador podrá exigir que la fianza sea incrementada, o el arrendatario que disminuya, hasta hacerse igual a una o dos mensualidades de la renta vigente, según proceda, al tiempo de la prórroga.</p>
+          <p class="parrafo">3. La actualización de la fianza durante el período de tiempo en que el plazo pactado para el arrendamiento exceda de cinco años, o de siete años si el arrendador fuese persona jurídica, se regirá por lo estipulado al efecto por las partes. A falta de pacto específico, lo acordado sobre actualización de la renta se presumirá querido también para la actualización de la fianza.</p>
+          <p class="parrafo">4. El saldo de la fianza en metálico que deba ser restituido al arrendatario al final del arriendo, devengará el interés legal, transcurrido un mes desde la entrega de las llaves por el mismo sin que se hubiere hecho efectiva dicha restitución.</p>
+          <p class="parrafo">5. Las partes podrán pactar cualquier tipo de garantía del cumplimiento por el arrendatario de sus obligaciones arrendaticias adicional a la fianza en metálico.</p>
+          <p class="parrafo">En el caso del arrendamiento de vivienda, en contratos de hasta cinco años de duración, o de hasta siete años si el arrendador fuese persona jurídica, el valor de esta garantía adicional no podrá exceder de dos mensualidades de renta.</p>
+          <p class="parrafo">6. Quedan exceptuadas de la obligación de prestar fianza la Administración General del Estado, las Administraciones de las Comunidades Autónomas y las entidades que integran la Administración Local, los organismos autónomos, las entidades públicas empresariales y demás entes públicos vinculados o dependientes de ellas, y las Mutuas de Accidentes de Trabajo y Enfermedades Profesionales de la Seguridad Social en su función pública de colaboración en la gestión de la Seguridad Social, así como sus Centros y Entidades Mancomunados, cuando la renta haya de ser satisfecha con cargo a sus respectivos presupuestos.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifica por el art. 1.11 del Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2018-17293#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se modifican los apartados 2 y 3 por el art. 1.20 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+            <p class="nota_pie">Se modifica el apartado 6 por la disposición final.4 de la Ley 39/2010, de 22 de diciembre. <a class="refPost">Ref. BOE-A-2010-19703</a>.</p>
+            <p class="nota_pie">Se añade el apartado 6 por el art. 145 de la Ley 13/1996, de 30 de diciembre. <a class="refPost">Ref. BOE-A-1996-29117</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2019-799" fecha_publicacion="20190124" fecha_vigencia="20190124">
+          <p class="articulo">Artículo 36. Fianza.</p>
+          <p class="parrafo">1. A la celebración del contrato será obligatoria la exigencia y prestación de fianza en metálico en cantidad equivalente a una mensualidad de renta en el arrendamiento de viviendas y de dos en el arrendamiento para uso distinto del de vivienda.</p>
+          <p class="parrafo">2. Durante los tres primeros años de duración del contrato, la fianza no estará sujeta a actualización. Pero cada vez que el arrendamiento se prorrogue, el arrendador podrá exigir que la fianza sea incrementada, o el arrendatario que disminuya, hasta hacerse igual a una o dos mensualidades de la renta vigente, según proceda, al tiempo de la prórroga.</p>
+          <p class="parrafo">3. La actualización de la fianza durante el período de tiempo en que el plazo pactado para el arrendamiento exceda de tres años, se regirá por lo estipulado al efecto por las partes. A falta de pacto específico, lo acordado sobre actualización de la renta se presumirá querido también para la actualización de la fianza.</p>
+          <p class="parrafo">4. El saldo de la fianza en metálico que deba ser restituido al arrendatario al final del arriendo, devengará el interés legal, transcurrido un mes desde la entrega de las llaves por el mismo sin que se hubiere hecho efectiva dicha restitución.</p>
+          <p class="parrafo">5. Las partes podrán pactar cualquier tipo de garantía del cumplimiento por el arrendatario de sus obligaciones arrendaticias adicional a la fianza en metálico.</p>
+          <p class="parrafo">6. Quedan exceptuadas de la obligación de prestar fianza la Administración General del Estado, las Administraciones de las Comunidades Autónomas y las entidades que integran la Administración Local, los organismos autónomos, las entidades públicas empresariales y demás entes públicos vinculados o dependientes de ellas, y las Mutuas de Accidentes de Trabajo y Enfermedades Profesionales de la Seguridad Social en su función pública de colaboración en la gestión de la Seguridad Social, así como sus Centros y Entidades Mancomunados, cuando la renta haya de ser satisfecha con cargo a sus respectivos presupuestos.</p>
+          <blockquote>
+            <p class="nota_pie">Se deja sin efecto la modificación por Resolución de 22 de enero de 2019 que publica el Acuerdo del Congreso de los Diputados por el que se deroga el Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2019-799</a></p>
+            <p class="nota_pie">Se modifica por el art. 1.11 del Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2018-17293#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se modifican los apartados 2 y 3 por el art. 1.20 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+            <p class="nota_pie">Se modifica el apartado 6 por la disposición final.4 de la Ley 39/2010, de 22 de diciembre. <a class="refPost">Ref. BOE-A-2010-19703</a>.</p>
+            <p class="nota_pie">Se añade el apartado 6 por el art. 145 de la Ley 13/1996, de 30 de diciembre. <a class="refPost">Ref. BOE-A-1996-29117</a>.</p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2019-3108" fecha_publicacion="20190305" fecha_vigencia="20190306">
+          <p class="articulo">Artículo 36. Fianza.</p>
+          <p class="parrafo">1. A la celebración del contrato será obligatoria la exigencia y prestación de fianza en metálico en cantidad equivalente a una mensualidad de renta en el arrendamiento de viviendas y de dos en el arrendamiento para uso distinto del de vivienda.</p>
+          <p class="parrafo">2. Durante los cinco primeros años de duración del contrato, o durante los siete primeros años si el arrendador fuese persona jurídica, la fianza no estará sujeta a actualización. Pero cada vez que el arrendamiento se prorrogue, el arrendador podrá exigir que la fianza sea incrementada, o el arrendatario que disminuya, hasta hacerse igual a una o dos mensualidades de la renta vigente, según proceda, al tiempo de la prórroga.</p>
+          <p class="parrafo">3. La actualización de la fianza durante el período de tiempo en que el plazo pactado para el arrendamiento exceda de cinco años, o de siete años si el arrendador fuese persona jurídica, se regirá por lo estipulado al efecto por las partes. A falta de pacto específico, lo acordado sobre actualización de la renta se presumirá querido también para la actualización de la fianza.</p>
+          <p class="parrafo">4. El saldo de la fianza en metálico que deba ser restituido al arrendatario al final del arriendo, devengará el interés legal, transcurrido un mes desde la entrega de las llaves por el mismo sin que se hubiere hecho efectiva dicha restitución.</p>
+          <p class="parrafo">5. Las partes podrán pactar cualquier tipo de garantía del cumplimiento por el arrendatario de sus obligaciones arrendaticias adicional a la fianza en metálico.</p>
+          <p class="parrafo">En el caso del arrendamiento de vivienda, en contratos de hasta cinco años de duración, o de hasta siete años si el arrendador fuese persona jurídica, el valor de esta garantía adicional no podrá exceder de dos mensualidades de renta.</p>
+          <p class="parrafo">6. Quedan exceptuadas de la obligación de prestar fianza la Administración General del Estado, las Administraciones de las comunidades autónomas y las entidades que integran la Administración Local, los organismos autónomos, las entidades públicas empresariales y demás entes públicos vinculados o dependientes de ellas, y las Mutuas colaboradoras con la Seguridad Social en su función pública de colaboración en la gestión de la Seguridad Social, así como sus Centros Mancomunados, cuando la renta haya de ser satisfecha con cargo a sus respectivos presupuestos.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifica por el art. 1.14 del Real Decreto-ley 7/2019, de 1 de marzo. <a class="refPost">Ref. BOE-A-2019-3108#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se deja sin efecto la modificación por Resolución de 22 de enero de 2019 que publica el Acuerdo del Congreso de los Diputados por el que se deroga el Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2019-799</a></p>
+            <p class="nota_pie">Se modifica por el art. 1.11 del Real Decreto-ley 21/2018, de 14 de diciembre. <a class="refPost">Ref. BOE-A-2018-17293#ap</a></p>
+            <p class="nota_pie_2">Téngase en cuenta, para los contratos celebrados con anterioridad, lo dispuesto en la disposición transitoria 1 del citado Real Decreto-ley.</p>
+            <p class="nota_pie">Se modifican los apartados 2 y 3 por el art. 1.20 de la Ley 4/2013, de 4 de junio. <a class="refPost">Ref. BOE-A-2013-5941</a>.</p>
+            <p class="nota_pie">Se modifica el apartado 6 por la disposición final.4 de la Ley 39/2010, de 22 de diciembre. <a class="refPost">Ref. BOE-A-2010-19703</a>.</p>
+            <p class="nota_pie">Se añade el apartado 6 por el art. 145 de la Ley 13/1996, de 30 de diciembre. <a class="refPost">Ref. BOE-A-1996-29117</a>.</p>
+          </blockquote>
+        </version>
+      </bloque>
+      <bloque id="firma" tipo="firma">
+        <version id_norma="BOE-A-1994-26003" fecha_publicacion="19941125" fecha_vigencia="19950101">
+          <p class="parrafo_2">Por tanto,</p>
+          <p class="parrafo">Mando a todos los españoles, particulares y autoridades, que guarden y hagan guardar esta Ley.</p>
+          <p class="parrafo_2">Madrid, 24 de noviembre de 1994.</p>
+          <p class="firma_rey">JUAN CARLOS R.</p>
+          <p class="firma_ministro">El Presidente del Gobierno,</p>
+          <p class="firma_ministro">FELIPE GONZALEZ MARQUEZ</p>
+        </version>
+      </bloque>
+    </texto>
+  </data>
+</response>

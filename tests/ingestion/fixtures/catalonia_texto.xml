@@ -1,0 +1,172 @@
+<?xml version='1.0' encoding='utf-8'?>
+<response>
+  <status>
+    <code>200</code>
+    <text>ok</text>
+  </status>
+  <data>
+    <texto>
+      <bloque id="no" tipo="nota_inicial">
+        <version id_norma="BOE-A-2008-3657" fecha_publicacion="20080109" fecha_vigencia="20080409">
+          <p class="textoCompleto">Incluye la corrección de erratas publicada en DOGC núm. 5065, de 7 de febrero de 2008.</p>
+          <p> </p>
+        </version>
+      </bloque>
+      <bloque id="tpreliminar" tipo="encabezado" titulo="TÍTULO PRELIMINAR">
+        <version id_norma="BOE-A-2008-3657" fecha_publicacion="20080109" fecha_vigencia="20080409">
+          <p class="titulo_num">TÍTULO PRELIMINAR</p>
+          <p class="titulo_tit">Disposiciones generales</p>
+        </version>
+      </bloque>
+      <bloque id="a61" tipo="precepto" titulo="Artículo 61">
+        <version id_norma="BOE-A-2008-3657" fecha_publicacion="20080109" fecha_vigencia="20080409">
+          <p class="articulo">Artículo 61. Oferta para el arrendamiento.</p>
+          <p class="parrafo">1. En las ofertas de arrendamiento debe proporcionarse a los destinatarios una información suficiente sobre las condiciones esenciales de la vivienda, así como de las condiciones básicas del contrato. Dicha información debe entregarse antes de recibir cualquier cantidad a cuenta.</p>
+          <p class="parrafo">2. La información mínima de una oferta de arrendamiento debe contener los siguientes datos:</p>
+          <p class="parrafo_2">a) La descripción y condiciones físicas de la vivienda, con indicación de la superficie útil y de los servicios, instalaciones y suministros de la misma.</p>
+          <p class="parrafo">b) El precio total de la renta, con el desglose y detalle de los servicios accesorios y demás cantidades que sean asumidas por los arrendatarios, indicando la periodicidad de la liquidación.</p>
+          <p class="parrafo">c) El plazo del arrendamiento.</p>
+          <p class="parrafo">d) La forma de actualización del precio durante el plazo del arrendamiento.</p>
+          <p class="parrafo">e) La fianza y demás garantías que se exigen a los arrendatarios.</p>
+          <p class="parrafo_2">3. Se considera información válida y suficiente sobre las condiciones físicas de la vivienda la contenida en la cédula de habitabilidad o en la calificación definitiva, en el caso de viviendas de protección oficial.</p>
+        </version>
+        <version id_norma="BOE-A-2019-90350" fecha_publicacion="20190307" fecha_vigencia="20190308">
+          <p class="articulo">Artículo 61. Oferta para el arrendamiento.</p>
+          <p class="parrafo">1. En las ofertas de arrendamiento debe proporcionarse a los destinatarios una información suficiente sobre las condiciones esenciales de la vivienda, así como de las condiciones básicas del contrato. Dicha información debe entregarse antes de recibir cualquier cantidad a cuenta.</p>
+          <p class="parrafo">2. La información mínima de una oferta de arrendamiento debe contener los siguientes datos:</p>
+          <p class="parrafo_2">a) La descripción y condiciones físicas de la vivienda, con indicación de la superficie útil y de los servicios, instalaciones y suministros de la misma.</p>
+          <p class="parrafo">b) El precio total de la renta, con el desglose y detalle de los servicios accesorios y demás cantidades que sean asumidas por los arrendatarios, indicando la periodicidad de la liquidación.</p>
+          <p class="parrafo">c) El plazo del arrendamiento.</p>
+          <p class="parrafo">d) La forma de actualización del precio durante el plazo del arrendamiento.</p>
+          <p class="parrafo">e) La fianza y demás garantías que se exigen a los arrendatarios.</p>
+          <p class="parrafo">f) El índice de referencia de precios de alquiler de viviendas que corresponda.</p>
+          <p class="parrafo">g) Los datos previstos por la legislación civil.</p>
+          <p class="parrafo_2">3. Se considera información válida y suficiente sobre las condiciones físicas de la vivienda la contenida en la cédula de habitabilidad o en la calificación definitiva, en el caso de viviendas de protección oficial.</p>
+          <blockquote>
+            <p class="nota_pie">Se añaden las letras f) y g) al apartado 2 por el art. 4.1 del Decreto-ley 5/2019, de 5 de marzo. <a class="refPost">Ref. DOGC-f-2019-90350</a></p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2019-90471" fecha_publicacion="20190508" fecha_vigencia="20190418">
+          <p class="articulo">Artículo 61. Oferta para el arrendamiento.</p>
+          <p class="parrafo">1. En las ofertas de arrendamiento debe proporcionarse a los destinatarios una información suficiente sobre las condiciones esenciales de la vivienda, así como de las condiciones básicas del contrato. Dicha información debe entregarse antes de recibir cualquier cantidad a cuenta.</p>
+          <p class="parrafo">2. La información mínima de una oferta de arrendamiento debe contener los siguientes datos:</p>
+          <p class="parrafo_2">a) La descripción y condiciones físicas de la vivienda, con indicación de la superficie útil y de los servicios, instalaciones y suministros de la misma.</p>
+          <p class="parrafo">b) El precio total de la renta, con el desglose y detalle de los servicios accesorios y demás cantidades que sean asumidas por los arrendatarios, indicando la periodicidad de la liquidación.</p>
+          <p class="parrafo">c) El plazo del arrendamiento.</p>
+          <p class="parrafo">d) La forma de actualización del precio durante el plazo del arrendamiento.</p>
+          <p class="parrafo">e) La fianza y demás garantías que se exigen a los arrendatarios.</p>
+          <p class="parrafo_2">3. Se considera información válida y suficiente sobre las condiciones físicas de la vivienda la contenida en la cédula de habitabilidad o en la calificación definitiva, en el caso de viviendas de protección oficial.</p>
+          <blockquote>
+            <p class="nota_pie">Se deja sin efecto la adición de las letras f) y g) al apartado 2 por Acuerdo de 25 de abril de 2019. <a class="refPost">Ref. DOGC-f-2019-90471</a>, por el que se deroga el Decreto-ley 5/2019, de 5 de marzo.</p>
+            <p class="nota_pie">Se añaden las letras f) y g) al apartado 2 por el art. 4.1 del Decreto-ley 5/2019, de 5 de marzo. <a class="refPost">Ref. DOGC-f-2019-90350</a></p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2020-2509" fecha_publicacion="20191230" fecha_vigencia="20191231">
+          <p class="articulo">Artículo 61. Oferta para el arrendamiento.</p>
+          <p class="parrafo">1. En las ofertas de arrendamiento debe proporcionarse a los destinatarios una información suficiente sobre las condiciones esenciales de la vivienda, así como de las condiciones básicas del contrato. Dicha información debe entregarse antes de recibir cualquier cantidad a cuenta.</p>
+          <p class="parrafo">2. La información mínima de una oferta de arrendamiento debe contener los siguientes datos:</p>
+          <p class="parrafo_2">a) La descripción y condiciones físicas de la vivienda, con indicación de la superficie útil y de los servicios, instalaciones y suministros de la misma.</p>
+          <p class="parrafo">b) El precio total de la renta, con el desglose y detalle de los servicios accesorios y demás cantidades que sean asumidas por los arrendatarios, indicando la periodicidad de la liquidación.</p>
+          <p class="parrafo">c) El plazo del arrendamiento.</p>
+          <p class="parrafo">d) La forma de actualización del precio durante el plazo del arrendamiento.</p>
+          <p class="parrafo">e) La fianza y demás garantías que se exigen a los arrendatarios.</p>
+          <p class="parrafo">f) El índice de referencia de precios de alquiler de viviendas que corresponda, justificado mediante el documento acreditativo obtenido al efecto mediante el sistema de consulta pública del índice establecido por el Departamento competente en materia de vivienda.</p>
+          <p class="parrafo">g) Los datos previstos por la legislación civil.</p>
+          <p class="parrafo_2">3. Se considera información válida y suficiente sobre las condiciones físicas de la vivienda la contenida en la cédula de habitabilidad o en la calificación definitiva, en el caso de viviendas de protección oficial.</p>
+          <blockquote>
+            <p class="nota_pie">Se añaden las letras f) y g)al apartado 2 por el art. 8.2 del Decreto-ley 17/2019, de 23 de diciembre. <a class="refPost">Ref. BOE-A-2020-2509</a></p>
+            <p class="nota_pie">Se deja sin efecto la adición de las letras f) y g) al apartado 2 por Acuerdo de 25 de abril de 2019. <a class="refPost">Ref. DOGC-f-2019-90471</a>, por el que se deroga el Decreto-ley 5/2019, de 5 de marzo.</p>
+            <p class="nota_pie">Se añaden las letras f) y g) al apartado 2 por el art. 4.1 del Decreto-ley 5/2019, de 5 de marzo. <a class="refPost">Ref. DOGC-f-2019-90350</a></p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2024-12642" fpub="20240622" fecha_publicacion="20240425" fecha_vigencia="20240426">
+          <p class="articulo">Artículo 61. Oferta para el arrendamiento.</p>
+          <p class="parrafo">1. En las ofertas de arrendamiento debe proporcionarse a los destinatarios una información suficiente sobre las condiciones esenciales de la vivienda, así como de las condiciones básicas del contrato. Dicha información debe entregarse antes de recibir cualquier cantidad a cuenta.</p>
+          <p class="parrafo">2. La información mínima de una oferta de arrendamiento debe contener los siguientes datos:</p>
+          <p class="parrafo_2">a) La descripción y condiciones físicas de la vivienda, con indicación de la superficie útil y de los servicios, instalaciones y suministros de la misma.</p>
+          <p class="parrafo">b) El precio total de la renta, con el desglose y detalle de los servicios accesorios y demás cantidades que sean asumidas por los arrendatarios, indicando la periodicidad de la liquidación.</p>
+          <p class="parrafo">c) El plazo del arrendamiento.</p>
+          <p class="parrafo">d) La forma de actualización del precio durante el plazo del arrendamiento.</p>
+          <p class="parrafo">e) La fianza y demás garantías que se exigen a los arrendatarios.</p>
+          <p class="parrafo_2">f) El precio de alquiler que resulta de la aplicación del sistema de índices de precios de referencia que corresponda aplicar al régimen de contención de precios del alquiler, justificado mediante el documento acreditativo obtenido al efecto mediante el sistema de consulta pública establecido por la administración competente.</p>
+          <p class="parrafo">g) El precio de la última renta del contrato de arrendamiento que haya estado vigente en los últimos cinco años en la misma vivienda.</p>
+          <p class="parrafo">h) La condición de gran tenedor de la propiedad de la vivienda, siempre que la vivienda esté ubicada en una zona de mercado residencial tensado, dentro del período de vigencia de la declaración de dicha zona.</p>
+          <p class="parrafo">i) Los datos previstos por la legislación civil.</p>
+          <p class="parrafo_2">3. Se considera información válida y suficiente sobre las condiciones físicas de la vivienda la contenida en la cédula de habitabilidad o en la calificación definitiva, en el caso de viviendas de protección oficial.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 3 del Decreto-ley 6/2024, de 24 de abril. <a class="refPost">Ref. BOE-A-2024-12642</a></p>
+            <p class="nota_pie">Se añaden las letras f) y g)al apartado 2 por el art. 8.2 del Decreto-ley 17/2019, de 23 de diciembre. <a class="refPost">Ref. BOE-A-2020-2509</a></p>
+            <p class="nota_pie">Se deja sin efecto la adición de las letras f) y g) al apartado 2 por Acuerdo de 25 de abril de 2019. <a class="refPost">Ref. DOGC-f-2019-90471</a>, por el que se deroga el Decreto-ley 5/2019, de 5 de marzo.</p>
+            <p class="nota_pie">Se añaden las letras f) y g) al apartado 2 por el art. 4.1 del Decreto-ley 5/2019, de 5 de marzo. <a class="refPost">Ref. DOGC-f-2019-90350</a></p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2024-90105" fecha_publicacion="20240527" fecha_vigencia="20240527">
+          <p class="articulo">Artículo 61. Oferta para el arrendamiento.</p>
+          <p class="parrafo">1. En las ofertas de arrendamiento debe proporcionarse a los destinatarios una información suficiente sobre las condiciones esenciales de la vivienda, así como de las condiciones básicas del contrato. Dicha información debe entregarse antes de recibir cualquier cantidad a cuenta.</p>
+          <p class="parrafo">2. La información mínima de una oferta de arrendamiento debe contener los siguientes datos:</p>
+          <p class="parrafo_2">a) La descripción y condiciones físicas de la vivienda, con indicación de la superficie útil y de los servicios, instalaciones y suministros de la misma.</p>
+          <p class="parrafo">b) El precio total de la renta, con el desglose y detalle de los servicios accesorios y demás cantidades que sean asumidas por los arrendatarios, indicando la periodicidad de la liquidación.</p>
+          <p class="parrafo">c) El plazo del arrendamiento.</p>
+          <p class="parrafo">d) La forma de actualización del precio durante el plazo del arrendamiento.</p>
+          <p class="parrafo">e) La fianza y demás garantías que se exigen a los arrendatarios.</p>
+          <p class="parrafo">f) El índice de referencia de precios de alquiler de viviendas que corresponda, justificado mediante el documento acreditativo obtenido al efecto mediante el sistema de consulta pública del índice establecido por el Departamento competente en materia de vivienda.</p>
+          <p class="parrafo">g) Los datos previstos por la legislación civil.</p>
+          <p class="parrafo_2">3. Se considera información válida y suficiente sobre las condiciones físicas de la vivienda la contenida en la cédula de habitabilidad o en la calificación definitiva, en el caso de viviendas de protección oficial.</p>
+          <blockquote>
+            <p class="nota_pie">Se deja sin efecto la modificación del apartado 2, por la Resolución de 23 de mayo de 2024, que publica el Acuerdo de la Diputación Permanente de derogación del Decreto ley 6/2024, de 24 de abril. <a class="refPost">Ref. DOGC-f-2024-90105</a></p>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 3 del Decreto-ley 6/2024, de 24 de abril. <a class="refPost">Ref. BOE-A-2024-12642</a></p>
+            <p class="nota_pie">Se añaden las letras f) y g)al apartado 2 por el art. 8.2 del Decreto-ley 17/2019, de 23 de diciembre. <a class="refPost">Ref. BOE-A-2020-2509</a></p>
+            <p class="nota_pie">Se deja sin efecto la adición de las letras f) y g) al apartado 2 por Acuerdo de 25 de abril de 2019. <a class="refPost">Ref. DOGC-f-2019-90471</a>, por el que se deroga el Decreto-ley 5/2019, de 5 de marzo.</p>
+            <p class="nota_pie">Se añaden las letras f) y g) al apartado 2 por el art. 4.1 del Decreto-ley 5/2019, de 5 de marzo. <a class="refPost">Ref. DOGC-f-2019-90350</a></p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2025-5051" fpub="20250314" fecha_publicacion="20250129" fecha_vigencia="20250130">
+          <p class="articulo">Artículo 61. Oferta para el arrendamiento.</p>
+          <p class="parrafo">1. En las ofertas de arrendamiento debe proporcionarse a los destinatarios una información suficiente sobre las condiciones esenciales de la vivienda, así como de las condiciones básicas del contrato. Dicha información debe entregarse antes de recibir cualquier cantidad a cuenta.</p>
+          <p class="parrafo">2. La información mínima de una oferta de arrendamiento debe contener los siguientes datos:</p>
+          <p class="parrafo_2">a) La descripción y condiciones físicas de la vivienda, con indicación de la superficie útil y de los servicios, instalaciones y suministros de la misma.</p>
+          <p class="parrafo">b) El precio total de la renta, con el desglose y detalle de los servicios accesorios y demás cantidades que sean asumidas por los arrendatarios, indicando la periodicidad de la liquidación.</p>
+          <p class="parrafo">c) El plazo del arrendamiento.</p>
+          <p class="parrafo">d) La forma de actualización del precio durante el plazo del arrendamiento.</p>
+          <p class="parrafo">e) La fianza y demás garantías que se exigen a los arrendatarios.</p>
+          <p class="parrafo_2">f) El precio de la última renta del contrato de arrendamiento que haya sido vigente en los últimos cinco años en la misma vivienda o si procede, el precio de alquiler que resulta de aplicar el sistema de referencia de los precios del alquiler de viviendas, justificado mediante el documento acreditativo obtenido a este efecto mediante el sistema de consulta pública establecido por la administración competente.</p>
+          <p class="parrafo">g) La condición de gran tenedor de la propiedad de la vivienda, siempre que la vivienda esté ubicada en una zona de mercado residencial tensado, dentro del periodo de vigencia de la declaración de la zona mencionada.</p>
+          <p class="parrafo">h) Los datos previstos por la legislación civil.</p>
+          <p class="parrafo_2">3. Se considera información válida y suficiente sobre las condiciones físicas de la vivienda la contenida en la cédula de habitabilidad o en la calificación definitiva, en el caso de viviendas de protección oficial.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 3 del Decreto-ley 1/2025, de 28 de enero. <a class="refPost">Ref. BOE-A-2025-5051</a></p>
+            <p class="nota_pie">Se deja sin efecto la modificación del apartado 2, por la Resolución de 23 de mayo de 2024, que publica el Acuerdo de la Diputación Permanente de derogación del Decreto ley 6/2024, de 24 de abril. <a class="refPost">Ref. DOGC-f-2024-90105</a></p>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 3 del Decreto-ley 6/2024, de 24 de abril. <a class="refPost">Ref. BOE-A-2024-12642</a></p>
+            <p class="nota_pie">Se añaden las letras f) y g)al apartado 2 por el art. 8.2 del Decreto-ley 17/2019, de 23 de diciembre. <a class="refPost">Ref. BOE-A-2020-2509</a></p>
+            <p class="nota_pie">Se deja sin efecto la adición de las letras f) y g) al apartado 2 por Acuerdo de 25 de abril de 2019. <a class="refPost">Ref. DOGC-f-2019-90471</a>, por el que se deroga el Decreto-ley 5/2019, de 5 de marzo.</p>
+            <p class="nota_pie">Se añaden las letras f) y g) al apartado 2 por el art. 4.1 del Decreto-ley 5/2019, de 5 de marzo. <a class="refPost">Ref. DOGC-f-2019-90350</a></p>
+          </blockquote>
+        </version>
+        <version id_norma="BOE-A-2026-10430" fpub="20260514" fecha_publicacion="20260325" fecha_vigencia="20260326">
+          <p class="articulo">Artículo 61. Oferta para el arrendamiento.</p>
+          <p class="parrafo">1. En las ofertas de arrendamiento debe proporcionarse a los destinatarios una información suficiente sobre las condiciones esenciales de la vivienda, así como de las condiciones básicas del contrato. Dicha información debe entregarse antes de recibir cualquier cantidad a cuenta.</p>
+          <p class="parrafo">2. La información mínima de una oferta de arrendamiento debe contener los siguientes datos:</p>
+          <p class="parrafo_2">a) La descripción y condiciones físicas de la vivienda, con indicación de la superficie útil y de los servicios, instalaciones y suministros de la misma.</p>
+          <p class="parrafo">b) El precio total de la renta, con el desglose y detalle de los servicios accesorios y demás cantidades que sean asumidas por los arrendatarios, indicando la periodicidad de la liquidación.</p>
+          <p class="parrafo">c) El plazo del arrendamiento.</p>
+          <p class="parrafo">d) La forma de actualización del precio durante el plazo del arrendamiento.</p>
+          <p class="parrafo">e) La fianza y demás garantías que se exigen a los arrendatarios.</p>
+          <p class="parrafo_2">f) El precio de la última renta del contrato de arrendamiento que haya sido vigente en los últimos cinco años en la misma vivienda o, si procede, el precio máximo de alquiler que resulta de aplicar el sistema de referencia de los precios del alquiler de viviendas, justificado mediante el documento acreditativo obtenido a este efecto mediante el sistema de consulta pública establecido por la administración competente.</p>
+          <p class="parrafo">g) La condición de gran tenedor de la propiedad de la vivienda, siempre que la vivienda esté ubicada en una zona de mercado residencial tensado, dentro del periodo de vigencia de la declaración de la zona mencionada.</p>
+          <p class="parrafo">h) Los datos previstos por la legislación civil.</p>
+          <p class="parrafo">i) La referencia de la cédula de habitabilidad de la vivienda y del certificado de eficiencia energética.</p>
+          <p class="parrafo_2">3. Se considera información válida y suficiente sobre las condiciones físicas de la vivienda la contenida en la cédula de habitabilidad o en la calificación definitiva, en el caso de viviendas de protección oficial.</p>
+          <blockquote>
+            <p class="nota_pie">Se modifica la letra f) y se añade la i) al apartado 2 por el 10.5 y 6 del Decreto-ley 3/2026, de 24 de marzo. <a class="refPost">Ref. BOE-A-2026-10430</a></p>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 3 del Decreto-ley 1/2025, de 28 de enero. <a class="refPost">Ref. BOE-A-2025-5051</a></p>
+            <p class="nota_pie">Se deja sin efecto la modificación del apartado 2, por la Resolución de 23 de mayo de 2024, que publica el Acuerdo de la Diputación Permanente de derogación del Decreto ley 6/2024, de 24 de abril. <a class="refPost">Ref. DOGC-f-2024-90105</a></p>
+            <p class="nota_pie">Se modifica el apartado 2 por el art. 3 del Decreto-ley 6/2024, de 24 de abril. <a class="refPost">Ref. BOE-A-2024-12642</a></p>
+            <p class="nota_pie">Se añaden las letras f) y g)al apartado 2 por el art. 8.2 del Decreto-ley 17/2019, de 23 de diciembre. <a class="refPost">Ref. BOE-A-2020-2509</a></p>
+            <p class="nota_pie">Se deja sin efecto la adición de las letras f) y g) al apartado 2 por Acuerdo de 25 de abril de 2019. <a class="refPost">Ref. DOGC-f-2019-90471</a>, por el que se deroga el Decreto-ley 5/2019, de 5 de marzo.</p>
+            <p class="nota_pie">Se añaden las letras f) y g) al apartado 2 por el art. 4.1 del Decreto-ley 5/2019, de 5 de marzo. <a class="refPost">Ref. DOGC-f-2019-90350</a></p>
+          </blockquote>
+        </version>
+      </bloque>
+      </texto>
+  </data>
+</response>
