@@ -7,14 +7,18 @@ requires-python = ">=3.12"
 # Exact pins for the LLM toolchain: a compromised or breaking release of these
 # packages reaches production silently. Bump them deliberately, never by resolution.
 dependencies = [
+    "alembic>=1.20.0",
+    "asyncpg>=0.31.0",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
     "instructor==1.17.0",
     "jinja2==3.1.6",
     "litellm==1.102.0",
     "openai>=2.54.0",
+    "pgvector>=0.5.0",
     "pydantic-settings>=2.15.0",
     "redis>=8.1.0",
+    "sqlalchemy[asyncio]>=2.0",
     "streamlit>=1.64.0",
     "structlog>=26.1.0",
     "uvicorn[standard]>=0.53.0",

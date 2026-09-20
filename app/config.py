@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     redis_url: str = ""
     cache_ttl_seconds: int = 86_400
 
+    # Corpus store (PostgreSQL + pgvector). Empty disables it: the listing review does not
+    # need a database, so the service still runs without one and says so in /health.
+    database_url: str = ""
+
     # Only read to decide whether the moderation layer can run; the providers read their own keys.
     openai_api_key: str = ""
 
