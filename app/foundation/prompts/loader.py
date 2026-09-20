@@ -35,3 +35,10 @@ def render_listing_review_prompt(listing: Listing, version: str = "v1") -> tuple
     system = _env.get_template(f"listing_review/{version}/system.j2").render()
     user = _env.get_template(f"listing_review/{version}/user.j2").render(listing=listing)
     return system, user
+
+
+def render_regulations_qa_prompt(question: str, context: str, version: str = "v1") -> tuple[str, str]:
+    """Render the system and user prompts of the regulation Q&A use case."""
+    system = _env.get_template(f"regulations_qa/{version}/system.j2").render()
+    user = _env.get_template(f"regulations_qa/{version}/user.j2").render(question=question, context=context)
+    return system, user

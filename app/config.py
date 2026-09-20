@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     # between 0.598 and 0.782, out-of-domain between 0.148 and 0.403, so 0.5 sits in the middle
     # of the gap. Provisional until the benchmark of #24 measures it properly (ADR 0010).
     retrieval_min_score: float = 0.5
+    # Character budget for the retrieved articles handed to the model.
+    max_context_chars: int = 12_000
 
     # Only read to decide whether the moderation layer can run; the providers read their own keys.
     openai_api_key: str = ""

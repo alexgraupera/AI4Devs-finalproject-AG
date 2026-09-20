@@ -37,7 +37,8 @@ Answer without calling the model when an equivalent review already exists.
 | Top-k with a measured threshold and metadata filters (law, jurisdiction) | ✅ #22 |
 | Query reformulation | 🔜 #25 |
 | Hybrid search and reranking, each kept only if the measurement says it pays | 🔜 #25 |
-| Answers grounded in the retrieved context, with verifiable citations and hallucination checks | 🔜 #23, #26 |
+| Answers grounded in the retrieved context, with verifiable citations | ✅ #23 |
+| Hallucination checks over the generated answer | 🔜 #26 |
 | Corpus drift detection: a weekly check opens an issue when the BOE updates a source | ✅ #28 |
 | Retrieval endpoints secured with an API key and rate limited | 🔜 #26 |
 
