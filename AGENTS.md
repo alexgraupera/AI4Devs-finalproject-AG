@@ -13,11 +13,13 @@ The system follows the course architecture: CAG → RAG → agents → evals →
 ## Stack
 
 - Python 3.12+ managed with `uv`.
+- The architecture mirrors the course reference project (`ai-engineering/ai-service`): same layering, same tooling. Our own work (the rental domain, the public data sources, the evals) goes on top of that base.
 - FastAPI + Uvicorn (AI service), Pydantic (contracts and LLM output validation).
 - Streamlit (UI).
 - PostgreSQL + pgvector (vector store).
 - Docker Compose for the local environment.
-- LLM providers: Anthropic and OpenAI, behind a provider abstraction. Cheap models by default (cost matters: API credits only).
+- LLM access through a wrapper built with LiteLLM (`Router` with primary + fallback) and Instructor (validated structured output with re-prompting), as the course does. Anthropic primary, OpenAI fallback, switchable by configuration. Cheap models by default (cost matters: API credits only). `litellm` is pinned to an exact version.
+- Versioned Jinja2 prompts, structured logging with `structlog`, and an own model price table (looked up by longest matching prefix, so dated model snapshots are priced instead of silently costing zero).
 
 ## Commands
 
@@ -28,7 +30,13 @@ The system follows the course architecture: CAG → RAG → agents → evals →
 
 ## Project structure
 
-- `src/rental_assistant/`: application package, organised by module (`api/`, `ui/`, `config.py`; `listing_review/`, `llm/` and `prompts/` are added by the next phases).
+- `app/`: application package, layered as in the course reference project. Each layer may only import from the layers above it:
+  - `main.py`, `config.py`, `dependencies.py`: composition root, above the layers.
+  - `foundation/`: plumbing with no AI-architecture opinion (`llm/`, `prompts/`, `guardrails/`, `observability/`, `persistence/`).
+  - `domain/`: the contract (`schemas/`) and the conductor service that composes the pipeline.
+  - `generation/`: the AI architectures (`cag/` caches, `rag/` retrieval, `agentic/` agents). They never import each other: they compose only through the conductor.
+  - `api/`: thin routers (transport), no business logic.
+- `streamlit_app.py`: Streamlit client; it only talks to the API over HTTP.
 - `tests/`: tests mirroring the package structure.
 - `docs/decisions/`: architecture decision records.
 - `docs/data-sources/`: data source guides and runnable examples.

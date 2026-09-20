@@ -1,7 +1,7 @@
 import httpx
 import streamlit as st
 
-from rental_assistant.config import get_settings
+from app.config import get_settings
 
 
 def is_api_available(api_url: str) -> bool:

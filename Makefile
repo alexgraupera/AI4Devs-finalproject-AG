@@ -4,10 +4,10 @@ install:
 	uv sync
 
 api:
-	uv run uvicorn rental_assistant.api.app:app --reload --port 8000
+	uv run uvicorn app.main:app --reload --port 8000
 
 ui:
-	uv run streamlit run src/rental_assistant/ui/app.py --server.port 8501
+	uv run streamlit run streamlit_app.py --server.port 8501
 
 up:
 	docker compose up --build

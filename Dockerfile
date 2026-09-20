@@ -8,10 +8,11 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project
 
 COPY README.md ./
-COPY src ./src
+COPY app ./app
+COPY streamlit_app.py ./
 RUN uv sync --locked
 
 ENV PATH="/app/.venv/bin:$PATH"
 
 # One image for both services: docker-compose.yml sets the command of each one.
-CMD ["uvicorn", "rental_assistant.api.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

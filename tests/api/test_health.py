@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from rental_assistant.api.app import create_app
+from app.main import create_app
 
 
 def test_returns_ok_status() -> None:

@@ -102,10 +102,14 @@ make verify    # lint, formato, tipos y tests
 
 ```
 .
-├── src/rental_assistant/     # Paquete de la aplicación, organizado por módulos
-│   ├── api/                  # Servicio FastAPI (endpoints HTTP)
-│   ├── ui/                   # Interfaz Streamlit
-│   └── config.py             # Configuración a partir de variables de entorno
+├── app/                      # Paquete de la aplicación, en capas
+│   ├── main.py               # Factoría FastAPI (raíz de composición)
+│   ├── config.py             # Configuración a partir de variables de entorno
+│   ├── foundation/           # Plomería sin opinión de arquitectura IA (llm, prompts, guardrails…)
+│   ├── domain/               # Contrato (schemas) y servicio conductor
+│   ├── generation/           # Arquitecturas de IA: cag/ (cachés), rag/, agentic/
+│   └── api/                  # Routers finos (transporte)
+├── streamlit_app.py          # Cliente Streamlit (solo habla con la API por HTTP)
 ├── tests/                    # Tests, con la misma estructura que el paquete
 ├── docs/
 │   ├── data-sources/         # Guías y ejemplos ejecutables de las fuentes de datos públicas
@@ -116,7 +120,9 @@ make verify    # lint, formato, tipos y tests
 └── .github/workflows/ci.yml  # CI: make verify en cada pull request
 ```
 
-La aplicación separa la interfaz (Streamlit) del servicio de IA (FastAPI): la interfaz solo consume la API por HTTP, de modo que la lógica de IA se puede probar, desplegar y reutilizar de forma independiente. Dentro del paquete, cada módulo agrupa una responsabilidad; las siguientes fases añaden `listing_review/` (dominio y caso de uso), `llm/` (abstracción del proveedor) y `prompts/` (prompts versionados). Decisión detallada en [ADR 0001](docs/decisions/0001-stack-and-project-structure.md).
+La aplicación separa la interfaz (Streamlit) del servicio de IA (FastAPI): la interfaz solo consume la API por HTTP, de modo que la lógica de IA se puede probar, desplegar y reutilizar de forma independiente.
+
+El paquete `app/` sigue el mismo patrón de capas que el proyecto de referencia del máster: `foundation/` (plomería: LLM, prompts, guardrails, observabilidad), `domain/` (el contrato y el servicio conductor), `generation/` (las arquitecturas de IA: CAG, RAG y agentes) y `api/` (transporte). La regla clave es que las arquitecturas de `generation/` no se conocen entre sí: **solo componen a través del conductor**, lo que evita que el proyecto degenere en carpetas acopladas. Decisión detallada en [ADR 0001](docs/decisions/0001-stack-and-project-structure.md).
 
 ### **2.4. Infraestructura y despliegue**
 
