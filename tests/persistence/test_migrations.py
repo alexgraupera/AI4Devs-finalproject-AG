@@ -1,10 +1,11 @@
-"""The only test in the suite that needs a real database.
+"""Migrations, tested by running them up and down against a real PostgreSQL.
 
-It is skipped unless `DATABASE_URL` is exported (`.env` is deliberately not enough: the default
-suite stays hermetic and CI needs no services). Run it against a throwaway database, because it
-drops the corpus tables on the way down:
+Skipped unless `DATABASE_URL` is exported (`.env` is deliberately not enough: the default suite
+stays hermetic and CI needs no services).
 
-    DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental uv run pytest tests/persistence
+These tests run against **their own database**, created on the fly next to the one configured:
+`downgrade base` drops the corpus tables, which would otherwise destroy the corpus a developer
+had just ingested. A test suite that eats your data is a test suite people stop running.
 """
 
 import asyncio
@@ -14,7 +15,8 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import inspect, text
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.foundation.persistence.database import create_engine
 
@@ -22,10 +24,32 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL is not exported: no database to migrate")
 
+MIGRATIONS_DATABASE = f"{make_url(DATABASE_URL).database}_migrations" if DATABASE_URL else ""
+MIGRATIONS_URL = (
+    make_url(DATABASE_URL).set(database=MIGRATIONS_DATABASE).render_as_string(hide_password=False)
+    if DATABASE_URL
+    else ""
+)
+
+
+@pytest.fixture(scope="session", autouse=True)
+async def migrations_database() -> None:
+    """Create the throwaway database once, if it is not there yet."""
+    admin = create_async_engine(make_url(DATABASE_URL).set(database="postgres"), isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as connection:
+            exists = await connection.scalar(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": MIGRATIONS_DATABASE}
+            )
+            if not exists:
+                await connection.execute(text(f'CREATE DATABASE "{MIGRATIONS_DATABASE}"'))
+    finally:
+        await admin.dispose()
+
 
 def alembic_config() -> Config:
     config = Config("alembic.ini")
-    config.set_main_option("sqlalchemy.url", DATABASE_URL)
+    config.set_main_option("sqlalchemy.url", MIGRATIONS_URL)
     return config
 
 
@@ -43,7 +67,7 @@ async def table_names(engine: AsyncEngine) -> list[str]:
 
 @pytest.fixture
 async def engine() -> AsyncEngine:
-    return create_engine(DATABASE_URL)
+    return create_engine(MIGRATIONS_URL)
 
 
 async def test_migrations_create_the_corpus_schema_and_undo_it(engine: AsyncEngine) -> None:

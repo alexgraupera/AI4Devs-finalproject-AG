@@ -15,12 +15,11 @@ feeds the corpus instead of a deterministic "is this address in a stressed area"
 
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 import httpx
 
+from app.ingestion.http import borrowed_or_own
 from app.ingestion.normalize import normalize
 
 API = "https://www.boe.es/diario_boe/xml.php"
@@ -67,16 +66,7 @@ def parse_declarations(xml: bytes, source_id: str) -> list[StressedAreaDeclarati
 async def fetch_declarations(
     source_id: str, *, client: httpx.AsyncClient | None = None
 ) -> list[StressedAreaDeclaration]:
-    async with _client(client) as http:
+    async with borrowed_or_own(client) as http:
         response = await http.get(API, params={"id": source_id}, timeout=TIMEOUT_SECONDS)
     response.raise_for_status()
     return parse_declarations(response.content, source_id)
-
-
-@asynccontextmanager
-async def _client(client: httpx.AsyncClient | None) -> AsyncIterator[httpx.AsyncClient]:
-    if client is not None:
-        yield client
-        return
-    async with httpx.AsyncClient() as owned:
-        yield owned

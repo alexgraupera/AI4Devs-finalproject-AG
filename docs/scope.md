@@ -14,30 +14,31 @@ Answer without calling the model when an equivalent review already exists.
 
 | Capability | Status |
 |---|---|
-| Exact-match cache (SHA-256 over the full prompts and generation parameters, with TTL) | 🔜 #12 |
+| Exact-match cache (SHA-256 over the full prompts and generation parameters, with TTL) | ✅ #12 |
 | Semantic cache over the review embeddings, with a justified similarity threshold | 🔜 #14 |
 
 ### Generation and quality
 
 | Capability | Status |
 |---|---|
-| Versioned Jinja2 prompts, so prompt iteration is visible in the Git history | 🔜 #8 |
-| Structured output validated against the domain schema, with re-prompting on invalid output | 🔜 #8 |
-| Input guardrails: size limits, moderation, prompt-injection and PII heuristics | 🔜 #9 |
-| Output guardrails: scope filter and a deterministic check that routes implausible reviews to human review | 🔜 #9, #5 |
-| Provider fallback (Anthropic primary, OpenAI secondary), cost per call and structured logging | 🔜 #10 |
+| Versioned Jinja2 prompts, so prompt iteration is visible in the Git history | ✅ #8 |
+| Structured output validated against the domain schema, with re-prompting on invalid output | ✅ #8 |
+| Input guardrails: size limits, moderation, prompt-injection and PII heuristics | ✅ #9 |
+| Output guardrails: scope filter and a deterministic check that routes implausible reviews to human review | ✅ #9, 🔜 #5 |
+| Provider fallback (Anthropic primary, OpenAI secondary), cost per call and structured logging | ✅ #10 |
 
 ### RAG — retrieval over the regulations
 
 | Capability | Status |
 |---|---|
-| Ingestion of the BOE corpus: download, parse, normalise and validate, idempotently | 🔜 #2 |
-| Chunking by article, compared against a fixed-size baseline | 🔜 #2 |
-| Embeddings in PostgreSQL + pgvector, schema and indexes in migrations, with model and corpus version stored per chunk | 🔜 #2 |
-| Query reformulation, top-k with threshold and metadata filters | 🔜 #2 |
-| Hybrid search and reranking, each kept only if the measurement says it pays | 🔜 #2 |
-| Answers grounded in the retrieved context, with verifiable citations and hallucination checks | 🔜 #2 |
-| Retrieval endpoints secured with an API key and rate limited | 🔜 #2 |
+| Ingestion of the BOE corpus: download, parse, normalise and validate, idempotently | ✅ #21, #28 |
+| Chunking by article, compared against a fixed-size baseline | ✅ #28 |
+| Embeddings in PostgreSQL + pgvector, schema and indexes in migrations, with model and corpus version stored per chunk | ✅ #20 (schema), 🔜 #22 (vectors) |
+| Query reformulation, top-k with threshold and metadata filters | 🔜 #22, #25 |
+| Hybrid search and reranking, each kept only if the measurement says it pays | 🔜 #25 |
+| Answers grounded in the retrieved context, with verifiable citations and hallucination checks | 🔜 #23, #26 |
+| Corpus drift detection: a weekly check opens an issue when the BOE updates a source | ✅ #28 |
+| Retrieval endpoints secured with an API key and rate limited | 🔜 #26 |
 
 ### Agents
 
@@ -86,7 +87,7 @@ Each of these is listed in the README as a next step, with the condition that wo
 | Branch `finalproject-AG` and tag `v1.0-final-AG` | This repository | 🔜 #5 |
 | `README.md` with domain, architecture, components, setup and limitations | [`README.md`](../README.md) | 🔜 updated by every phase |
 | AI service in FastAPI | `app/` | ✅ #7 |
-| RAG pipeline over real data | `app/generation/rag/` | 🔜 #2 |
+| RAG pipeline over real data | `app/ingestion/`, `app/generation/rag/` | 🔜 #2 (corpus ingested) |
 | Agent layer with function calling and orchestration | `app/generation/agentic/`, `app/domain/graph/` | 🔜 #3 |
 | Documented evals: metrics, test set and at least one regression case | `evals/` | 🔜 #4 |
 | Deployment: public URL or a 2-3 min video | `docs/deployment.md` | 🔜 #5 |
@@ -97,6 +98,7 @@ Each of these is listed in the README as a next step, with the condition that wo
 ## Layering rules
 
 - Each layer imports only from the layers above it: `config` → `foundation` → `domain/schemas` → `generation` → conductor → `api`.
+- `ingestion/` is offline: it builds the corpus the retrieval reads, imports only `config` and `foundation/`, and nothing in the request path imports it. It runs as a command, never inside a request.
 - The `generation` siblings (`cag`, `rag`, `agentic`) never import each other: they compose only inside the conductor in `app/domain/`.
 - `api/` is transport only: no business logic, just error mapping.
 - `dependencies.py` is the composition root and may import anything; nothing else may import it except routers and tests.

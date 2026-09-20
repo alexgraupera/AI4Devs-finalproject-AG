@@ -13,13 +13,12 @@ and each one exists because the API bites otherwise:
 """
 
 import xml.etree.ElementTree as ET
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date
 
 import httpx
 
+from app.ingestion.http import borrowed_or_own
 from app.ingestion.normalize import normalize
 
 API = "https://www.boe.es/datosabiertos/api/legislacion-consolidada/id/{source_id}"
@@ -112,7 +111,7 @@ def parse_articles(xml: bytes, source_id: str, today: str | None = None) -> list
 
 
 async def fetch_metadata(source_id: str, *, client: httpx.AsyncClient | None = None) -> LawMetadata:
-    async with _client(client) as http:
+    async with borrowed_or_own(client) as http:
         response = await http.get(
             f"{API.format(source_id=source_id)}/metadatos",
             headers={"Accept": "application/json"},
@@ -125,7 +124,7 @@ async def fetch_metadata(source_id: str, *, client: httpx.AsyncClient | None = N
 async def fetch_articles(
     source_id: str, *, client: httpx.AsyncClient | None = None, today: str | None = None
 ) -> list[ParsedArticle]:
-    async with _client(client) as http:
+    async with borrowed_or_own(client) as http:
         response = await http.get(
             f"{API.format(source_id=source_id)}/texto",
             # Not a preference: the text endpoints answer 400 to anything else.
@@ -134,17 +133,3 @@ async def fetch_articles(
         )
     response.raise_for_status()
     return parse_articles(response.content, source_id, today)
-
-
-@asynccontextmanager
-async def _client(client: httpx.AsyncClient | None) -> AsyncIterator[httpx.AsyncClient]:
-    """A caller ingesting six sources passes one client; a caller asking for one gets its own.
-
-    Only the client we created is closed here: closing a borrowed one would break the caller's
-    next request.
-    """
-    if client is not None:
-        yield client
-        return
-    async with httpx.AsyncClient() as owned:
-        yield owned

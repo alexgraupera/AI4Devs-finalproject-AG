@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # need a database, so the service still runs without one and says so in /health.
     database_url: str = ""
 
+    # Stored with every chunk, so a reindex can tell which build of the corpus it came from.
+    corpus_version: str = "1"
+    # Articles longer than this are split by paragraph. Measured, not guessed: see ADR 0009.
+    chunk_max_chars: int = 6_000
+
     # Only read to decide whether the moderation layer can run; the providers read their own keys.
     openai_api_key: str = ""
 
