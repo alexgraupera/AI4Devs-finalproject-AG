@@ -142,3 +142,71 @@ async def test_returns_an_untouched_review_when_everything_is_in_order() -> None
     service = ListingReviewService(llm=FakeLLM(a_candidate()))
 
     assert isinstance((await service.review(A_LISTING)).review, ListingReview)
+
+
+class FakeCache:
+    """A cache that remembers what it was told, and says what it was asked."""
+
+    def __init__(self, stored: ListingReview | None = None) -> None:
+        self.stored = stored
+        self.saved: dict[str, ListingReview] = {}
+        self.keys_asked: list[str] = []
+
+    async def get(self, key: str) -> ListingReview | None:
+        self.keys_asked.append(key)
+        return self.stored
+
+    async def set(self, key: str, review: ListingReview) -> None:
+        self.saved[key] = review
+
+
+async def test_does_not_call_the_llm_on_a_cache_hit() -> None:
+    llm = FakeLLM(a_candidate())
+    cached_review = a_candidate().to_review()
+    service = ListingReviewService(llm=llm, cache=FakeCache(stored=cached_review))
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.cached is True
+    assert reviewed.review == cached_review
+    assert llm.system is None
+
+
+async def test_a_cache_hit_reports_no_tokens_and_no_cost() -> None:
+    service = ListingReviewService(llm=FakeLLM(a_candidate()), cache=FakeCache(stored=a_candidate().to_review()))
+
+    usage = (await service.review(A_LISTING)).usage
+
+    assert usage.provider == "cache"
+    assert (usage.input_tokens, usage.output_tokens, usage.attempts) == (0, 0, 0)
+    assert usage.estimated_cost_usd == Decimal(0)
+
+
+async def test_stores_the_review_on_a_cache_miss() -> None:
+    cache = FakeCache()
+    service = ListingReviewService(llm=FakeLLM(a_candidate()), cache=cache)
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.cached is False
+    assert list(cache.saved.values()) == [reviewed.review]
+
+
+async def test_the_cache_key_changes_with_the_prompt_version() -> None:
+    first = FakeCache()
+    second = FakeCache()
+
+    await ListingReviewService(llm=FakeLLM(a_candidate()), cache=first, prompt_version="v1").review(A_LISTING)
+    await ListingReviewService(llm=FakeLLM(a_candidate()), cache=second, prompt_version="v2").review(A_LISTING)
+
+    assert first.keys_asked != second.keys_asked
+
+
+async def test_does_not_store_a_text_that_is_not_a_listing() -> None:
+    cache = FakeCache()
+    service = ListingReviewService(llm=FakeLLM(a_candidate(is_rental_listing=False)), cache=cache)
+
+    with pytest.raises(NotAListing):
+        await service.review(A_LISTING)
+
+    assert cache.saved == {}

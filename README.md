@@ -163,16 +163,33 @@ El conocimiento de la revisión es un checklist corto y estable: cinco puntos no
 POST /api/v1/listings/review
   └→ app/api/listings.py                          (transporte: sin lógica de negocio)
        └→ app/domain/listing_review_service.py    (conductor)
-            1. app/foundation/prompts/loader.py   (plantillas Jinja2 versionadas)
-            2. app/foundation/llm/wrapper.py      (LiteLLM + Instructor, con reintentos)
-            3. ListingReview                      (salida validada contra el esquema)
+            1. app/foundation/guardrails/input.py (tamaño, inyección, PII, moderación)
+            2. app/foundation/prompts/loader.py   (plantillas Jinja2 versionadas)
+            3. app/generation/cag/exact.py        (acierto exacto SHA-256; si acierta, termina aquí)
+            4. app/foundation/llm/wrapper.py      (Router con fallback + Instructor)
+            5. app/foundation/guardrails/output.py (descarta citas fuera del checklist)
+            6. cache.set()                        (guarda la revisión)
 ```
 
 La salida es un objeto `ListingReview` validado: una lista de incidencias con categoría, gravedad, mensaje, sugerencia y base legal, más un veredicto y un resumen. Si el modelo no devuelve algo que encaje en el esquema, Instructor se lo vuelve a pedir; no llega texto libre a la interfaz.
 
 El acceso al modelo pasa siempre por `LLMWrapper`, el único módulo que importa `litellm`. Por eso el modelo es configuración (`LLM_MODEL=anthropic/claude-haiku-4-5`) y los tests sustituyen el LLM sin tocar la red. Decisiones en [ADR 0002](docs/decisions/0002-prompt-strategy-and-checklist.md), [ADR 0003](docs/decisions/0003-review-output-schema.md) y [ADR 0006](docs/decisions/0006-llm-wrapper-litellm-instructor.md).
 
-**Caché (pendiente)**: acierto exacto por SHA-256 del prompt completo y, después, acierto por similitud semántica, para no pagar dos veces la misma revisión.
+**Caché exacta (implementada)**
+
+Antes de preguntar al modelo, el conductor busca la revisión en caché. La clave es un SHA-256 de **los prompts completos** más el modelo y la versión del prompt, no del texto del anuncio: así, cambiar el checklist, subir la versión del prompt o cambiar de modelo invalida la caché por construcción, sin vaciados manuales.
+
+Medido con la misma revisión repetida:
+
+| | Primera petición | Segunda petición |
+|---|---|---|
+| Latencia | 5.672 ms | **1 ms** |
+| Tokens | 2.340 + 635 | 0 |
+| Coste | 0,0055 $ | **0 $** |
+
+Un acierto se marca como tal (`cached: true`, proveedor `cache`) en vez de volver a imputar el coste original. Si Redis falla, se trata como fallo de caché y la revisión sigue: la caché es una optimización, no una dependencia. Sin `REDIS_URL` el sistema funciona igual, sin caché. Detalles en [ADR 0007](docs/decisions/0007-exact-match-cache.md).
+
+**Caché semántica (pendiente)**: acierto por similitud para los casos en que el mismo piso se describe con otras palabras.
 
 **RAG (pendiente)**: la normativa completa del BOE indexada en pgvector, para responder preguntas abiertas sobre alquiler con citas verificables. El checklist del prompt cubre lo que siempre hay que comprobar; el RAG cubre lo que hay que consultar.
 
@@ -182,7 +199,7 @@ El acceso al modelo pasa siempre por `LLMWrapper`, el único módulo que importa
 
 **Latencia.** Una revisión completa tarda unos 6 segundos con Claude Haiku 4.5 y unos 3 con GPT-5.4 mini. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. La caché (#12) eliminará la llamada al modelo en las revisiones repetidas.
 
-**Coste.** Cada revisión informa de lo que ha costado, calculado con una tabla de precios propia a partir del modelo que respondió de verdad. Medido sobre el mismo anuncio: **0,0057 $ con Claude Haiku 4.5** (2.340 + 678 tokens) y **0,0030 $ con GPT-5.4 mini** (1.176 + 464 tokens). Las capas que no necesitan el modelo (tamaño, inyección, datos personales) ahorran la llamada entera, y el límite de gasto está configurado en la consola del proveedor.
+**Coste.** La revisión más barata es la que no se pide: un acierto de caché cuesta 0 $ y 1 ms. Para el resto, cada revisión informa de lo que ha costado, calculado con una tabla de precios propia a partir del modelo que respondió de verdad. Medido sobre el mismo anuncio: **0,0057 $ con Claude Haiku 4.5** (2.340 + 678 tokens) y **0,0030 $ con GPT-5.4 mini** (1.176 + 464 tokens). Las capas que no necesitan el modelo (tamaño, inyección, datos personales) ahorran la llamada entera, y el límite de gasto está configurado en la consola del proveedor.
 
 La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde con la versión fechada del modelo (`claude-haiku-4-5-20251001`) y una búsqueda exacta fallaría y cobraría cero. Un modelo desconocido devuelve coste vacío y deja un aviso en el log: un hueco es honesto, un cero es mentira.
 

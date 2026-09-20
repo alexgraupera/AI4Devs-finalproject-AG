@@ -34,7 +34,11 @@ def review_listing(api_url: str, listing: dict[str, Any]) -> tuple[dict[str, Any
     return None, str(body.get("error", {}).get("message", UNEXPECTED_ERROR))
 
 
-def render_usage(usage: dict[str, Any]) -> None:
+def render_usage(usage: dict[str, Any], cached: bool) -> None:
+    if cached:
+        st.caption("Respuesta cacheada · sin coste")
+        return
+
     cost = usage["estimated_cost_usd"]
     cost_text = f"{float(cost):.4f} USD" if cost is not None else "no disponible"
     st.caption(
@@ -55,7 +59,7 @@ def render_review(review: dict[str, Any]) -> None:
     findings = review["findings"]
     if not findings:
         st.info("No se han detectado incidencias.")
-        render_usage(review["usage"])
+        render_usage(review["usage"], review["cached"])
         return
 
     st.subheader(f"Incidencias ({len(findings)})")
@@ -69,7 +73,7 @@ def render_review(review: dict[str, Any]) -> None:
             if finding["legal_basis"]:
                 st.caption(f"Base legal: {finding['legal_basis']}")
 
-    render_usage(review["usage"])
+    render_usage(review["usage"], review["cached"])
 
 
 st.set_page_config(page_title="Revisión de anuncios de alquiler", page_icon="🏠")
