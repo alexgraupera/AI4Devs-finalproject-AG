@@ -122,7 +122,7 @@ make verify    # lint, formato, tipos y tests
 
 La aplicación separa la interfaz (Streamlit) del servicio de IA (FastAPI): la interfaz solo consume la API por HTTP, de modo que la lógica de IA se puede probar, desplegar y reutilizar de forma independiente.
 
-El paquete `app/` sigue el mismo patrón de capas que el proyecto de referencia del máster: `foundation/` (plomería: LLM, prompts, guardrails, observabilidad), `domain/` (el contrato y el servicio conductor), `generation/` (las arquitecturas de IA: CAG, RAG y agentes) y `api/` (transporte). La regla clave es que las arquitecturas de `generation/` no se conocen entre sí: **solo componen a través del conductor**, lo que evita que el proyecto degenere en carpetas acopladas. Decisión detallada en [ADR 0001](docs/decisions/0001-stack-and-project-structure.md).
+El paquete `app/` está organizado en capas por responsabilidad: `foundation/` (plomería: LLM, prompts, guardrails, observabilidad), `domain/` (el contrato y el servicio conductor), `generation/` (las arquitecturas de IA: CAG, RAG y agentes) y `api/` (transporte). Cada capa solo importa de las que tiene por encima, y la regla clave es que las arquitecturas de `generation/` no se conocen entre sí: **solo componen a través del conductor**. Eso es lo que evita que el proyecto degenere en carpetas acopladas según se van apilando. Decisión detallada en [ADR 0001](docs/decisions/0001-stack-and-project-structure.md).
 
 ### **2.4. Infraestructura y despliegue**
 

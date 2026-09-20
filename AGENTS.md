@@ -2,7 +2,7 @@
 
 Final project of the LIDR AI Engineering master: a **rental listing quality and compliance assistant** for a Spanish real estate marketplace. A landlord or agency pastes a rental listing and gets a structured review of missing, inconsistent or non-compliant information, grounded in Spanish regulations (BOE), plus a Q&A over those regulations.
 
-The system follows the course architecture: CAG → RAG → agents → evals → deployment. Built only on public data and with a zero infrastructure budget.
+The system stacks the layers of a production AI product: CAG (caches), RAG (retrieval over Spanish regulations), agents, evaluation and deployment. Built only on public data and with a zero infrastructure budget.
 
 ## Planning
 
@@ -13,12 +13,11 @@ The system follows the course architecture: CAG → RAG → agents → evals →
 ## Stack
 
 - Python 3.12+ managed with `uv`.
-- The architecture mirrors the course reference project (`ai-engineering/ai-service`): same layering, same tooling. Our own work (the rental domain, the public data sources, the evals) goes on top of that base.
 - FastAPI + Uvicorn (AI service), Pydantic (contracts and LLM output validation).
 - Streamlit (UI).
 - PostgreSQL + pgvector (vector store).
 - Docker Compose for the local environment.
-- LLM access through a wrapper built with LiteLLM (`Router` with primary + fallback) and Instructor (validated structured output with re-prompting), as the course does. Anthropic primary, OpenAI fallback, switchable by configuration. Cheap models by default (cost matters: API credits only). `litellm` is pinned to an exact version.
+- LLM access through a wrapper built with LiteLLM (`Router` with primary + fallback) and Instructor (validated structured output with re-prompting). Anthropic primary, OpenAI fallback, switchable by configuration. Cheap models by default (cost matters: API credits only). `litellm` is pinned to an exact version.
 - Versioned Jinja2 prompts, structured logging with `structlog`, and an own model price table (looked up by longest matching prefix, so dated model snapshots are priced instead of silently costing zero).
 
 ## Commands
@@ -30,7 +29,7 @@ The system follows the course architecture: CAG → RAG → agents → evals →
 
 ## Project structure
 
-- `app/`: application package, layered as in the course reference project. Each layer may only import from the layers above it:
+- `app/`: application package. Each layer may only import from the layers above it:
   - `main.py`, `config.py`, `dependencies.py`: composition root, above the layers.
   - `foundation/`: plumbing with no AI-architecture opinion (`llm/`, `prompts/`, `guardrails/`, `observability/`, `persistence/`).
   - `domain/`: the contract (`schemas/`) and the conductor service that composes the pipeline.
