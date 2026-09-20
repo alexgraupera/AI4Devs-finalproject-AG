@@ -27,3 +27,7 @@ evals/runs/
 .DS_Store
 .idea/
 .vscode/
+
+# Benchmark runs: reproducible in seconds, and 100 KB each. The durable record of a
+# measurement is the table in its decision record, not every run that produced it.
+benchmarks/retrieval/results/*.json

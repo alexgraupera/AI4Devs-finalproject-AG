@@ -166,6 +166,7 @@ migraciones, que hacen `downgrade` y borran las tablas, corren contra una base a
 │   └── decisions/            # Registro de decisiones de arquitectura (ADR)
 ├── Dockerfile                # Imagen única para la API y la interfaz
 ├── docker-compose.yml        # Servicios api (:8000), ui (:8501), cache (Redis) y db (pgvector)
+├── benchmarks/retrieval/     # Set dorado de preguntas y métricas de recuperación
 ├── corpus.lock.json          # Versiones del BOE con las que se construyó el corpus
 ├── Makefile                  # Comandos de desarrollo y verificación
 └── .github/workflows/        # CI en cada pull request y detección semanal de deriva del BOE
@@ -323,7 +324,39 @@ La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde
 
 **Disponibilidad.** El código pide al Router un modelo lógico (`listing-reviewer`) y nunca nombra un proveedor. Si Anthropic falla, responde OpenAI sin que el cliente se entere; el proveedor real aparece en `usage`. Probado con una clave primaria inválida: la revisión se completó igual.
 
-**Calidad.** La salida se valida contra el esquema y, si no encaja, se le vuelve a pedir al modelo. El guardrail de salida descarta las incidencias que citan una norma fuera del checklist y recalcula el veredicto. La medición sistemática con métricas y casos de regresión llega en #4.
+**Coste de una consulta de normativa.** Tres tramos, medidos:
+
+| | Latencia | Coste |
+|---|---|---|
+| Recuperación (embedding de la pregunta) | ~220 ms (p95: 380 ms) | 0,0000003 $ |
+| Respuesta completa con citas | 1,7–2,9 s | ~0,005 $ |
+| Rechazo sin llamar al modelo | 0,9 s | **0 $** |
+
+Lo que cuesta no es buscar, es el contexto que la búsqueda produce: unos 4.600 tokens de entrada por respuesta. Bajar `MAX_CONTEXT_CHARS` es la palanca si el gasto importa.
+
+**Calidad.** La salida se valida contra el esquema y, si no encaja, se le vuelve a pedir al modelo. El guardrail de salida descarta las incidencias que citan una norma fuera del checklist y recalcula el veredicto.
+
+La recuperación **está medida**, no supuesta ([ADR 0012](docs/decisions/0012-retrieval-baseline-and-tuning.md)). Con un set dorado de 29 preguntas:
+
+| | recall@1 | recall@3 | MRR | sin respuesta (fuera de dominio) |
+|---|---:|---:|---:|---:|
+| `dense-k5-t0.5` (configuración actual) | 82% | 95% | 0,871 | 86% |
+
+Y el desglose que importa:
+
+| Familia de preguntas | Artículo correcto en primera posición |
+|---|---|
+| Lenguaje legal | **10 / 10** |
+| Paráfrasis (como pregunta un propietario) | **8 / 12** |
+| Fuera de dominio | **6 / 7** |
+
+**Los cuatro fallos son paráfrasis.** Ninguna pregunta con lenguaje legal falla. El problema de este sistema no es la calidad de la recuperación en general: es que las palabras del usuario no son las de la ley. Eso es lo que la reformulación de consulta y la búsqueda híbrida tienen que arreglar, y ahora hay con qué comprobarlo:
+
+```bash
+make benchmark-retrieval
+```
+
+La medición sistemática de las **respuestas** (fidelidad, exactitud de las citas, casos de regresión) llega en #4; este banco mide lo que llega al modelo, no lo que el modelo hace con ello.
 
 **Seguridad.** Detallada en la sección 2.5: cuatro capas de entrada, el anuncio tratado como dato en el prompt, y los secretos solo por variables de entorno.
 
