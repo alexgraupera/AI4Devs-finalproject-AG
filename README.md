@@ -92,7 +92,8 @@ make verify    # lint, formato, tipos y tests
 **Construir el corpus normativo:**
 
 ```bash
-make ingest          # descarga las seis fuentes del BOE y las escribe en pgvector
+make ingest          # descarga las seis fuentes del BOE, las escribe en pgvector y las embebe
+make embed           # solo los embeddings pendientes (--force reembebe todo)
 make corpus-report   # las descarga y valida, sin escribir nada
 make corpus-drift    # ¿ha actualizado el BOE alguna norma desde la última ingesta?
 ```
@@ -264,7 +265,23 @@ make ingest
 
 La reingesta es idempotente en dos niveles: los metadatos del BOE (1,3 KB) deciden si hace falta descargar el texto, y el `content_hash` de cada fragmento decide si hace falta reescribir la fila.
 
-**Embeddings y recuperación (pendiente)**: vectores en pgvector, búsqueda top-k con umbral y respuestas con cita verificable.
+**Embeddings y recuperación (implementado)**
+
+Los 380 fragmentos tienen vector en pgvector y se buscan por similitud coseno con índice HNSW.
+
+| | Medido sobre el corpus real |
+|---|---|
+| Indexación completa | 154.287 tokens · **0,0031 $** · 7,2 s |
+| Reindexación rutinaria | 0 $ (solo se embebe lo que cambió) |
+| Una búsqueda | ~250 ms, dominados por la llamada al proveedor |
+
+`POST /api/v1/regulations/search` devuelve los fragmentos **con su puntuación**, antes de que ningún modelo los convierta en prosa: la calidad de la recuperación se ve, no se intuye.
+
+**El umbral está medido, no elegido a ojo.** Con 16 preguntas, las de dominio puntúan entre 0,598 y 0,782 y las ajenas entre 0,148 y 0,403, así que `RETRIEVAL_MIN_SCORE=0.5` cae en mitad del hueco. Por debajo de ese umbral no se devuelve nada, aunque eso deje la lista vacía: entregar tres artículos irrelevantes a un modelo es pedirle que invente. Detalles en [ADR 0010](docs/decisions/0010-embedding-model-and-index.md).
+
+**Cada vector sabe qué modelo lo hizo.** `EMBEDDING_MODEL` es configuración, y la búsqueda solo compara fragmentos embebidos con el modelo configurado: mezclar dos espacios vectoriales en un índice no falla, simplemente devuelve ruido. Cambiar de modelo es una variable más `make embed`.
+
+**Generación fundamentada (pendiente)**: respuestas construidas solo con los artículos recuperados, con cita verificable.
 
 **Agentes (pendiente)**: un agente con function calling que decide qué consultar (normativa, Catastro, precio de mercado) y un paso crítico que descarta las incidencias sin cita.
 
@@ -339,16 +356,20 @@ erDiagram
         integer char_count
         jsonb metadata "fecha_vigencia, id_norma, citation_url"
         text content_hash "SHA-256: hace idempotente la reingesta"
+        vector embedding "1536 dimensiones, índice HNSW coseno"
+        text embedding_model "Qué modelo generó el vector"
+        timestamptz embedded_at
         timestamptz created_at
     }
 ```
 
-La columna vectorial (`embedding`) y su índice **no están todavía**: llegan con la migración de
-la fase de embeddings, junto al modelo que fija sus dimensiones y a la medición que justifica los
-parámetros del índice.
+Estado actual del corpus: **6 documentos y 380 fragmentos**, todos con vector, construidos con
+`make ingest`. Las versiones del BOE de las que se construyó quedan registradas en
+[`corpus.lock.json`](corpus.lock.json).
 
-Estado actual del corpus: **6 documentos y 380 fragmentos**, construidos con `make ingest`. Las
-versiones del BOE de las que se construyó quedan registradas en [`corpus.lock.json`](corpus.lock.json).
+La columna `embedding` es `vector(1536)` con índice HNSW (`vector_cosine_ops`), y cada fila
+guarda el `embedding_model` que la generó, de modo que un cambio de modelo es visible en los
+datos en vez de ser una suposición.
 
 ### **3.2. Descripción de entidades principales:**
 
@@ -372,6 +393,12 @@ nada que reescribir ni que volver a embeber.
 ## 4. Especificación de la API
 
 La especificación completa se genera sola y está en `http://localhost:8000/docs` (Swagger) y `http://localhost:8000/openapi.json`.
+
+| Endpoint | Qué hace |
+|---|---|
+| `POST /api/v1/listings/review` | Revisa un anuncio de alquiler y devuelve incidencias, veredicto y coste |
+| `POST /api/v1/regulations/search` | Busca en la normativa y devuelve los fragmentos con su puntuación |
+| `GET /health` | Estado del servicio y del almacén del corpus |
 
 ```yaml
 paths:

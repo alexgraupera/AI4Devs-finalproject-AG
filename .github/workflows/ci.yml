@@ -8,6 +8,29 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+
+    services:
+      # The database-backed tests (migrations, corpus repository, ingestion pipeline,
+      # embeddings, retrieval) skip themselves when DATABASE_URL is missing. Without this
+      # service they would pass silently by not running, which is the worst kind of green.
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: rental
+          POSTGRES_PASSWORD: rental
+          POSTGRES_DB: rental
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rental -d rental"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      # The tests create their own databases next to this one; they never write to it.
+      DATABASE_URL: postgresql+asyncpg://rental:rental@localhost:5432/rental
+
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.1.0

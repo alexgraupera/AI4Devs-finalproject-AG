@@ -7,7 +7,7 @@ on, the message is for the person to read, so it is written in Spanish.
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.domain.errors import LLMUnavailable, NotAListing, ReviewGenerationError
+from app.domain.errors import CorpusUnavailable, LLMUnavailable, NotAListing, ReviewGenerationError
 from app.foundation.guardrails.input import InputGuardrailViolation
 
 MESSAGES: dict[str, str] = {
@@ -20,6 +20,7 @@ MESSAGES: dict[str, str] = {
     "not_a_listing": "El texto no parece un anuncio de alquiler",
     "review_generation_failed": "No se ha podido generar la revisión. Inténtalo de nuevo.",
     "llm_unavailable": "El servicio de IA no está disponible en este momento",
+    "corpus_unavailable": "La normativa no está disponible en este momento",
 }
 
 
@@ -43,3 +44,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(LLMUnavailable)
     async def _unavailable(_: Request, error: LLMUnavailable) -> JSONResponse:
         return error_response("llm_unavailable", status_code=503)
+
+    @app.exception_handler(CorpusUnavailable)
+    async def _corpus(_: Request, error: CorpusUnavailable) -> JSONResponse:
+        return error_response("corpus_unavailable", status_code=503)

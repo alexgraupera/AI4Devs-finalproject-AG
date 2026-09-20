@@ -5,7 +5,6 @@ Skipped unless `DATABASE_URL` is exported, like the migration tests:
     DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental uv run pytest tests/ingestion
 """
 
-import os
 from collections.abc import AsyncIterator
 
 import pytest
@@ -16,10 +15,10 @@ from app.foundation.persistence.database import create_engine, session_factory
 from app.ingestion.chunking import Chunk, content_hash
 from app.ingestion.repository import replace_chunks, stored_versions, upsert_document
 from app.ingestion.sources import DocType, Jurisdiction, Source
+from tests.conftest import CORPUS_TEST_URL
+from tests.database import DATABASE_URL, SKIP_REASON
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-
-pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL is not exported: no database to write to")
+pytestmark = pytest.mark.skipif(not DATABASE_URL, reason=SKIP_REASON)
 
 A_SOURCE = Source(
     source_id="BOE-TEST-CORPUS",
@@ -43,7 +42,7 @@ def a_chunk(block_id: str = "a36", ordinal: int = 0, body: str = "Fianza de una 
 
 @pytest.fixture
 async def session() -> AsyncIterator[AsyncSession]:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(CORPUS_TEST_URL)
     async with session_factory(engine)() as opened:
         yield opened
         await opened.rollback()

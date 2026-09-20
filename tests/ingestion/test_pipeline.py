@@ -4,7 +4,6 @@ The fixtures stand in for the network, so these tests state what the pipeline do
 source that moved, one that did not, and one that is simply down.
 """
 
-import os
 from collections.abc import AsyncIterator
 
 import httpx
@@ -15,11 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.foundation.persistence.database import create_engine, session_factory
 from app.ingestion.pipeline import ingest
 from app.ingestion.sources import DocType, Jurisdiction, Source
+from tests.conftest import CORPUS_TEST_URL
+from tests.database import DATABASE_URL, SKIP_REASON
 from tests.ingestion.fixtures import metadata, xml
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-
-pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL is not exported: no database to write to")
+pytestmark = pytest.mark.skipif(not DATABASE_URL, reason=SKIP_REASON)
 
 # Test-only identifiers: the fixtures serve the saved responses whatever the id, and using the
 # real ones would make this suite delete the corpus a developer just ingested.
@@ -65,7 +64,7 @@ class FakeBoe:
 
 @pytest.fixture
 async def sessions() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(CORPUS_TEST_URL)
     factory = session_factory(engine)
     yield factory
     async with factory() as session, session.begin():

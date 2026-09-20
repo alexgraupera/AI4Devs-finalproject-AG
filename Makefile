@@ -1,4 +1,4 @@
-.PHONY: install api ui up down migrate ingest corpus-report corpus-drift verify
+.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift verify
 
 install:
 	uv sync
@@ -18,8 +18,14 @@ down:
 migrate:
 	uv run alembic upgrade head
 
+# Two commands, composed here rather than in code: app/ingestion/ builds the corpus and
+# knows nothing about how it is searched.
 ingest:
 	uv run python -m app.ingestion
+	uv run python -m app.generation.rag.embed
+
+embed:
+	uv run python -m app.generation.rag.embed
 
 corpus-report:
 	uv run python -m app.ingestion.report

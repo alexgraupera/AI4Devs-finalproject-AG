@@ -11,3 +11,7 @@ class ReviewGenerationError(Exception):
 
 class LLMUnavailable(Exception):
     """The provider could not be reached: timeout, rate limit or server error."""
+
+
+class CorpusUnavailable(Exception):
+    """The regulation corpus is not configured or not reachable: nothing to retrieve from."""

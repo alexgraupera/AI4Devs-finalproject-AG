@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     # Articles longer than this are split by paragraph. Measured, not guessed: see ADR 0009.
     chunk_max_chars: int = 6_000
 
+    # Stored with every vector. Changing the model re-embeds the corpus instead of mixing two
+    # vector spaces in one index; changing the dimensions also needs a migration (the column is typed).
+    embedding_model: str = "openai/text-embedding-3-small"
+    embedding_dimensions: int = 1536
+    embedding_batch_size: int = 100
+
+    retrieval_top_k: int = 5
+    # Below this cosine score a result is noise. Measured on 16 questions: in-domain scores land
+    # between 0.598 and 0.782, out-of-domain between 0.148 and 0.403, so 0.5 sits in the middle
+    # of the gap. Provisional until the benchmark of #24 measures it properly (ADR 0010).
+    retrieval_min_score: float = 0.5
+
     # Only read to decide whether the moderation layer can run; the providers read their own keys.
     openai_api_key: str = ""
 

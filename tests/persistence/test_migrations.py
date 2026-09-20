@@ -9,55 +9,31 @@ had just ingested. A test suite that eats your data is a test suite people stop 
 """
 
 import asyncio
-import os
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import inspect, text
-from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.foundation.persistence.database import create_engine
+from tests import database
+from tests.database import DATABASE_URL, SKIP_REASON
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+pytestmark = pytest.mark.skipif(not DATABASE_URL, reason=SKIP_REASON)
 
-pytestmark = pytest.mark.skipif(not DATABASE_URL, reason="DATABASE_URL is not exported: no database to migrate")
-
-MIGRATIONS_DATABASE = f"{make_url(DATABASE_URL).database}_migrations" if DATABASE_URL else ""
-MIGRATIONS_URL = (
-    make_url(DATABASE_URL).set(database=MIGRATIONS_DATABASE).render_as_string(hide_password=False)
-    if DATABASE_URL
-    else ""
-)
+# Its own database, because `downgrade base` drops the tables: pointed anywhere else it would
+# take the corpus with it.
+MIGRATIONS_URL = database.database_url("migrations")
 
 
 @pytest.fixture(scope="session", autouse=True)
-async def migrations_database() -> None:
-    """Create the throwaway database once, if it is not there yet."""
-    admin = create_async_engine(make_url(DATABASE_URL).set(database="postgres"), isolation_level="AUTOCOMMIT")
-    try:
-        async with admin.connect() as connection:
-            exists = await connection.scalar(
-                text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": MIGRATIONS_DATABASE}
-            )
-            if not exists:
-                await connection.execute(text(f'CREATE DATABASE "{MIGRATIONS_DATABASE}"'))
-    finally:
-        await admin.dispose()
-
-
-def alembic_config() -> Config:
-    config = Config("alembic.ini")
-    config.set_main_option("sqlalchemy.url", MIGRATIONS_URL)
-    return config
+def migrations_database() -> None:
+    database.create_database(MIGRATIONS_URL)
 
 
 async def migrate(revision: str) -> None:
     # `env.py` drives the async engine with `asyncio.run`, which refuses to start inside the
     # loop of an async test: the migration runs in a thread, exactly as the CLI runs it.
-    run = command.downgrade if revision == "base" else command.upgrade
-    await asyncio.to_thread(run, alembic_config(), revision)
+    await asyncio.to_thread(database.migrate, MIGRATIONS_URL, revision)
 
 
 async def table_names(engine: AsyncEngine) -> list[str]:
