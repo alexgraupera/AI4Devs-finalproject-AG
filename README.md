@@ -89,16 +89,24 @@ make migrate   # aplica las migraciones (necesita DATABASE_URL)
 make verify    # lint, formato, tipos y tests
 ```
 
-**Inspeccionar el corpus normativo:**
+**Construir el corpus normativo:**
 
 ```bash
-make corpus-report   # descarga las seis fuentes del BOE, las valida e imprime el informe
+make ingest          # descarga las seis fuentes del BOE y las escribe en pgvector
+make corpus-report   # las descarga y valida, sin escribir nada
+make corpus-drift    # ¿ha actualizado el BOE alguna norma desde la última ingesta?
 ```
 
-No escribe nada: descarga, parsea y valida la normativa para comprobar que las fuentes siguen
-siendo lo que dice [`docs/data-sources/`](docs/data-sources/README.md) (artículos en vigor,
-tamaños, rechazos). Si el BOE cambia una norma o tumba un endpoint, este comando lo dice antes
-de que el fallo aparezca disfrazado de mala respuesta del asistente.
+`make ingest` necesita `DATABASE_URL` y las migraciones aplicadas. **Re-ejecutarlo es seguro**:
+si el BOE no ha tocado una norma, no descarga su texto ni reescribe sus fragmentos. Medido sobre
+el corpus real: la primera ejecución escribe 380 fragmentos en 1,5 s; la segunda no escribe nada
+en 0,56 s.
+
+Cuándo reingestar: cuando el BOE actualice una norma. Como eso pasa unas pocas veces al año y en
+silencio, hay un workflow semanal
+([`corpus-drift.yml`](.github/workflows/corpus-drift.yml)) que pide solo los metadatos (~5 KB),
+los compara con [`corpus.lock.json`](corpus.lock.json) y **abre una issue** si alguna norma se ha
+movido. Ejecutar `make ingest` y commitear el `corpus.lock.json` actualizado cierra el ciclo.
 
 La base de datos es **opcional** mientras trabajas en la revisión de anuncios: sin
 `DATABASE_URL` el servicio arranca igual y `/health` responde `"database": "disabled"`. Para
@@ -108,12 +116,16 @@ usarla en local, levanta solo la base con `docker compose up -d db` y exporta:
 DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental
 ```
 
-Los tests que necesitan una base de datos real (los de migraciones) se saltan salvo que
-exportes esa variable, así que `make verify` no depende de ningún servicio:
+Los tests que necesitan una base de datos real (migraciones, repositorio y pipeline de ingesta)
+se saltan salvo que exportes esa variable, así que `make verify` no depende de ningún servicio:
 
 ```bash
-DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental uv run pytest tests/persistence
+DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental uv run pytest
 ```
+
+Ejecutarlos **no destruye tu corpus**: los de ingesta usan identificadores de prueba y los de
+migraciones, que hacen `downgrade` y borran las tablas, corren contra una base aparte
+(`rental_migrations`) que se crea sola.
 
 ---
 
@@ -141,7 +153,7 @@ DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental uv run pyt
 │   ├── foundation/           # Plomería sin opinión de arquitectura IA (llm, prompts, guardrails…)
 │   ├── domain/               # Contrato (schemas) y servicio conductor
 │   ├── generation/           # Arquitecturas de IA: cag/ (cachés), rag/, agentic/
-│   ├── ingestion/            # Descarga, parseo y validación del corpus del BOE
+│   ├── ingestion/            # Corpus del BOE: descarga, validación, troceo y escritura
 │   └── api/                  # Routers finos (transporte)
 ├── streamlit_app.py          # Cliente Streamlit (solo habla con la API por HTTP)
 ├── migrations/               # Migraciones Alembic: el esquema del corpus, revisado como código
@@ -152,8 +164,9 @@ DATABASE_URL=postgresql+asyncpg://rental:rental@localhost:5432/rental uv run pyt
 │   └── decisions/            # Registro de decisiones de arquitectura (ADR)
 ├── Dockerfile                # Imagen única para la API y la interfaz
 ├── docker-compose.yml        # Servicios api (:8000), ui (:8501), cache (Redis) y db (pgvector)
+├── corpus.lock.json          # Versiones del BOE con las que se construyó el corpus
 ├── Makefile                  # Comandos de desarrollo y verificación
-└── .github/workflows/ci.yml  # CI: make verify en cada pull request
+└── .github/workflows/        # CI en cada pull request y detección semanal de deriva del BOE
 ```
 
 La aplicación separa la interfaz (Streamlit) del servicio de IA (FastAPI): la interfaz solo consume la API por HTTP, de modo que la lógica de IA se puede probar, desplegar y reutilizar de forma independiente.
@@ -227,7 +240,31 @@ Un acierto se marca como tal (`cached: true`, proveedor `cache`) en vez de volve
 
 **Caché semántica (pendiente)**: acierto por similitud para los casos en que el mismo piso se describe con otras palabras.
 
-**RAG (pendiente)**: la normativa completa del BOE indexada en pgvector, para responder preguntas abiertas sobre alquiler con citas verificables. El checklist del prompt cubre lo que siempre hay que comprobar; el RAG cubre lo que hay que consultar.
+**RAG — corpus ingestado (en construcción)**
+
+El checklist del prompt cubre lo que siempre hay que comprobar; el RAG cubre lo que hay que consultar. La primera mitad ya está: el corpus del BOE vive en la base de datos, troceado y listo para embeber.
+
+```
+make ingest
+  └→ app/ingestion/boe/            (descarga y parseo: solo bloques en vigor)
+       └→ app/ingestion/validation.py  (descarta lo inservible, cuenta el porqué)
+            └→ app/ingestion/chunking.py (un fragmento por artículo)
+                 └→ app/ingestion/repository.py (escribe solo lo que cambió)
+```
+
+| Fuente | Ámbito | Artículos | Fragmentos |
+|---|---|---:|---:|
+| Ley 29/1994 (LAU) | estatal | 64 | 68 |
+| Ley 12/2023, derecho a la vivienda | estatal | 56 | 59 |
+| RD 390/2021, certificado energético | estatal | 44 | 50 |
+| Ley 18/2007, derecho a la vivienda | Cataluña | 189 | 192 |
+| Zonas tensionadas (2 resoluciones) | estatal | 11 | 11 |
+
+**Un fragmento por artículo**, porque el artículo es lo que una cita señala. Frente al troceo por tamaño fijo, medido sobre este mismo corpus: 1.000 caracteres con solapamiento produce 768 fragmentos de los cuales **el 47% abarca más de un artículo** y por tanto no se puede citar; por artículo produce 369 fragmentos y ninguno. Solo 13 artículos (3,7%) superan el presupuesto de 6.000 caracteres y se parten, siempre por párrafo. Números y alternativas en [ADR 0009](docs/decisions/0009-chunking-strategy.md).
+
+La reingesta es idempotente en dos niveles: los metadatos del BOE (1,3 KB) deciden si hace falta descargar el texto, y el `content_hash` de cada fragmento decide si hace falta reescribir la fila.
+
+**Embeddings y recuperación (pendiente)**: vectores en pgvector, búsqueda top-k con umbral y respuestas con cita verificable.
 
 **Agentes (pendiente)**: un agente con function calling que decide qué consultar (normativa, Catastro, precio de mercado) y un paso crítico que descarta las incidencias sin cita.
 
@@ -309,6 +346,9 @@ erDiagram
 La columna vectorial (`embedding`) y su índice **no están todavía**: llegan con la migración de
 la fase de embeddings, junto al modelo que fija sus dimensiones y a la medición que justifica los
 parámetros del índice.
+
+Estado actual del corpus: **6 documentos y 380 fragmentos**, construidos con `make ingest`. Las
+versiones del BOE de las que se construyó quedan registradas en [`corpus.lock.json`](corpus.lock.json).
 
 ### **3.2. Descripción de entidades principales:**
 

@@ -31,6 +31,6 @@ The cost is the ceiling. pgvector is not where anyone would put fifty million ve
 ## Consequences
 
 - One more service in `docker-compose.yml` and one more thing to provision when deploying (#5). Unlike the cache, its port is published: inspecting the ingested corpus with `psql` is part of working on the RAG layer.
-- The default test suite stays hermetic. The migration tests run only when `DATABASE_URL` is **exported** (reading `.env` is deliberately not enough), so `make verify` and CI need no services. The trade-off is that those tests do not run in CI yet; wiring a Postgres service into the workflow is left for when the ingestion of #21 gives them something worth guarding.
+- The default test suite stays hermetic. The database-backed tests run only when `DATABASE_URL` is **exported** (reading `.env` is deliberately not enough), so `make verify` and CI need no services. The trade-off is that those tests do not run in CI yet. Since #28 the migration tests run against their own database (`<name>_migrations`, created on the fly), because `downgrade base` drops the corpus tables and would otherwise destroy a corpus that had just been ingested.
 - `metadata` as `jsonb` means its fields are not individually indexed. They are never filtered on their own, so the cost is theoretical today and a GIN index is one migration away if that changes.
 - The corpus volume is local to Docker Compose. Ingestion is reproducible from the BOE API, so the volume is a cache of public data, not something to back up.

@@ -1,0 +1,11 @@
+{
+  "_comment": "BOE versions the corpus was built from. Written by `make ingest`, read by `make corpus-drift`.",
+  "sources": {
+    "BOE-A-1994-26003": "20260430T073359Z",
+    "BOE-A-2008-3657": "20260713T115710Z",
+    "BOE-A-2021-9176": "20260723T065856Z",
+    "BOE-A-2023-12203": "20260803T083829Z",
+    "BOE-A-2025-8636": "20250430",
+    "BOE-A-2026-16532": "20260729"
+  }
+}

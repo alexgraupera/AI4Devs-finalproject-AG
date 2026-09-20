@@ -1,0 +1,46 @@
+name: Corpus drift
+
+# An out-of-date corpus does not fail: it answers with the old wording while citing a BOE page
+# that shows the new one. Nobody notices that by accident, so it is checked on a schedule.
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+
+      # It only asks the BOE for metadata (~5 KB), so it needs no database and no secrets.
+      - id: drift
+        run: |
+          set +e
+          uv run python -m app.ingestion.drift > drift.md
+          status=$?
+          set -e
+          cat drift.md
+          echo "drifted=$([ $status -ne 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue when the BOE moved
+        if: steps.drift.outputs.drifted == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # One open issue is enough: a second one every Monday is noise, not a reminder.
+          if [ -n "$(gh issue list --label corpus-drift --state open --json number --jq '.[0].number')" ]; then
+            echo "A corpus drift issue is already open."
+            exit 0
+          fi
+          printf '\n\nRun `make ingest` to update the corpus, and commit the refreshed `corpus.lock.json`.\n' >> drift.md
+          gh label create corpus-drift --description "The BOE updated a source of the corpus" --color FBCA04 --force
+          gh issue create --title "The BOE updated the corpus sources" --label corpus-drift --body-file drift.md
