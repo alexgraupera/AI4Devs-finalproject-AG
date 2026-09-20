@@ -1,4 +1,4 @@
-.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift verify
+.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval verify
 
 install:
 	uv sync
@@ -32,6 +32,9 @@ corpus-report:
 
 corpus-drift:
 	uv run python -m app.ingestion.drift
+
+benchmark-retrieval:
+	uv run python -m benchmarks.retrieval.run
 
 verify:
 	uv run ruff check .

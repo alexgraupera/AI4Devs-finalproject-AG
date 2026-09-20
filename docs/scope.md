@@ -57,8 +57,9 @@ Answer without calling the model when an equivalent review already exists.
 
 | Capability | Status |
 |---|---|
-| Golden sets: regulation Q&A, annotated listings and adversarial cases | 🔜 #4 |
-| Retrieval metrics (recall@k, MRR) per technique, and generation metrics (faithfulness, correctness, citation accuracy) | 🔜 #4 |
+| Golden sets: regulation Q&A, annotated listings and adversarial cases | ✅ #24 (retrieval), 🔜 #4 (the rest) |
+| Retrieval metrics (recall@k, MRR) over a golden set, per technique | ✅ #24 |
+| Generation metrics (faithfulness, correctness, citation accuracy) | 🔜 #4 |
 | Cost and latency per stage | 🔜 #4 |
 | Regression gate against a promoted baseline, with zero tolerance on safety metrics | 🔜 #4 |
 | A/B comparison of prompt and retrieval variants | 🔜 #4 |
