@@ -1,0 +1,11 @@
+Revisa este anuncio de alquiler.
+
+Anuncio:
+{{ listing.text }}
+
+Datos estructurados que acompañan al anuncio:
+- Precio: {% if listing.price_eur_month is not none %}{{ listing.price_eur_month }} €/mes{% else %}no indicado{% endif %}
+- Superficie útil: {% if listing.usable_surface_m2 is not none %}{{ listing.usable_surface_m2 }} m²{% else %}no indicada{% endif %}
+- Habitaciones: {% if listing.rooms is not none %}{{ listing.rooms }}{% else %}no indicadas{% endif %}
+- Municipio: {{ listing.municipality or "no indicado" }}
+- Calificación energética: {{ listing.energy_rating or "no indicada" }}

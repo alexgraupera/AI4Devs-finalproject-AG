@@ -138,7 +138,30 @@ El paquete `app/` está organizado en capas por responsabilidad: `foundation/` (
 
 ### **2.7. 🆕 Arquitectura de IA: CAG → RAG → agentes**
 
-> Explica cómo evoluciona el sistema desde el prototipo CAG hasta RAG con agentes: qué conocimiento vive en el contexto (CAG), qué se recupera (RAG: fuentes, chunking, embeddings, retrieval) y qué orquestan los agentes (herramientas, function calling, human-in-the-loop).
+El sistema apila tres arquitecturas que **no se conocen entre sí**: solo componen en el servicio conductor (`app/domain/listing_review_service.py`). Hoy está construida la primera.
+
+**Generación con conocimiento en el prompt (implementado)**
+
+El conocimiento de la revisión es un checklist corto y estable: cinco puntos normativos, cada uno con el artículo que lo respalda, más criterios de calidad del anuncio. Vive en el prompt de sistema, versionado en `app/foundation/prompts/listing_review/v1/`, y no en el código ni en una base de datos. El flujo de una revisión es:
+
+```
+POST /api/v1/listings/review
+  └→ app/api/listings.py                          (transporte: sin lógica de negocio)
+       └→ app/domain/listing_review_service.py    (conductor)
+            1. app/foundation/prompts/loader.py   (plantillas Jinja2 versionadas)
+            2. app/foundation/llm/wrapper.py      (LiteLLM + Instructor, con reintentos)
+            3. ListingReview                      (salida validada contra el esquema)
+```
+
+La salida es un objeto `ListingReview` validado: una lista de incidencias con categoría, gravedad, mensaje, sugerencia y base legal, más un veredicto y un resumen. Si el modelo no devuelve algo que encaje en el esquema, Instructor se lo vuelve a pedir; no llega texto libre a la interfaz.
+
+El acceso al modelo pasa siempre por `LLMWrapper`, el único módulo que importa `litellm`. Por eso el modelo es configuración (`LLM_MODEL=anthropic/claude-haiku-4-5`) y los tests sustituyen el LLM sin tocar la red. Decisiones en [ADR 0002](docs/decisions/0002-prompt-strategy-and-checklist.md), [ADR 0003](docs/decisions/0003-review-output-schema.md) y [ADR 0006](docs/decisions/0006-llm-wrapper-litellm-instructor.md).
+
+**Caché (pendiente)**: acierto exacto por SHA-256 del prompt completo y, después, acierto por similitud semántica, para no pagar dos veces la misma revisión.
+
+**RAG (pendiente)**: la normativa completa del BOE indexada en pgvector, para responder preguntas abiertas sobre alquiler con citas verificables. El checklist del prompt cubre lo que siempre hay que comprobar; el RAG cubre lo que hay que consultar.
+
+**Agentes (pendiente)**: un agente con function calling que decide qué consultar (normativa, Catastro, precio de mercado) y un paso crítico que descarta las incidencias sin cita.
 
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
@@ -169,7 +192,75 @@ El paquete `app/` está organizado en capas por responsabilidad: `foundation/` (
 
 ## 4. Especificación de la API
 
-> Si tu backend se comunica a través de API, describe los endpoints principales (máximo 3) en formato OpenAPI. Opcionalmente puedes añadir un ejemplo de petición y de respuesta para mayor claridad
+La especificación completa se genera sola y está en `http://localhost:8000/docs` (Swagger) y `http://localhost:8000/openapi.json`.
+
+```yaml
+paths:
+  /api/v1/listings/review:
+    post:
+      summary: Revisa un anuncio de alquiler y devuelve las incidencias detectadas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, description: Texto del anuncio }
+                price_eur_month: { type: number, nullable: true }
+                usable_surface_m2: { type: number, nullable: true }
+                rooms: { type: integer, nullable: true }
+                municipality: { type: string, nullable: true }
+                energy_rating: { type: string, nullable: true }
+      responses:
+        "200":
+          description: Revisión estructurada
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [findings, verdict, summary]
+                properties:
+                  findings:
+                    type: array
+                    items:
+                      type: object
+                      required: [category, severity, message, suggestion]
+                      properties:
+                        category:
+                          type: string
+                          enum: [energy_label, price_and_expenses, deposit_and_guarantees,
+                                 agency_fees, surface, property_details, description_quality, other]
+                        severity: { type: string, enum: [high, medium, low] }
+                        message: { type: string }
+                        suggestion: { type: string }
+                        legal_basis: { type: string, nullable: true }
+                  verdict: { type: string, enum: [approve, request_changes] }
+                  summary: { type: string }
+        "422":
+          description: La petición no cumple el esquema
+  /health:
+    get:
+      summary: Sonda de salud del servicio
+      responses:
+        "200":
+          description: Servicio operativo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+```
+
+Ejemplo de petición:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/listings/review \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Piso de 2 habitaciones en Chamberí. Fianza de dos meses y honorarios de agencia a cargo del inquilino.", "price_eur_month": 1400, "municipality": "Madrid"}'
+```
 
 ---
 
