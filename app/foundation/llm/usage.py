@@ -24,6 +24,22 @@ class LLMUsage:
     attempts: int = 1
 
 
+def combined(first: LLMUsage, second: LLMUsage | None) -> LLMUsage:
+    """One answer, two model calls: report the sum, or the cost dashboard undercounts."""
+    if second is None:
+        return first
+    costs = [c for c in (first.estimated_cost_usd, second.estimated_cost_usd) if c is not None]
+    return LLMUsage(
+        provider=first.provider,
+        model=first.model,
+        input_tokens=first.input_tokens + second.input_tokens,
+        output_tokens=first.output_tokens + second.output_tokens,
+        latency_ms=first.latency_ms + second.latency_ms,
+        estimated_cost_usd=sum(costs, Decimal(0)) if costs else None,
+        attempts=first.attempts + second.attempts,
+    )
+
+
 @dataclass(frozen=True)
 class StructuredCompletion[T: BaseModel]:
     output: T

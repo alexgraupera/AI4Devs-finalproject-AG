@@ -18,6 +18,7 @@ from app.foundation.llm.wrapper import LLMWrapper, build_router
 from app.foundation.persistence.database import create_engine, session_factory
 from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
 from app.generation.rag.embeddings import EmbeddingClient, LiteLLMEmbeddings
+from app.generation.rag.rerank import Reranker
 from app.generation.rag.retriever import Retriever
 
 
@@ -96,12 +97,23 @@ def get_retriever() -> Retriever:
 
 
 @lru_cache
+def get_reranker() -> Reranker | None:
+    settings = get_settings()
+    if not settings.rerank_enabled:
+        return None
+    return Reranker(get_llm_wrapper(), top_n=settings.retrieval_top_k)
+
+
+@lru_cache
 def get_regulation_qa_service() -> RegulationQAService:
     settings = get_settings()
     return RegulationQAService(
         llm=get_llm_wrapper(),
         retriever=get_retriever(),
         moderation=get_moderation_client(),
+        reranker=get_reranker(),
         model=settings.llm_model,
+        top_k=settings.retrieval_top_k,
+        rerank_pool=settings.rerank_pool,
         max_context_chars=settings.max_context_chars,
     )

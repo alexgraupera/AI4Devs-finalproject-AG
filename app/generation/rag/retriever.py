@@ -1,6 +1,6 @@
 """Finding the articles that answer a question.
 
-Two things this deliberately does not do:
+Three things this deliberately does not do:
 
 **It does not lower the threshold to find something.** A question the corpus does not cover
 returns an empty list, because the alternative is handing the model three irrelevant articles
@@ -9,9 +9,14 @@ and letting it write a confident answer from them.
 **It does not mix vector spaces.** Only chunks embedded with the model currently configured are
 searched: a row left over from another model would be compared in a space where the distance
 means nothing.
+
+**It does not guess.** Hybrid search and query reformulation were built, measured against the
+golden set of #24 and deleted: both made the retrieval worse. What is left is dense retrieval,
+because that is what the numbers supported. See ADR 0013.
 """
 
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import structlog
@@ -24,6 +29,9 @@ log = structlog.get_logger()
 
 DEFAULT_TOP_K = 5
 DEFAULT_MIN_SCORE = 0.5
+
+# How many candidates the reranker is given to reorder.
+CANDIDATE_POOL = 20
 
 
 @dataclass(frozen=True)
@@ -69,36 +77,19 @@ class Retriever:
         started = time.perf_counter()
         vectors = await self._client.embed([query])
         threshold = self._min_score if min_score is None else min_score
+        wanted = k or self._top_k
+
+        filters: Mapping[str, object] = {
+            "embedding": str(vectors[0]),
+            "model": self._client.model,
+            # NULL means "no filter": pushing that into SQL keeps one query instead of four
+            # assembled by string concatenation.
+            "jurisdictions": jurisdictions or None,
+            "law_ids": law_ids or None,
+        }
 
         async with self._sessions() as session:
-            rows = await session.execute(
-                _SEARCH,
-                {
-                    "embedding": str(vectors[0]),
-                    "model": self._client.model,
-                    "k": k or self._top_k,
-                    "min_score": threshold,
-                    # NULL means "no filter": pushing that into SQL keeps one query instead of
-                    # four assembled by string concatenation.
-                    "jurisdictions": jurisdictions or None,
-                    "law_ids": law_ids or None,
-                },
-            )
-            results = [
-                RetrievedChunk(
-                    chunk_id=row.id,
-                    text=row.text,
-                    score=float(row.score),
-                    law_id=row.source_id,
-                    law_title=row.law_title,
-                    article_title=row.article_title,
-                    block_id=row.block_id,
-                    jurisdiction=row.jurisdiction,
-                    citation_url=row.citation_url or "",
-                    fecha_vigencia=row.fecha_vigencia or "",
-                )
-                for row in rows
-            ]
+            results = await self._dense(session, filters, k=wanted, threshold=threshold)
 
         log.info(
             "retrieval.completed",
@@ -110,20 +101,44 @@ class Retriever:
         )
         return results
 
+    async def _dense(
+        self, session: AsyncSession, filters: Mapping[str, object], *, k: int, threshold: float
+    ) -> list[RetrievedChunk]:
+        rows = await session.execute(_DENSE_SEARCH, {**filters, "k": k, "min_score": threshold})
+        return [_chunk_of(row) for row in rows]
+
+
+def _chunk_of(row: object) -> RetrievedChunk:
+    return RetrievedChunk(
+        chunk_id=row.id,  # type: ignore[attr-defined]
+        text=row.text,  # type: ignore[attr-defined]
+        score=float(row.score),  # type: ignore[attr-defined]
+        law_id=row.source_id,  # type: ignore[attr-defined]
+        law_title=row.law_title,  # type: ignore[attr-defined]
+        article_title=row.article_title,  # type: ignore[attr-defined]
+        block_id=row.block_id,  # type: ignore[attr-defined]
+        jurisdiction=row.jurisdiction,  # type: ignore[attr-defined]
+        citation_url=row.citation_url or "",  # type: ignore[attr-defined]
+        fecha_vigencia=row.fecha_vigencia or "",  # type: ignore[attr-defined]
+    )
+
+
+_COLUMNS = """
+    c.id,
+    c.text,
+    c.article_title,
+    c.block_id,
+    c.metadata ->> 'citation_url' AS citation_url,
+    c.metadata ->> 'fecha_vigencia' AS fecha_vigencia,
+    d.source_id,
+    d.title AS law_title,
+    d.jurisdiction
+"""
 
 # Cosine distance is 0 (identical) to 2 (opposite), so the score is 1 - distance: a number that
 # grows with relevance, which is what a threshold should be read against.
-_SEARCH = text("""
-    SELECT
-        c.id,
-        c.text,
-        c.article_title,
-        c.block_id,
-        c.metadata ->> 'citation_url' AS citation_url,
-        c.metadata ->> 'fecha_vigencia' AS fecha_vigencia,
-        d.source_id,
-        d.title AS law_title,
-        d.jurisdiction,
+_DENSE_SEARCH = text(f"""
+    SELECT {_COLUMNS},
         1 - (c.embedding <=> CAST(:embedding AS vector)) AS score
     FROM chunks c
     JOIN documents d ON d.id = c.document_id

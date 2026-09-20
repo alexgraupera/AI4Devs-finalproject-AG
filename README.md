@@ -333,10 +333,11 @@ La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde
 | | Latencia | Coste |
 |---|---|---|
 | Recuperación (embedding de la pregunta) | ~220 ms (p95: 380 ms) | 0,0000003 $ |
-| Respuesta completa con citas | 1,7–2,9 s | ~0,005 $ |
+| Reranking de 20 candidatos a 5 | ~2,4 s | ~0,009 $ |
+| Respuesta completa con citas (todo incluido) | ~5 s | ~0,013 $ |
 | Rechazo sin llamar al modelo | 0,9 s | **0 $** |
 
-Lo que cuesta no es buscar, es el contexto que la búsqueda produce: unos 4.600 tokens de entrada por respuesta. Bajar `MAX_CONTEXT_CHARS` es la palanca si el gasto importa.
+Lo que cuesta no es buscar, es lo que un modelo tiene que leer: unos 7.000 tokens el reranking y 4.600 la generación. `RERANK_ENABLED=false` devuelve la respuesta a ~2 s y ~0,005 $, a cambio de 9 puntos de recall@1.
 
 **Calidad.** La salida se valida contra el esquema y, si no encaja, se le vuelve a pedir al modelo. El guardrail de salida descarta las incidencias que citan una norma fuera del checklist y recalcula el veredicto.
 
@@ -344,7 +345,8 @@ La recuperación **está medida**, no supuesta ([ADR 0012](docs/decisions/0012-r
 
 | | recall@1 | recall@3 | MRR | sin respuesta (fuera de dominio) |
 |---|---:|---:|---:|---:|
-| `dense-k5-t0.5` (configuración actual) | 82% | 95% | 0,871 | 86% |
+| `dense` (línea base) | 82% | 95% | 0,871 | 86% |
+| **`dense+rerank` (configuración actual)** | **91%** | **100%** | **0,955** | **86%** |
 
 Y el desglose que importa:
 
@@ -354,7 +356,19 @@ Y el desglose que importa:
 | Paráfrasis (como pregunta un propietario) | **8 / 12** |
 | Fuera de dominio | **6 / 7** |
 
-**Los cuatro fallos son paráfrasis.** Ninguna pregunta con lenguaje legal falla. El problema de este sistema no es la calidad de la recuperación en general: es que las palabras del usuario no son las de la ley. Eso es lo que la reformulación de consulta y la búsqueda híbrida tienen que arreglar, y ahora hay con qué comprobarlo:
+**Los cuatro fallos de la línea base eran paráfrasis.** Ninguna pregunta con lenguaje legal fallaba: el problema no era la recuperación en general, sino que las palabras del usuario no son las de la ley.
+
+Se atacó con tres técnicas y **dos de las tres hipótesis resultaron falsas** ([ADR 0013](docs/decisions/0013-advanced-retrieval-measured.md)):
+
+| Técnica | Resultado | Decisión |
+|---|---|---|
+| Búsqueda híbrida (full-text + vectorial) | recall@1 **baja** de 82% a 77% | **eliminada** |
+| Reformulación de consulta | recall sube, pero los rechazos **caen del 86% al 57%** | **eliminada** |
+| **Reranking con modelo** | recall@1 **82% → 91%**, rechazos intactos | **conservada** |
+
+El reranking funciona porque la recuperación va ancha (20 candidatos) y un modelo que **lee** los artículos elige los 5 mejores. Con 10 candidatos la mejora desaparece entera: el artículo que faltaba no está en el grupo, y no hay nada que rescatar. Cuesta ~2,4 s y ~0,009 $ por pregunta.
+
+Lo eliminado se ha borrado del código, no desactivado con un flag: una opción que nadie activa es coste de mantenimiento más una mentira en la configuración. Los números que lo justifican están en el ADR.
 
 ```bash
 make benchmark-retrieval

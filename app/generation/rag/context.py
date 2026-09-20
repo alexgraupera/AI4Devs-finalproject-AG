@@ -7,8 +7,10 @@ answers are quietly won or lost:
   citations from the retrieved set. That is what makes a citation impossible to invent.
 - **Deduplicated by article.** A long article split into pieces can come back twice; showing the
   same rule twice makes the model treat it as two rules.
-- **Ordered by score, and cut at the budget on a fragment boundary.** Half an article is a rule
-  without its exception.
+- **The order it is given is the order it keeps.** Whoever assembled the candidates ranked them:
+  the retriever by similarity, or the reranker by what a model judged after reading them.
+  Re-sorting here by score would quietly undo the reranker's entire job.
+- **Cut at the budget on a fragment boundary.** Half an article is a rule without its exception.
 - **The jurisdiction is stated.** A state law and a Catalan one can both apply, and the model
   cannot say which is which if the context does not say it.
 """
@@ -40,7 +42,7 @@ def build_context(chunks: list[RetrievedChunk], *, max_chars: int = DEFAULT_MAX_
     seen: set[tuple[str, str]] = set()
     budget = 0
 
-    for chunk in sorted(chunks, key=lambda c: c.score, reverse=True):
+    for chunk in chunks:
         article = (chunk.law_id, chunk.block_id)
         if article in seen:
             continue
