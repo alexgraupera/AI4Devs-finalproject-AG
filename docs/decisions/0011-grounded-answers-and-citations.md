@@ -43,3 +43,42 @@ Worth recording: the gastos-de-gestión question is the one #22 flagged as weak,
 - Two refusal paths cost differently ($0 and ~$0.002). Both are cheap, and the free one covers the questions furthest from the domain.
 - The citation check is structural, not semantic: it proves the cited article **was retrieved**, not that it **supports the sentence**. A model can still cite a real article for a claim that article does not make. That is the gap #26 closes with the grounding check, and it is the reason this ADR does not claim the answers are hallucination-free.
 - The refusal is a 200 with `has_answer: false`, not an error: not knowing is a valid outcome of a question, not a failure of the service.
+
+## Amendment, 2026-09-20 (#34): what hand testing found that the tests did not
+
+Three defects, all found by asking the running product the questions a landlord would ask, and
+none of them visible to either the unit tests or the retrieval benchmark.
+
+**1. An answer that contradicted its own opening.** "Mi casero me pide 3 meses de fianza, ¿puede?"
+was answered with "No, el casero no puede pedir 3 meses" and closed with "el máximo total sería
+tres meses". Every statement was true and the citation was real; the *structure* was wrong, and
+someone who reads the first sentence and stops — which is what people do — takes away the
+opposite of the conclusion. Fixed in prompt `v2`, which requires the first sentence to still be
+true after reading the last, forbids opening with a verdict the answer will walk back, and asks
+for "Depende de…" when the answer genuinely depends. It also asks the model to distinguish a
+term used colloquially (*fianza* as everything paid up front) from its strict legal sense.
+
+**2. The fragment numbers leaked into the prose.** `v2` made the model write "[38]" in the
+answer text, a number that means nothing to the reader. A prompt rule was added, and the service
+strips the markers as well: a rule a model follows most of the time is not a rule. Stripping
+happens **before** the answer is judged empty, because an answer that is nothing but markers is
+empty once they are gone.
+
+**3. A refusal that was a dead end.** "¿Debo declarar en la renta el alquiler?" is correctly
+refused — rental income tax lives in the IRPF law, which is deliberately not in the corpus — but
+the message only said "not found". It now names the four indexed laws and the areas that are out
+of scope, so the reader can tell "you asked badly" from "I do not read that".
+
+That question is also a good illustration of lexical ambiguity: *renta* means both the monthly
+rent and income tax, so the retrieval returned LAU articles 17 and 18 (*determinación* and
+*actualización de la renta*) at 0.54, above the threshold. The model read them, saw no tax rule
+and refused, for $0.005. The second line of defence is what caught it, which is the argument for
+having one.
+
+**Adding the IRPF law was considered and rejected**: rental taxation is reductions, deductions
+and regional variation, and a wrong tax answer costs the reader more than no answer.
+
+The lesson worth keeping: the benchmark of #24 measures what reaches the model, and the unit
+tests measure the plumbing. **Neither can see that an answer reads badly.** Until the evaluation
+suite of #4 judges generated answers, hand testing is the only instrument for that, and it found
+three real defects in twenty minutes.

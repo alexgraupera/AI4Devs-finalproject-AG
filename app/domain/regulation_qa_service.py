@@ -11,6 +11,7 @@ The order is the point, and so is what happens when a step finds nothing:
   worth less than an admission of ignorance, because the reader cannot tell them apart.
 """
 
+import re
 import time
 from decimal import Decimal
 
@@ -32,15 +33,27 @@ from app.generation.rag.retriever import RetrievedChunk, Retriever
 
 log = structlog.get_logger()
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 
 # Shown when the corpus does not answer the question. The same sentence for "nothing retrieved",
 # "the model said it cannot answer" and "the citations did not hold up": from the reader's side
 # they are the same fact, and distinguishing them would only hint at an answer we do not have.
+#
+# It names what the corpus does cover. A refusal that only says "not found" is a dead end:
+# someone asking about rental income tax cannot tell whether they phrased it badly or asked
+# about something outside the four laws this assistant reads.
 NO_ANSWER = (
-    "No he encontrado esta información en la normativa indexada. "
-    "Prueba a reformular la pregunta o consulta con un profesional."
+    "No he encontrado la respuesta en la normativa que tengo indexada, que es la Ley de "
+    "Arrendamientos Urbanos, la Ley 12/2023 por el derecho a la vivienda, el Real Decreto "
+    "390/2021 del certificado energético y la Ley 18/2007 del derecho a la vivienda de Cataluña. "
+    "Si tu pregunta es sobre fiscalidad, comunidades de propietarios o procedimientos judiciales, "
+    "queda fuera de lo que puedo consultar: pregunta a un profesional."
 )
+
+# The context numbers fragments so the model can cite them by id, and the model sometimes copies
+# that number into the prose. "[38]" means nothing to the person reading, so it is removed here
+# rather than hoped away in the prompt: a rule the model follows most of the time is not a rule.
+_CHUNK_MARKER = re.compile(r"\s*\[\s*\d+\s*\]")
 
 
 class RegulationQAService:
@@ -87,7 +100,10 @@ class RegulationQAService:
         candidate = completion.output
 
         citations = self._verified_citations(candidate, context)
-        answered = candidate.has_answer and bool(citations) and bool(candidate.answer.strip())
+        # Cleaned before it is judged: an answer that is nothing but fragment markers is empty
+        # once they are removed, and an empty answer is a refusal, not an answer.
+        answer = self._readable(candidate.answer)
+        answered = candidate.has_answer and bool(citations) and bool(answer)
 
         log.info(
             "regulations_qa.completed",
@@ -108,10 +124,17 @@ class RegulationQAService:
             return AnsweredQuestion(answer=self._no_answer(), usage=usage, retrieved=chunks)
 
         return AnsweredQuestion(
-            answer=RegulationAnswer(answer=candidate.answer.strip(), citations=citations, has_answer=True),
+            answer=RegulationAnswer(answer=answer, citations=citations, has_answer=True),
             usage=usage,
             retrieved=chunks,
         )
+
+    def _readable(self, answer: str) -> str:
+        """Strip the fragment numbers the model sometimes copies into the prose."""
+        cleaned = _CHUNK_MARKER.sub("", answer).strip()
+        if cleaned != answer.strip():
+            log.info("regulations_qa.stripped_chunk_marker", model=self._model)
+        return cleaned
 
     def _verified_citations(self, candidate: AnswerCandidate, context: Context) -> list[Citation]:
         """Resolve the cited numbers against what was actually retrieved, dropping the rest."""
