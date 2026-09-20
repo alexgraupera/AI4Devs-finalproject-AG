@@ -130,7 +130,22 @@ El paquete `app/` está organizado en capas por responsabilidad: `foundation/` (
 
 ### **2.5. Seguridad**
 
-> Enumera y describe las prácticas de seguridad principales que se han implementado en el proyecto, añadiendo ejemplos si procede
+**Guardrails de entrada.** Antes de gastar un solo token, el texto pasa cuatro capas, de la más barata a la más cara ([ADR 0004](docs/decisions/0004-guardrails.md)):
+
+| Capa | Qué rechaza | Coste |
+|---|---|---|
+| Tamaño | Vacío, menos de 50 caracteres, más de 5.000 | 0 |
+| Inyección de prompt | Patrones conocidos en español e inglés | 0 |
+| Datos personales | Emails, teléfonos e IBAN | 0 |
+| Moderación | Contenido de odio, violento o sexual | Llamada de red |
+
+Ninguna capa corrige el texto: todas rechazan y explican el motivo, porque quitar en silencio un email publicaría un anuncio que su autor no escribió. Un rechazo local tarda unos 4 ms.
+
+**Defensa en profundidad contra la inyección de prompt.** Las expresiones regulares son un primer corte que siempre será incompleto. La defensa real es el prompt `v2`: el anuncio llega entre etiquetas `<anuncio>` y el prompt declara que todo lo que hay dentro son datos que revisar, nunca instrucciones que obedecer, y que una instrucción encontrada ahí es una incidencia de calidad más. Probado contra la API real con una inyección que las regex no detectan: el sistema revisó el anuncio con normalidad y además señaló el intento.
+
+**Gestión de secretos.** Las claves solo llegan por variables de entorno. El fichero `.env` está en `.gitignore` y `.env.example` documenta las variables necesarias, sin valores.
+
+**Pendiente** (#5): token de servicio para todo el API, claves por router en los endpoints caros y límite de peticiones.
 
 ### **2.6. Tests**
 
@@ -165,7 +180,13 @@ El acceso al modelo pasa siempre por `LLMWrapper`, el único módulo que importa
 
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
-> Explica cómo se gestiona cada aspecto: latencia (modelos, streaming, caché), coste (elección de modelos, tokens, límites de gasto, coste estimado por petición), calidad (evaluación, ver sección 8) y seguridad (guardrails de entrada y salida, prompt injection, protección de credenciales).
+**Latencia.** Una revisión completa tarda unos 7 segundos con Claude Haiku 4.5. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. La caché (#12) eliminará la llamada al modelo en las revisiones repetidas.
+
+**Coste.** El modelo por defecto es el más barato de su familia, y la tarea (un texto corto, un esquema pequeño) no justifica otro más caro: media revisión cuesta del orden de medio céntimo. Las capas que no necesitan el modelo (tamaño, inyección, datos personales) ahorran la llamada entera. El límite de gasto está configurado en la consola del proveedor. El coste medido por petición llega en #10.
+
+**Calidad.** La salida se valida contra el esquema y, si no encaja, se le vuelve a pedir al modelo. El guardrail de salida descarta las incidencias que citan una norma fuera del checklist y recalcula el veredicto. La medición sistemática con métricas y casos de regresión llega en #4.
+
+**Seguridad.** Detallada en la sección 2.5: cuatro capas de entrada, el anuncio tratado como dato en el prompt, y los secretos solo por variables de entorno.
 
 ### **2.9. 🆕 Trazabilidad y observabilidad**
 

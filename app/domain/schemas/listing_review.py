@@ -59,3 +59,19 @@ class ListingReview(BaseModel):
     findings: list[Finding]
     verdict: Verdict = Field(description="request_changes when there is any finding of high severity")
     summary: str = Field(description="One or two sentences in Spanish summarising the review")
+
+
+class ReviewCandidate(BaseModel):
+    """What the model is asked to fill, before the guardrails have their say.
+
+    `is_rental_listing` is first on purpose: the model decides what it is looking at before it
+    starts producing findings about it.
+    """
+
+    is_rental_listing: bool = Field(description="False when the text is not a rental listing at all")
+    findings: list[Finding]
+    verdict: Verdict = Field(description="request_changes when there is any finding of high severity")
+    summary: str = Field(description="One or two sentences in Spanish summarising the review")
+
+    def to_review(self) -> ListingReview:
+        return ListingReview(findings=self.findings, verdict=self.verdict, summary=self.summary)
