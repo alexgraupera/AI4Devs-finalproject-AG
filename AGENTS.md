@@ -12,7 +12,7 @@ The system follows the course architecture: CAG → RAG → agents → evals →
 
 ## Stack
 
-- Python 3.11+ managed with `uv`.
+- Python 3.12+ managed with `uv`.
 - FastAPI + Uvicorn (AI service), Pydantic (contracts and LLM output validation).
 - Streamlit (UI).
 - PostgreSQL + pgvector (vector store).
@@ -21,9 +21,17 @@ The system follows the course architecture: CAG → RAG → agents → evals →
 
 ## Commands
 
-<!-- To be defined by the walking skeleton plan (#1). -->
+- `make install`: install dependencies (`uv sync`).
+- `make up` / `make down`: start / stop the whole stack with Docker Compose (API on `:8000`, UI on `:8501`).
+- `make api` / `make ui`: run the API or the UI locally with hot reload.
+- `make verify`: lint (ruff), format check (ruff), typecheck (mypy strict) and tests (pytest). Run it before every commit; CI runs it on every pull request.
 
-- Verification command (lint + typecheck + tests): _TBD_. Run it before every commit.
+## Project structure
+
+- `src/rental_assistant/`: application package, organised by module (`api/`, `ui/`, `config.py`; `listing_review/`, `llm/` and `prompts/` are added by the next phases).
+- `tests/`: tests mirroring the package structure.
+- `docs/decisions/`: architecture decision records.
+- `docs/data-sources/`: data source guides and runnable examples.
 
 ## Conventions
 

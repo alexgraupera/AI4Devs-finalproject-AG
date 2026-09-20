@@ -80,7 +80,9 @@ if __name__ == "__main__":
     wanted = sys.argv[2] if len(sys.argv) > 2 else "Artículo 36"
 
     metadata = fetch_metadata(law_id)
-    print(f"{metadata['titulo']} (updated {metadata['fecha_actualizacion']}, repealed: {metadata['estatus_derogacion']})")
+    print(
+        f"{metadata['titulo']} (updated {metadata['fecha_actualizacion']}, repealed: {metadata['estatus_derogacion']})"
+    )
 
     articles = fetch_articles(law_id)
     print(f"{len(articles)} articles in force, {sum(len(a.text) for a in articles):,} characters\n")

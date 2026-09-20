@@ -47,7 +47,11 @@ def _address(dt: dict) -> str:
 
 def _properties(result: dict) -> list[Property]:
     # One match comes as `bico.bi`; several matches come as `lrcdnp.rcdnp` (e.g. every flat of a building).
-    items = [result["bico"]["bi"] | {"rc": result["bico"]["bi"]["idbi"]["rc"]}] if "bico" in result else result["lrcdnp"]["rcdnp"]
+    items = (
+        [result["bico"]["bi"] | {"rc": result["bico"]["bi"]["idbi"]["rc"]}]
+        if "bico" in result
+        else result["lrcdnp"]["rcdnp"]
+    )
     return [
         Property(
             cadastral_reference="".join(item["rc"][k] for k in ("pc1", "pc2", "car", "cc1", "cc2")),

@@ -59,6 +59,29 @@ https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `final
 ### **1.4. Instrucciones de instalación:**
 > Documenta de manera precisa las instrucciones para instalar y poner en marcha el proyecto en local (librerías, backend, frontend, servidor, base de datos, migraciones y semillas de datos, etc.)
 
+**Requisitos:** [Docker](https://docs.docker.com/get-docker/) con Docker Compose. Para desarrollar sin Docker: [uv](https://docs.astral.sh/uv/) (instala Python 3.12 automáticamente) y `make`.
+
+**Con Docker (recomendado):**
+
+```bash
+git clone https://github.com/alexgraupera/AI4Devs-finalproject-AG.git
+cd AI4Devs-finalproject-AG
+cp .env.example .env    # añade tus API keys cuando las fases que usan LLM lo requieran
+make up                 # equivale a: docker compose up --build
+```
+
+- Interfaz (Streamlit): http://localhost:8501
+- API (FastAPI): http://localhost:8000 · documentación OpenAPI en http://localhost:8000/docs
+
+**Sin Docker (desarrollo):**
+
+```bash
+make install   # uv sync
+make api       # API con recarga automática en :8000
+make ui        # en otra terminal: interfaz en :8501
+make verify    # lint, formato, tipos y tests
+```
+
 ---
 
 ## 2. Arquitectura del Sistema
@@ -76,6 +99,24 @@ https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `final
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
 > Representa la estructura del proyecto y explica brevemente el propósito de las carpetas principales, así como si obedece a algún patrón o arquitectura específica.
+
+```
+.
+├── src/rental_assistant/     # Paquete de la aplicación, organizado por módulos
+│   ├── api/                  # Servicio FastAPI (endpoints HTTP)
+│   ├── ui/                   # Interfaz Streamlit
+│   └── config.py             # Configuración a partir de variables de entorno
+├── tests/                    # Tests, con la misma estructura que el paquete
+├── docs/
+│   ├── data-sources/         # Guías y ejemplos ejecutables de las fuentes de datos públicas
+│   └── decisions/            # Registro de decisiones de arquitectura (ADR)
+├── Dockerfile                # Imagen única para la API y la interfaz
+├── docker-compose.yml        # Servicios api (:8000) y ui (:8501)
+├── Makefile                  # Comandos de desarrollo y verificación
+└── .github/workflows/ci.yml  # CI: make verify en cada pull request
+```
+
+La aplicación separa la interfaz (Streamlit) del servicio de IA (FastAPI): la interfaz solo consume la API por HTTP, de modo que la lógica de IA se puede probar, desplegar y reutilizar de forma independiente. Dentro del paquete, cada módulo agrupa una responsabilidad; las siguientes fases añaden `listing_review/` (dominio y caso de uso), `llm/` (abstracción del proveedor) y `prompts/` (prompts versionados). Decisión detallada en [ADR 0001](docs/decisions/0001-stack-and-project-structure.md).
 
 ### **2.4. Infraestructura y despliegue**
 
