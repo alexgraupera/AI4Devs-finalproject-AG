@@ -36,7 +36,7 @@ This document maps **every session of the programme** to where its content lives
 |---|---|---|---|
 | S2: first CAG steps | FastAPI scaffolding, what CAG is, context management, scalable architecture | `app/`, layering | ✅ #7 |
 | S3: model wrapper patterns | Provider abstraction and fallback (LiteLLM Router), smart caching, streaming, observability | `app/foundation/llm/wrapper.py`, `app/foundation/observability/` | 🔜 #1 (phases 4 and 5); streaming ⏭️ |
-| S4: advanced AI products | Product interface, backend prompt templates (Jinja2), structured extraction (Instructor), guardrails, semantic cache | `app/foundation/prompts/`, `app/foundation/guardrails/`, `app/generation/cag/` | 🔜 #1 (phases 2, 3, 5) and #13 |
+| S4: advanced AI products | Product interface, backend prompt templates (Jinja2), structured extraction (Instructor), guardrails, semantic cache | `app/foundation/prompts/`, `app/foundation/guardrails/`, `app/generation/cag/` | 🔜 #1 (phases 2, 3, 5) and #14 |
 | S5: advanced features | Conversational memory, tier prompts, testing and evaluation of LLM systems, **Actor-Critic-Boss** | `app/generation/agentic/` (ACB), `evals/` | 🔜 #3, #4; memory and tier ⏭️ |
 
 **Out of scope here, and why**
