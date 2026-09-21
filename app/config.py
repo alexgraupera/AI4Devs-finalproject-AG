@@ -49,6 +49,18 @@ class Settings(BaseSettings):
     rerank_enabled: bool = True
     rerank_pool: int = 20
 
+    # A model checks that the cited articles actually support the answer's claims. Empty-ish
+    # only in the sense that it can be turned off: leaving it on is the point of the layer.
+    grounding_enabled: bool = True
+    # Share of an answer's claims the cited articles must support. Measured, not assumed: see ADR 0014.
+    grounding_min_confidence: float = 0.7
+
+    # Retrieval endpoints. Empty RAG_API_KEY leaves them open, which is right for local
+    # development and logged as a warning so it is never a silent state in production.
+    rag_api_key: str = ""
+    rate_limit_requests: int = 30
+    rate_limit_window_seconds: int = 60
+
     # Only read to decide whether the moderation layer can run; the providers read their own keys.
     openai_api_key: str = ""
 

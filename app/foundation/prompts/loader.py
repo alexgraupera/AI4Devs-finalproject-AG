@@ -56,3 +56,10 @@ def render_regulations_rerank_prompt(question: str, candidates: str, version: st
     system = _env.get_template(f"regulations_rerank/{version}/system.j2").render()
     user = _env.get_template(f"regulations_rerank/{version}/user.j2").render(question=question, candidates=candidates)
     return system, user
+
+
+def render_regulations_grounding_prompt(answer: str, sources: str, version: str = "v1") -> tuple[str, str]:
+    """Render the prompts that check an answer against the articles it cites."""
+    system = _env.get_template(f"regulations_grounding/{version}/system.j2").render()
+    user = _env.get_template(f"regulations_grounding/{version}/user.j2").render(answer=answer, sources=sources)
+    return system, user

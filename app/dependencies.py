@@ -14,6 +14,7 @@ from app.domain.listing_review_service import ListingReviewService
 from app.domain.regulation_qa_service import RegulationQAService
 from app.foundation.guardrails.input import ModerationClient
 from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMModeration
+from app.foundation.guardrails.rate_limit import NoRateLimit, RateLimiter, RedisRateLimiter
 from app.foundation.llm.wrapper import LLMWrapper, build_router
 from app.foundation.persistence.database import create_engine, session_factory
 from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
@@ -97,6 +98,18 @@ def get_retriever() -> Retriever:
 
 
 @lru_cache
+def get_rate_limiter() -> RateLimiter:
+    settings = get_settings()
+    if not settings.redis_url:
+        return NoRateLimit()
+    return RedisRateLimiter.from_url(
+        settings.redis_url,
+        requests=settings.rate_limit_requests,
+        window_seconds=settings.rate_limit_window_seconds,
+    )
+
+
+@lru_cache
 def get_reranker() -> Reranker | None:
     settings = get_settings()
     if not settings.rerank_enabled:
@@ -112,6 +125,8 @@ def get_regulation_qa_service() -> RegulationQAService:
         retriever=get_retriever(),
         moderation=get_moderation_client(),
         reranker=get_reranker(),
+        check_claims=settings.grounding_enabled,
+        min_confidence=settings.grounding_min_confidence,
         model=settings.llm_model,
         top_k=settings.retrieval_top_k,
         rerank_pool=settings.rerank_pool,

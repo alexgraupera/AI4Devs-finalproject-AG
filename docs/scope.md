@@ -39,9 +39,9 @@ Answer without calling the model when an equivalent review already exists.
 | Reranking with a model that reads the candidates (recall@1 82% → 91%) | ✅ #25 |
 | Hybrid search: built, measured, **deleted** (it made retrieval worse) | ✅ #25 |
 | Answers grounded in the retrieved context, with verifiable citations | ✅ #23 |
-| Hallucination checks over the generated answer | 🔜 #26 |
+| Hallucination checks over the generated answer (out-of-domain refusals 86% → 100%) | ✅ #26 |
 | Corpus drift detection: a weekly check opens an issue when the BOE updates a source | ✅ #28 |
-| Retrieval endpoints secured with an API key and rate limited | 🔜 #26 |
+| Retrieval endpoints secured with an API key and rate limited | ✅ #26 |
 
 ### Agents
 
@@ -91,7 +91,7 @@ Each of these is listed in the README as a next step, with the condition that wo
 | Branch `finalproject-AG` and tag `v1.0-final-AG` | This repository | 🔜 #5 |
 | `README.md` with domain, architecture, components, setup and limitations | [`README.md`](../README.md) | 🔜 updated by every phase |
 | AI service in FastAPI | `app/` | ✅ #7 |
-| RAG pipeline over real data | `app/ingestion/`, `app/generation/rag/` | 🔜 #2 (corpus ingested) |
+| RAG pipeline over real data | `app/ingestion/`, `app/generation/rag/` | ✅ #2 |
 | Agent layer with function calling and orchestration | `app/generation/agentic/`, `app/domain/graph/` | 🔜 #3 |
 | Documented evals: metrics, test set and at least one regression case | `evals/` | 🔜 #4 |
 | Deployment: public URL or a 2-3 min video | `docs/deployment.md` | 🔜 #5 |
