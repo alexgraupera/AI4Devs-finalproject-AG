@@ -7,8 +7,9 @@ on, the message is for the person to read, so it is written in Spanish.
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.domain.errors import CorpusUnavailable, LLMUnavailable, NotAListing, ReviewGenerationError
+from app.domain.errors import CorpusUnavailable, LLMUnavailable, NotAListing, ReviewGenerationError, Unauthorized
 from app.foundation.guardrails.input import InputGuardrailViolation
+from app.foundation.guardrails.rate_limit import RateLimited
 
 MESSAGES: dict[str, str] = {
     "empty_text": "El texto está vacío",
@@ -21,14 +22,18 @@ MESSAGES: dict[str, str] = {
     "review_generation_failed": "No se ha podido generar la revisión. Inténtalo de nuevo.",
     "llm_unavailable": "El servicio de IA no está disponible en este momento",
     "corpus_unavailable": "La normativa no está disponible en este momento",
+    "unauthorized": "Clave de acceso no válida",
+    "rate_limited": "Demasiadas consultas seguidas. Espera unos segundos y vuelve a intentarlo.",
 }
 
 
-def error_response(code: str, status_code: int, *, limit: int | None = None) -> JSONResponse:
+def error_response(
+    code: str, status_code: int, *, limit: int | None = None, headers: dict[str, str] | None = None
+) -> JSONResponse:
     # The limit differs per use case (a listing may be 5,000 characters, a question 1,000), so
     # the message names the number that was actually broken instead of a hardcoded one.
     message = MESSAGES[code].format(limit=f"{limit:,}".replace(",", ".")) if limit is not None else MESSAGES[code]
-    return JSONResponse(status_code=status_code, content={"error": {"code": code, "message": message}})
+    return JSONResponse(status_code=status_code, content={"error": {"code": code, "message": message}}, headers=headers)
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -51,3 +56,13 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(CorpusUnavailable)
     async def _corpus(_: Request, error: CorpusUnavailable) -> JSONResponse:
         return error_response("corpus_unavailable", status_code=503)
+
+    @app.exception_handler(Unauthorized)
+    async def _unauthorized(_: Request, error: Unauthorized) -> JSONResponse:
+        return error_response("unauthorized", status_code=401)
+
+    @app.exception_handler(RateLimited)
+    async def _rate_limited(_: Request, error: RateLimited) -> JSONResponse:
+        # Retry-After tells a well-behaved client exactly how long to wait, instead of leaving
+        # it to guess and retry into the same wall.
+        return error_response("rate_limited", status_code=429, headers={"Retry-After": str(error.retry_after)})

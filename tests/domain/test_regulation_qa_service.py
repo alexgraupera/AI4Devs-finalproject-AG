@@ -1,3 +1,4 @@
+from dataclasses import replace
 from decimal import Decimal
 from typing import TypeVar
 
@@ -6,6 +7,7 @@ from pydantic import BaseModel
 
 from app.domain.regulation_qa_service import NO_ANSWER, RegulationQAService
 from app.domain.schemas.regulation_answer import AnswerCandidate, RegulationQuestion
+from app.foundation.guardrails.grounding import CheckedClaim, GroundingReport
 from app.foundation.guardrails.input import InputGuardrailViolation
 from app.foundation.llm.usage import LLMUsage, StructuredCompletion
 from app.generation.rag.rerank import Reranked
@@ -20,6 +22,15 @@ A_USAGE = LLMUsage(
     output_tokens=200,
     latency_ms=900,
     estimated_cost_usd=Decimal("0.0030"),
+)
+
+A_GROUNDING_USAGE = LLMUsage(
+    provider="anthropic",
+    model="claude-haiku-4-5",
+    input_tokens=1_500,
+    output_tokens=120,
+    latency_ms=800,
+    estimated_cost_usd=Decimal("0.0021"),
 )
 
 A_RERANK_USAGE = LLMUsage(
@@ -60,12 +71,26 @@ class FakeRetriever:
 
 
 class FakeLLM:
-    def __init__(self, candidate: AnswerCandidate) -> None:
+    """The conductor makes two different calls: the answer, and the grounding check on it.
+
+    The double answers by schema, so the tests exercise the same two-call path as production
+    instead of a simplified one.
+    """
+
+    def __init__(self, candidate: AnswerCandidate, grounded: bool = True) -> None:
         self.candidate = candidate
+        self.grounded = grounded
         self.calls = 0
+        self.grounding_calls = 0
         self.prompts: list[tuple[str, str]] = []
 
     async def complete_structured(self, *, system: str, user: str, schema: type[T]) -> StructuredCompletion[T]:
+        if schema is GroundingReport:
+            self.grounding_calls += 1
+            claim = CheckedClaim(claim="La fianza es de una mensualidad", supported=self.grounded)
+            report = GroundingReport(claims=[claim])
+            return StructuredCompletion(output=report, usage=A_GROUNDING_USAGE)  # type: ignore[arg-type]
+
         self.calls += 1
         self.prompts.append((system, user))
         return StructuredCompletion(output=self.candidate, usage=A_USAGE)  # type: ignore[arg-type]
@@ -305,5 +330,61 @@ async def test_the_reported_cost_includes_the_reranking() -> None:
     # Reporting only the generation would make the cost dashboard of #4 quietly wrong.
     answered = await service_with_reranker(FakeLLM(a_candidate()), FakeRetriever(), FakeReranker()).ask(A_QUESTION)
 
-    assert answered.usage.input_tokens == 2_000 + 7_000
-    assert answered.usage.estimated_cost_usd == Decimal("0.0030") + Decimal("0.0086")
+    assert answered.usage.input_tokens == 2_000 + 7_000 + 1_500
+    assert answered.usage.estimated_cost_usd == Decimal("0.0030") + Decimal("0.0086") + Decimal("0.0021")
+
+
+async def test_an_answer_the_cited_article_does_not_support_is_downgraded() -> None:
+    # The citation resolves and the link opens: only the grounding check can see this one.
+    llm = FakeLLM(a_candidate(answer="La fianza es de tres mensualidades."), grounded=False)
+
+    answered = await service(llm, FakeRetriever()).ask(A_QUESTION)
+
+    assert not answered.answer.has_answer
+    assert answered.answer.answer == NO_ANSWER
+    assert answered.answer.citations == []
+    assert llm.grounding_calls == 1
+
+
+async def test_the_grounding_check_is_paid_for_and_reported() -> None:
+    llm = FakeLLM(a_candidate())
+
+    answered = await service(llm, FakeRetriever()).ask(A_QUESTION)
+
+    assert answered.answer.has_answer
+    assert answered.usage.input_tokens == 2_000 + 1_500
+
+
+async def test_the_check_can_be_turned_off() -> None:
+    llm = FakeLLM(a_candidate(), grounded=False)
+
+    answered = await RegulationQAService(
+        llm=llm,
+        retriever=FakeRetriever(),  # type: ignore[arg-type]
+        check_claims=False,
+        model="claude-haiku-4-5",
+    ).ask(A_QUESTION)
+
+    assert answered.answer.has_answer
+    assert llm.grounding_calls == 0
+
+
+async def test_a_refusal_never_reaches_the_grounding_check() -> None:
+    # Nothing was published, so there is nothing to verify and nothing to pay for.
+    llm = FakeLLM(a_candidate(cited=[999]))
+
+    await service(llm, FakeRetriever()).ask(A_QUESTION)
+
+    assert llm.grounding_calls == 0
+
+
+async def test_articles_from_two_jurisdictions_are_labelled_for_the_model() -> None:
+    chunks = [a_chunk(36), a_chunk(61, block_id="a61", score=0.7)]
+    catalan = replace(chunks[1], law_id="BOE-A-2008-3657", jurisdiction="catalonia", law_title="Ley 18/2007")
+    llm = FakeLLM(a_candidate())
+
+    await service(llm, FakeRetriever([chunks[0], catalan])).ask(A_QUESTION)
+
+    _, user = llm.prompts[0]
+    assert "normativa estatal" in user
+    assert "normativa de Cataluña" in user

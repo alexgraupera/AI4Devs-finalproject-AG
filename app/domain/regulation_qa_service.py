@@ -9,6 +9,9 @@ The order is the point, and so is what happens when a step finds nothing:
   numbers it was shown; anything else is invention.
 - An answer left with no valid citation becomes "I don't know". An answer nobody can check is
   worth less than an admission of ignorance, because the reader cannot tell them apart.
+- An answer whose claims the cited articles do not actually support becomes "I don't know" too.
+  Citing a real article for a rule it does not contain is the failure everything upstream is
+  blind to: the retrieval was right, the citation resolves, the link opens.
 """
 
 import re
@@ -24,6 +27,7 @@ from app.domain.schemas.regulation_answer import (
     RegulationAnswer,
     RegulationQuestion,
 )
+from app.foundation.guardrails.grounding import DEFAULT_MIN_CONFIDENCE, check_grounding
 from app.foundation.guardrails.input import QUESTION, ModerationClient, check_input
 from app.foundation.llm.usage import LLMUsage, combined
 from app.foundation.llm.wrapper import StructuredLLM
@@ -65,6 +69,8 @@ class RegulationQAService:
         moderation: ModerationClient | None = None,
         *,
         reranker: Reranker | None = None,
+        check_claims: bool = True,
+        min_confidence: float = DEFAULT_MIN_CONFIDENCE,
         model: str = "",
         prompt_version: str = PROMPT_VERSION,
         top_k: int | None = None,
@@ -76,6 +82,8 @@ class RegulationQAService:
         self._retriever = retriever
         self._moderation = moderation
         self._reranker = reranker
+        self._check_claims = check_claims
+        self._min_confidence = min_confidence
         self._rerank_pool = rerank_pool
         self._model = model
         self._prompt_version = prompt_version
@@ -137,11 +145,22 @@ class RegulationQAService:
         if not answered:
             return AnsweredQuestion(answer=self._no_answer(), usage=usage, retrieved=chunks)
 
-        return AnsweredQuestion(
-            answer=RegulationAnswer(answer=answer, citations=citations, has_answer=True),
-            usage=usage,
-            retrieved=chunks,
-        )
+        published = RegulationAnswer(answer=answer, citations=citations, has_answer=True)
+
+        if self._check_claims:
+            verdict = await check_grounding(published, context, self._llm, min_confidence=self._min_confidence)
+            usage = combined(usage, verdict.usage)
+            if not verdict.supported:
+                log.warning(
+                    "regulations_qa.grounding_failed",
+                    model=self._model,
+                    confidence=verdict.confidence,
+                    rejected_by=verdict.rejected_by,
+                    unsupported=verdict.unsupported_claims,
+                )
+                return AnsweredQuestion(answer=self._no_answer(), usage=usage, retrieved=chunks)
+
+        return AnsweredQuestion(answer=published, usage=usage, retrieved=chunks)
 
     def _readable(self, answer: str) -> str:
         """Strip the fragment numbers the model sometimes copies into the prose."""

@@ -15,3 +15,7 @@ class LLMUnavailable(Exception):
 
 class CorpusUnavailable(Exception):
     """The regulation corpus is not configured or not reachable: nothing to retrieve from."""
+
+
+class Unauthorized(Exception):
+    """The caller did not present a valid API key for the retrieval endpoints."""

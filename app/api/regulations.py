@@ -10,12 +10,15 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.api.security import enforce_rate_limit
 from app.dependencies import get_regulation_qa_service, get_retriever
 from app.domain.regulation_qa_service import RegulationQAService
 from app.domain.schemas.regulation_answer import AnsweredQuestion, Citation, RegulationQuestion
 from app.generation.rag.retriever import RetrievedChunk, Retriever
 
-router = APIRouter(prefix="/api/v1/regulations", tags=["regulations"])
+# The guards are on the router, so an endpoint added here is protected by being here. The
+# rate limiter depends on the API key check, so both run in the right order from one dependency.
+router = APIRouter(prefix="/api/v1/regulations", tags=["regulations"], dependencies=[Depends(enforce_rate_limit)])
 
 
 class SearchRequest(BaseModel):

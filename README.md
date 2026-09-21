@@ -197,7 +197,18 @@ Ninguna capa corrige el texto: todas rechazan y explican el motivo, porque quita
 
 **Gestión de secretos.** Las claves solo llegan por variables de entorno. El fichero `.env` está en `.gitignore` y `.env.example` documenta las variables necesarias, sin valores.
 
-**Pendiente** (#5): token de servicio para todo el API, claves por router en los endpoints caros y límite de peticiones.
+**El corpus no es un endpoint abierto.** Los endpoints de normativa (`/search` y `/ask`) están detrás de dos guardas a nivel de router, de modo que un endpoint nuevo bajo `/regulations` queda protegido por estar ahí, no por acordarse ([ADR 0014](docs/decisions/0014-grounding-and-retrieval-security.md)):
+
+| Guarda | Qué hace |
+|---|---|
+| `X-API-Key` | Clave ausente y clave errónea devuelven el **mismo** 401: decirle a un atacante cuál de las dos era es información gratis |
+| Límite de peticiones | Ventana fija sobre Redis, 30/minuto por clave (o por IP si no hay clave), con `Retry-After` en el 429 |
+
+`/health` queda fuera a propósito: una sonda que necesita un secreto deja de funcionar el día que el secreto rota. Y `RAG_API_KEY` vacía deja el corpus abierto —correcto en local— **registrando un aviso en cada petición**, para que nunca sea un estado silencioso en producción.
+
+El limitador **nunca tumba el servicio**: si Redis no responde, la petición pasa y se registra el fallo. Un limitador que convierte la caída de una dependencia opcional en la caída del producto tiene las prioridades al revés.
+
+**Pendiente** (#5): token de servicio para todo el API, claves por llamante con rotación y cuotas.
 
 ### **2.6. Tests**
 
@@ -314,7 +325,20 @@ Medido de punta a punta contra el corpus y el modelo reales:
 
 Detalles y límites en [ADR 0011](docs/decisions/0011-grounded-answers-and-citations.md).
 
-**Control de alucinación y securización (pendiente)**: la verificación actual es estructural (el artículo citado **se recuperó**), no semántica (el artículo **sostiene** la frase). Esa diferencia la cierra la fase de grounding.
+**Verificación de que el artículo sostiene la frase (implementado)**
+
+La comprobación de citas es *estructural*: demuestra que el artículo citado se recuperó. Un modelo todavía puede citar un artículo real, con enlace que funciona, para una regla que ese artículo no contiene, y ese fallo es invisible para todo lo anterior. Solo leyendo ambos se detecta.
+
+Un juez lee los artículos citados y la respuesta, extrae las afirmaciones jurídicas y marca cuáles están sostenidas. Dos comprobaciones deterministas van antes y no cuestan nada: sin citas, o citando un fragmento que no está en el contexto, se rechaza sin preguntar a nadie.
+
+**La política que puse primero era incorrecta, y la medición lo dijo.** Rechazar por *cualquier* afirmación no sostenida tiraba el **23% de las respuestas correctas**, casi siempre por frases de encuadre o por afirmaciones negativas que ningún fragmento puede sostener. Ahora es un umbral de confianza del 0,7 y el prompt excluye esos casos:
+
+| | Antes | Después |
+|---|---|---|
+| Preguntas respondibles contestadas | 100% | **91%** |
+| Preguntas fuera de dominio rechazadas | 86% | **100%** |
+
+Ese 100% es lo importante: la fuga que el [ADR 0012](docs/decisions/0012-retrieval-baseline-and-tuning.md) aceptó a sabiendas queda cerrada por el otro lado. Una respuesta que el artículo citado no sostiene no se publica, diga lo que diga la puntuación de similitud.
 
 **Agentes (pendiente)**: un agente con function calling que decide qué consultar (normativa, Catastro, precio de mercado) y un paso crítico que descarta las incidencias sin cita.
 
@@ -334,7 +358,8 @@ La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde
 |---|---|---|
 | Recuperación (embedding de la pregunta) | ~220 ms (p95: 380 ms) | 0,0000003 $ |
 | Reranking de 20 candidatos a 5 | ~2,4 s | ~0,009 $ |
-| Respuesta completa con citas (todo incluido) | ~5 s | ~0,013 $ |
+| Verificación de que los artículos sostienen la respuesta | ~0,8 s | ~0,001 $ |
+| Respuesta completa con citas (todo incluido) | **~5,8 s** | **~0,014 $** |
 | Rechazo sin llamar al modelo | 0,9 s | **0 $** |
 
 Lo que cuesta no es buscar, es lo que un modelo tiene que leer: unos 7.000 tokens el reranking y 4.600 la generación. `RERANK_ENABLED=false` devuelve la respuesta a ~2 s y ~0,005 $, a cambio de 9 puntos de recall@1.
@@ -394,6 +419,8 @@ Con esos campos se responde a lo que importa cuando algo va mal: qué versión d
 El coste suma **todos los intentos**, no solo el último. Cuando el modelo devuelve algo que no encaja en el esquema, se le vuelve a pedir, y ese viaje también se paga: contar solo el intento final haría que un modelo que se equivoca a menudo pareciera más barato de lo que es. El campo `attempts` separa las dos causas de una subida de coste: más tokens o más reintentos. El dashboard y las evals de #4 se construyen contando estos eventos, no leyéndolos.
 
 Los guardrails registran también lo suyo: `guardrail.moderation_unavailable` cuando el clasificador falla y se sigue adelante, y `guardrail.dropped_finding` cuando se descarta una incidencia que citaba una norma fuera del checklist.
+
+La capa RAG registra lo suyo con la misma intención de que se pueda **contar**: `regulations_qa.invented_citation` cuando el modelo cita un fragmento que no se recuperó, `regulations_qa.grounding_failed` con las afirmaciones concretas que el artículo no sostenía, `regulations_qa.no_context` cuando no se llama al modelo porque no había nada que leer, y `rate_limit.exceeded` / `security.rejected` en la capa de acceso. El coste de una respuesta suma **las tres llamadas** (reranking, generación y verificación): informar solo de la generación dejaría el panel de costes callada pero sistemáticamente equivocado.
 
 ### **2.10. 🆕 Decisiones técnicas**
 
@@ -595,4 +622,14 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 ## 9. 🆕 Limitaciones conocidas y próximos pasos
 
 > Enumera las limitaciones actuales del sistema y cómo se resolverían, incluyendo cómo se integraría en un marketplace inmobiliario real.
+
+**El corpus son cuatro normas.** LAU, Ley 12/2023, RD 390/2021 y la ley catalana de vivienda. La fiscalidad del alquiler (IRPF), las comunidades de propietarios, los procedimientos judiciales y la normativa de las otras quince comunidades autónomas **no están**, y el asistente lo dice en vez de improvisar. Ampliarlo es añadir líneas a `app/ingestion/sources.py`; cada norma nueva cuesta unos milésimos de dólar en embeddings.
+
+**Las resoluciones de zonas tensionadas se añaden a mano.** El BOE no publica una lista consolidada legible por máquina, así que cada trimestre alguien tiene que añadir el identificador nuevo. El detector de deriva semanal avisa de las leyes que cambian, no de las resoluciones que aparecen.
+
+**El juez que verifica es el mismo modelo barato que escribe.** Se equivoca a veces en ambos sentidos: midiendo sobre 22 preguntas marcó como no sostenida una afirmación que sí estaba en el artículo. Un juez más capaz costaría más por pregunta; ese trade no está medido.
+
+**El set dorado son 29 preguntas.** Suficiente para decidir entre técnicas cuyas diferencias son grandes, insuficiente para afinar. Una pregunta que se mueve cambia el recall tres puntos.
+
+**La clave de acceso es un secreto compartido.** Claves por llamante, rotación y cuotas son parte del endurecimiento de producción (#5).
 

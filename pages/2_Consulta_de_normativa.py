@@ -31,8 +31,10 @@ def is_api_available(api_url: str) -> bool:
 
 def ask(api_url: str, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
     """Returns (answer, error message). The API already words its errors for the person reading."""
+    # The retrieval endpoints are behind an API key when one is configured.
+    headers = {"X-API-Key": get_settings().rag_api_key} if get_settings().rag_api_key else {}
     try:
-        response = httpx.post(f"{api_url}/api/v1/regulations/ask", json=payload, timeout=120)
+        response = httpx.post(f"{api_url}/api/v1/regulations/ask", json=payload, headers=headers, timeout=120)
     except httpx.HTTPError:
         return None, UNEXPECTED_ERROR
 
