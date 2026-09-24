@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -82,6 +82,19 @@ class Settings(BaseSettings):
     # providers read their own keys from the environment.
     openai_api_key: str = ""
     anthropic_api_key: str = ""
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_the_async_driver(cls, url: str) -> str:
+        """Platforms hand out `postgres://` or `postgresql://`; the service speaks asyncpg.
+
+        Normalised here, once, so the API, the migrations and the ingestion all read the same URL
+        instead of each one learning the platform's spelling.
+        """
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+asyncpg://" + url.removeprefix(prefix)
+        return url
 
     @model_validator(mode="after")
     def _adopt_the_old_key_name(self) -> "Settings":

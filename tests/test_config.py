@@ -54,3 +54,20 @@ def test_the_refusal_names_the_setting_and_never_a_value() -> None:
         create_app(production(api_key=""))
 
     assert str(refused.value) == "production cannot start without: API_KEY"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgres://rental:secret@db:5432/rental",
+        "postgresql://rental:secret@db:5432/rental",
+        "postgresql+asyncpg://rental:secret@db:5432/rental",
+    ],
+)
+def test_the_database_url_always_uses_the_async_driver(url: str) -> None:
+    # Hosting platforms hand out the plain spelling; the service speaks asyncpg.
+    assert Settings(database_url=url).database_url == "postgresql+asyncpg://rental:secret@db:5432/rental"
+
+
+def test_an_empty_database_url_stays_empty() -> None:
+    assert Settings(database_url="").database_url == ""

@@ -6,7 +6,7 @@ HTTP and holds no business logic of its own.
 
 import streamlit as st
 
-from ui_api import api_url, is_api_available
+from ui_api import WAKING_UP, api_url, is_api_available
 
 st.set_page_config(page_title="Asistente de alquiler", page_icon="🏠")
 st.title("Asistente de alquiler")
@@ -25,7 +25,9 @@ st.markdown(
     """
 )
 
-if is_api_available():
+with st.spinner(WAKING_UP):
+    available = is_api_available()
+if available:
     st.caption(f"API conectada en {api_url()}")
 else:
     st.error("API no disponible")

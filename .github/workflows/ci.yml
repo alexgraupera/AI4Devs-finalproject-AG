@@ -38,3 +38,16 @@ jobs:
           enable-cache: true
       - run: uv sync --locked
       - run: make verify
+
+  # The repository must never hold a secret, and a pull request is the last cheap moment to catch
+  # one: after the merge it lives in the history for good. The whole history is scanned, not just
+  # the diff, so a key committed and then deleted is still found.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
