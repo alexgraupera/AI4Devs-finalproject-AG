@@ -252,11 +252,13 @@ Medido con la misma revisión repetida:
 
 Un acierto se marca como tal (`cached: true`, proveedor `cache`) en vez de volver a imputar el coste original. Si Redis falla, se trata como fallo de caché y la revisión sigue: la caché es una optimización, no una dependencia. Sin `REDIS_URL` el sistema funciona igual, sin caché. Detalles en [ADR 0007](docs/decisions/0007-exact-match-cache.md).
 
-**Caché semántica (pendiente)**: acierto por similitud para los casos en que el mismo piso se describe con otras palabras.
+**Caché semántica: medida y descartada.** Serviría la revisión de un anuncio a otro «parecido», y en este dominio lo parecido es justo lo peligroso. Medido con pares de anuncios: el mismo piso con **una fianza de dos meses en lugar de una** se parece más al original (0,996) que el mismo piso con las frases reordenadas (0,912). Cualquier umbral que ahorre llamadas le daría una revisión limpia a un anuncio ilegal, porque los cambios que alteran el veredicto son los más pequeños que existen: una palabra o un número ([ADR 0019](docs/decisions/0019-no-semantic-cache.md), `make benchmark-semantic-cache`).
 
 **RAG: corpus ingestado (implementado)**
 
 El checklist del prompt cubre lo que siempre hay que comprobar; el RAG cubre lo que hay que consultar. El corpus del BOE vive en la base de datos, troceado por artículo y embebido.
+
+**Por qué recuperar y no meter toda la normativa en el prompt.** El corpus completo son **187.883 tokens** de Claude: el 94% de la ventana de Haiku 4.5 antes de añadir la pregunta, cuando la regla práctica es no pasar del 50-70%. Costaría ~0,19 $ por pregunta frente a los 0,016 $ medidos con RAG, y una pregunta fuera de dominio, que hoy se rechaza sin llamar al modelo (0 $), costaría lo mismo que una buena. El fine-tuning tampoco encaja: no hay datos con los que entrenar, la ley cambia varias veces al año y un modelo entrenado no puede citar de dónde saca nada ([ADR 0016](docs/decisions/0016-rag-not-cag-or-fine-tuning.md)).
 
 ```
 make ingest
@@ -284,13 +286,17 @@ Los 380 fragmentos tienen vector en pgvector y se buscan por similitud coseno co
 
 | | Medido sobre el corpus real |
 |---|---|
-| Indexación completa | 154.287 tokens · **0,0031 $** · 7,2 s |
+| Indexación completa | 154.287 tokens · **0,0201 $** · 9,5 s |
 | Reindexación rutinaria | 0 $ (solo se embebe lo que cambió) |
 | Una búsqueda | ~250 ms, dominados por la llamada al proveedor |
 
 `POST /api/v1/regulations/search` devuelve los fragmentos **con su puntuación**, antes de que ningún modelo los convierta en prosa: la calidad de la recuperación se ve, no se intuye.
 
-**El umbral está medido, no elegido a ojo.** Con 16 preguntas, las de dominio puntúan entre 0,598 y 0,782 y las ajenas entre 0,148 y 0,403, así que `RETRIEVAL_MIN_SCORE=0.5` cae en mitad del hueco. Por debajo de ese umbral no se devuelve nada, aunque eso deje la lista vacía: entregar tres artículos irrelevantes a un modelo es pedirle que invente. Detalles en [ADR 0010](docs/decisions/0010-embedding-model-and-index.md).
+**El modelo de embeddings está medido, no heredado.** `text-embedding-3-large` recortado a 1.536 dimensiones (cabe en la misma columna, sin migración) frente a `text-embedding-3-small`, cada uno con su umbral: de punta a punta, las preguntas respondidas pasan del 82% al **91%** y las que citan el artículo esperado del 77% al **86%**, con los rechazos fuera de dominio intactos (100%) y un 8% más de coste por pregunta ([ADR 0015](docs/decisions/0015-embedding-model-measured.md)).
+
+**El umbral es de cada modelo.** El modelo grande puntúa todo más bajo: con el 0,5 del pequeño, dos paráfrasis se quedaban sin ningún artículo. Barrido sobre el set dorado, `RETRIEVAL_MIN_SCORE=0.40` conserva todas las preguntas respondibles y deja pasar la misma pregunta fuera de dominio que ya dejaba el pequeño, que la generación y la verificación rechazan después. Por debajo del umbral no se devuelve nada, aunque eso deje la lista vacía: entregar tres artículos irrelevantes a un modelo es pedirle que invente.
+
+**El índice no se ajusta, y está medido por qué.** Con 380 fragmentos el planificador de PostgreSQL ni usa el índice HNSW: hace una búsqueda exacta (recall del 100% por definición) en 4,4 ms. Ajustar `ef_search` sería afinar algo que no se lee; el ADR 0015 dice a partir de qué tamaño y cómo.
 
 **Cada vector sabe qué modelo lo hizo.** `EMBEDDING_MODEL` es configuración, y la búsqueda solo compara fragmentos embebidos con el modelo configurado: mezclar dos espacios vectoriales en un índice no falla, simplemente devuelve ruido. Cambiar de modelo es una variable más `make embed`.
 
@@ -359,7 +365,7 @@ La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde
 | Recuperación (embedding de la pregunta) | ~220 ms (p95: 380 ms) | 0,0000003 $ |
 | Reranking de 20 candidatos a 5 | ~2,4 s | ~0,009 $ |
 | Verificación de que los artículos sostienen la respuesta | ~0,8 s | ~0,001 $ |
-| Respuesta completa con citas (todo incluido) | **~5,8 s** | **~0,014 $** |
+| Respuesta completa con citas (todo incluido) | **~6-9 s** (p50, según la carga del proveedor) | **~0,016 $** |
 | Rechazo sin llamar al modelo | 0,9 s | **0 $** |
 
 Lo que cuesta no es buscar, es lo que un modelo tiene que leer: unos 7.000 tokens el reranking y 4.600 la generación. `RERANK_ENABLED=false` devuelve la respuesta a ~2 s y ~0,005 $, a cambio de 9 puntos de recall@1.
@@ -370,8 +376,12 @@ La recuperación **está medida**, no supuesta ([ADR 0012](docs/decisions/0012-r
 
 | | recall@1 | recall@3 | MRR | sin respuesta (fuera de dominio) |
 |---|---:|---:|---:|---:|
-| `dense` (línea base) | 82% | 95% | 0,871 | 86% |
-| **`dense+rerank` (configuración actual)** | **91%** | **100%** | **0,955** | **86%** |
+| `dense`, `text-embedding-3-small` (línea base) | 82% | 95% | 0,871 | 86% |
+| `dense+rerank`, `text-embedding-3-small` | 86-91% | 100% | 0,924-0,955 | 86% |
+| `dense`, `text-embedding-3-large` | 86% | 100% | 0,932 | 86% |
+| **`dense+rerank`, `text-embedding-3-large` (configuración actual)** | **95%** | **100%** | **0,977** | **86%** |
+
+El reranking es un modelo y varía entre ejecuciones: por eso su fila del modelo pequeño es un rango (ADR 0013 y ADR 0015).
 
 Y el desglose que importa:
 
@@ -425,6 +435,30 @@ La capa RAG registra lo suyo con la misma intención de que se pueda **contar**:
 ### **2.10. 🆕 Decisiones técnicas**
 
 > Resume las decisiones clave y enlaza su justificación en [`docs/decisions/`](docs/decisions/) (contexto, alternativas, decisión y consecuencias).
+
+Cada decisión tiene su registro con el contexto, las alternativas, lo que se midió y las consecuencias. Varias se tomaron **al revés de lo que se esperaba**, porque la medición lo dijo: están marcadas con ⚠️.
+
+| ADR | Decisión |
+|---|---|
+| [0001](docs/decisions/0001-stack-and-project-structure.md) | Python + FastAPI + Streamlit, capas por responsabilidad y arquitecturas de IA que solo se componen en el conductor |
+| [0002](docs/decisions/0002-prompt-strategy-and-checklist.md) | El checklist normativo va en el prompt (CAG); la pregunta abierta, a recuperación |
+| [0003](docs/decisions/0003-review-output-schema.md) | Esquema de la revisión: hallazgos antes que veredicto, severidad como enum |
+| [0004](docs/decisions/0004-guardrails.md) | Cuatro capas de entrada, de la más barata a la más cara, que rechazan y nunca corrigen |
+| [0005](docs/decisions/0005-provider-fallback-cost-and-observability.md) | Anthropic con fallback a OpenAI, coste por llamada con tabla propia y logs estructurados |
+| [0006](docs/decisions/0006-llm-wrapper-litellm-instructor.md) | Una sola puerta al LLM: LiteLLM + Instructor |
+| [0007](docs/decisions/0007-exact-match-cache.md) | Caché exacta con la clave sobre los prompts completos, no sobre el anuncio |
+| [0008](docs/decisions/0008-vector-store-and-migrations.md) | PostgreSQL + pgvector y esquema en migraciones escritas a mano |
+| [0009](docs/decisions/0009-chunking-strategy.md) | Un fragmento por artículo, medido contra el troceo por tamaño fijo |
+| [0010](docs/decisions/0010-embedding-model-and-index.md) | HNSW coseno y el modelo de embeddings por fila (modelo y umbral sustituidos por 0015) |
+| [0011](docs/decisions/0011-grounded-answers-and-citations.md) | El modelo nunca escribe una cita: devuelve números que el servicio resuelve |
+| [0012](docs/decisions/0012-retrieval-baseline-and-tuning.md) | Set dorado de 29 preguntas en tres familias, y top-k y umbral ajustados con él |
+| [0013](docs/decisions/0013-advanced-retrieval-measured.md) | ⚠️ Búsqueda híbrida y reformulación medidas y **eliminadas**; reranking conservado |
+| [0014](docs/decisions/0014-grounding-and-retrieval-security.md) | ⚠️ Verificación de que el artículo sostiene la respuesta, con umbral y no todo-o-nada |
+| [0015](docs/decisions/0015-embedding-model-measured.md) | `text-embedding-3-large` a 1.536 dimensiones con su umbral; por qué no se ajusta el índice |
+| [0016](docs/decisions/0016-rag-not-cag-or-fine-tuning.md) | Por qué RAG y no toda la normativa en el prompt ni fine-tuning |
+| [0017](docs/decisions/0017-api-not-mcp.md) | Una API HTTP y no un servidor MCP; dónde entrarían MCP y A2A |
+| [0018](docs/decisions/0018-data-privacy-and-providers.md) | Qué datos llegan a qué proveedor, y por qué los personales se rechazan en la puerta |
+| [0019](docs/decisions/0019-no-semantic-cache.md) | ⚠️ Caché semántica medida y **descartada**: serviría la revisión equivocada |
 
 ---
 
@@ -632,6 +666,10 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 **El juez que verifica es el mismo modelo barato que escribe.** Se equivoca a veces en ambos sentidos: midiendo sobre 22 preguntas marcó como no sostenida una afirmación que sí estaba en el artículo. Un juez más capaz costaría más por pregunta; ese trade no está medido.
 
 **El set dorado son 29 preguntas.** Suficiente para decidir entre técnicas cuyas diferencias son grandes, insuficiente para afinar. Una pregunta que se mueve cambia el recall tres puntos.
+
+**Los datos personales se detectan a medias.** Emails, teléfonos e IBAN se rechazan antes de llamar a nadie; nombres, DNI/NIE y direcciones no se detectan. El siguiente paso es Presidio con reconocedores españoles, enmascarando lo que el anuncio no necesita ([ADR 0018](docs/decisions/0018-data-privacy-and-providers.md)).
+
+**Una API, todavía no un agente para otros agentes.** El servicio se consume por HTTP. Ofrecerlo por MCP para uso interno o por A2A a los agentes de otros portales sería un adaptador sobre la misma API, con sus propias credenciales ([ADR 0017](docs/decisions/0017-api-not-mcp.md)).
 
 **La clave de acceso es un secreto compartido.** Claves por llamante, rotación y cuotas son parte del endurecimiento de producción (#5).
 

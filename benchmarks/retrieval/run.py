@@ -5,7 +5,7 @@ opinion and becomes a row in a table. Phase #25 registers its variants here and 
 moves these numbers.
 
     python -m benchmarks.retrieval.run
-    python -m benchmarks.retrieval.run --variant dense-k5-t0.5
+    python -m benchmarks.retrieval.run --variant dense
 """
 
 import argparse
@@ -43,7 +43,7 @@ class RetrievalVariant:
 
     name: str
     k: int = 5
-    min_score: float = 0.5
+    min_score: float = 0.40
     rerank: bool = False
     # How many candidates the reranker reorders. It is the reranker's cost knob: the context it
     # reads is roughly 350 tokens per candidate.
@@ -80,7 +80,7 @@ class BenchmarkResult:
 # The baseline first, then one variant per technique, then the combinations worth trying. Every
 # one goes through the same harness: that is what turns "hybrid is better" into a row in a table.
 VARIANTS: tuple[RetrievalVariant, ...] = (
-    RetrievalVariant(name="dense", k=5, min_score=0.5),
+    RetrievalVariant(name="dense", k=5, min_score=0.40),
     RetrievalVariant(name="dense+rerank-10", rerank=True, rerank_pool=10),
     RetrievalVariant(name="dense+rerank-20", rerank=True, rerank_pool=20),
 )

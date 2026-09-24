@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 log = structlog.get_logger()
 
-DEFAULT_MODEL = "openai/text-embedding-3-small"
+DEFAULT_MODEL = "openai/text-embedding-3-large"
 DEFAULT_DIMENSIONS = 1536
 DEFAULT_BATCH_SIZE = 100
 

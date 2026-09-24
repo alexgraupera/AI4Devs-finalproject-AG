@@ -30,15 +30,16 @@ class Settings(BaseSettings):
 
     # Stored with every vector. Changing the model re-embeds the corpus instead of mixing two
     # vector spaces in one index; changing the dimensions also needs a migration (the column is typed).
-    embedding_model: str = "openai/text-embedding-3-small"
+    embedding_model: str = "openai/text-embedding-3-large"
     embedding_dimensions: int = 1536
     embedding_batch_size: int = 100
 
     retrieval_top_k: int = 5
-    # Below this cosine score a result is noise. Measured on 16 questions: in-domain scores land
-    # between 0.598 and 0.782, out-of-domain between 0.148 and 0.403, so 0.5 sits in the middle
-    # of the gap. Provisional until the benchmark of #24 measures it properly (ADR 0010).
-    retrieval_min_score: float = 0.5
+    # Below this cosine score a result is noise. A threshold belongs to an embedding model: the
+    # large model scores everything lower, and at 0.5 it dropped two answerable questions. Swept
+    # over the golden set in ADR 0015: 0.40 keeps every answerable question and refuses as many
+    # out-of-domain ones as 0.5 did with the small model.
+    retrieval_min_score: float = 0.40
     # Character budget for the retrieved articles handed to the model.
     max_context_chars: int = 12_000
 
