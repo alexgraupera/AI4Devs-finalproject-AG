@@ -216,11 +216,11 @@ El limitador **nunca tumba el servicio**: si Redis no responde, la petición pas
 
 ### **2.7. 🆕 Arquitectura de IA: CAG → RAG → agentes**
 
-El sistema apila tres arquitecturas que **no se conocen entre sí**: solo componen en el servicio conductor (`app/domain/listing_review_service.py`). Hoy está construida la primera.
+El sistema apila tres arquitecturas que **no se conocen entre sí**: solo componen en los servicios conductores de `app/domain/`. CAG y RAG están construidos; los agentes, que usan ambos a la vez, son la capa siguiente (#3).
 
-**Generación con conocimiento en el prompt (implementado)**
+**CAG: conocimiento en el prompt (implementado)**
 
-El conocimiento de la revisión es un checklist corto y estable: cinco puntos normativos, cada uno con el artículo que lo respalda, más criterios de calidad del anuncio. Vive en el prompt de sistema, versionado en `app/foundation/prompts/listing_review/v1/`, y no en el código ni en una base de datos. El flujo de una revisión es:
+En el sentido del curso, CAG es el prompt ensamblado con conocimiento estable más la caché que evita preguntar dos veces. El conocimiento de la revisión es un checklist corto y estable: cinco puntos normativos, cada uno con el artículo que lo respalda, más criterios de calidad del anuncio. Vive en el prompt de sistema, versionado en `app/foundation/prompts/listing_review/v1/`, y no en el código ni en una base de datos. El flujo de una revisión es:
 
 ```
 POST /api/v1/listings/review
@@ -254,9 +254,9 @@ Un acierto se marca como tal (`cached: true`, proveedor `cache`) en vez de volve
 
 **Caché semántica (pendiente)**: acierto por similitud para los casos en que el mismo piso se describe con otras palabras.
 
-**RAG — corpus ingestado (en construcción)**
+**RAG: corpus ingestado (implementado)**
 
-El checklist del prompt cubre lo que siempre hay que comprobar; el RAG cubre lo que hay que consultar. La primera mitad ya está: el corpus del BOE vive en la base de datos, troceado y listo para embeber.
+El checklist del prompt cubre lo que siempre hay que comprobar; el RAG cubre lo que hay que consultar. El corpus del BOE vive en la base de datos, troceado por artículo y embebido.
 
 ```
 make ingest
@@ -344,7 +344,7 @@ Ese 100% es lo importante: la fuga que el [ADR 0012](docs/decisions/0012-retriev
 
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
-**Latencia.** Una revisión completa tarda unos 6 segundos con Claude Haiku 4.5 y unos 3 con GPT-5.4 mini. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. La caché (#12) eliminará la llamada al modelo en las revisiones repetidas.
+**Latencia.** Una revisión completa tarda unos 6 segundos con Claude Haiku 4.5 y unos 3 con GPT-5.4 mini. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. Una revisión repetida la sirve la caché exacta en ~1 ms, sin llamar al modelo.
 
 **Coste.** La revisión más barata es la que no se pide: un acierto de caché cuesta 0 $ y 1 ms. Para el resto, cada revisión informa de lo que ha costado, calculado con una tabla de precios propia a partir del modelo que respondió de verdad. Medido sobre el mismo anuncio: **0,0057 $ con Claude Haiku 4.5** (2.340 + 678 tokens) y **0,0030 $ con GPT-5.4 mini** (1.176 + 464 tokens). Las capas que no necesitan el modelo (tamaño, inyección, datos personales) ahorran la llamada entera, y el límite de gasto está configurado en la consola del proveedor.
 
@@ -615,7 +615,9 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 
 ## 8. 🆕 Evaluación (evals)
 
-> Describe la suite de evaluación: test sets, métricas (retrieval, generación, detección de defectos, latencia y coste), rúbrica del LLM-as-judge, casos de regresión y resultados por iteración. Detalle en [`docs/evals.md`](docs/evals.md).
+> Describe la suite de evaluación: test sets, métricas (retrieval, generación, detección de defectos, latencia y coste), rúbrica del LLM-as-judge, casos de regresión y resultados por iteración. El detalle irá en `docs/evals.md`, que llega con la suite de evaluación (#4).
+
+**Hoy está medida la recuperación.** Un set dorado de 29 preguntas en tres familias (lenguaje legal, paráfrasis y fuera de dominio) con recall@k, MRR y tasa de no-respuesta, ejecutable con `make benchmark-retrieval` ([`benchmarks/retrieval/`](benchmarks/retrieval/README.md)). Con él se ajustaron el umbral y el top-k ([ADR 0012](docs/decisions/0012-retrieval-baseline-and-tuning.md)), se eliminaron la búsqueda híbrida y la reformulación y se conservó el reranking ([ADR 0013](docs/decisions/0013-advanced-retrieval-measured.md)), y se calibró la verificación de citas ([ADR 0014](docs/decisions/0014-grounding-and-retrieval-security.md)). Los resultados están en la sección 2.8.
 
 ---
 

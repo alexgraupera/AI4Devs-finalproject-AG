@@ -44,13 +44,6 @@ def render_regulations_qa_prompt(question: str, context: str, version: str = "v1
     return system, user
 
 
-def render_regulations_query_prompt(question: str, version: str = "v1") -> tuple[str, str]:
-    """Render the prompts that rewrite a question into the vocabulary of the regulations."""
-    system = _env.get_template(f"regulations_query/{version}/system.j2").render()
-    user = _env.get_template(f"regulations_query/{version}/user.j2").render(question=question)
-    return system, user
-
-
 def render_regulations_rerank_prompt(question: str, candidates: str, version: str = "v1") -> tuple[str, str]:
     """Render the prompts that score retrieved fragments against the question."""
     system = _env.get_template(f"regulations_rerank/{version}/system.j2").render()

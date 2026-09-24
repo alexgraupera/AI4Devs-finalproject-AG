@@ -8,12 +8,13 @@ This document states what the system covers, what it deliberately does not, and 
 
 ## Capabilities
 
-### CAG — caches
+### CAG: knowledge in the prompt, and caches in front of it
 
-Answer without calling the model when an equivalent review already exists.
+As in the course, CAG is the prompt assembled from stable knowledge plus the cache that avoids asking twice. Here the stable knowledge is the regulatory checklist: five legal points, each with the article that backs it, small and stable enough to travel in every prompt instead of being retrieved.
 
 | Capability | Status |
 |---|---|
+| Regulatory checklist in the versioned system prompt, with a closed set of citable articles | ✅ #8 |
 | Exact-match cache (SHA-256 over the full prompts and generation parameters, with TTL) | ✅ #12 |
 | Semantic cache over the review embeddings, with a justified similarity threshold | 🔜 #14 |
 
