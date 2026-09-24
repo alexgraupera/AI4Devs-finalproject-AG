@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.config import Settings, get_settings
-from app.dependencies import get_rate_limiter, get_retriever
+from app.dependencies import get_listing_review_service, get_rate_limiter, get_retriever
 from app.foundation.guardrails.rate_limit import NoRateLimit, RateLimited, RedisRateLimiter
 from app.main import create_app
 
@@ -42,7 +42,7 @@ def app() -> Iterator[FastAPI]:
 
 def guarded(app: FastAPI, *, key: str = A_KEY) -> TestClient:
     app.dependency_overrides[get_rate_limiter] = NoRateLimit
-    app.dependency_overrides[get_settings] = lambda: Settings(rag_api_key=key)
+    app.dependency_overrides[get_settings] = lambda: Settings(api_key=key)
     return TestClient(app)
 
 
@@ -112,11 +112,74 @@ def test_the_message_is_written_for_the_person_reading_it(app: FastAPI) -> None:
     )
 
 
+def test_the_listing_review_is_guarded_too(app: FastAPI) -> None:
+    # The most-called endpoint, and every call is a model call: the one an open door costs most.
+    app.dependency_overrides[get_listing_review_service] = lambda: None
+    response = guarded(app).post("/api/v1/listings/review", json={"text": "Piso en Chamberí"})
+
+    assert response.status_code == 401
+
+
+def test_the_old_key_name_still_configures_the_key() -> None:
+    assert Settings(rag_api_key="old-name").api_key == "old-name"
+
+
+def test_the_new_key_name_wins_over_the_old_one() -> None:
+    assert Settings(api_key="new", rag_api_key="old").api_key == "new"
+
+
 def test_health_is_not_behind_the_guards(app: FastAPI) -> None:
     # A probe that needs a secret stops working the day the secret rotates.
     app.dependency_overrides[get_rate_limiter] = lambda: CountingLimiter(allowed=0)
 
     assert TestClient(app).get("/health").status_code == 200
+
+
+# ── The service token ───────────────────────────────────────────────────────────────────────
+
+A_TOKEN = "the-service-token"
+
+
+@pytest.fixture
+def tokened() -> Iterator[TestClient]:
+    application = create_app(Settings(service_token=A_TOKEN))
+    application.dependency_overrides[get_retriever] = FakeRetriever
+    application.dependency_overrides[get_rate_limiter] = NoRateLimit
+    yield TestClient(application)
+    application.dependency_overrides.clear()
+
+
+def test_a_request_without_the_service_token_is_rejected(tokened: TestClient) -> None:
+    response = tokened.post(SEARCH, json=A_QUERY)
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "unauthorized"
+
+
+def test_a_wrong_token_gets_the_same_answer_as_a_missing_one(tokened: TestClient) -> None:
+    missing = tokened.post(SEARCH, json=A_QUERY)
+    wrong = tokened.post(SEARCH, json=A_QUERY, headers={"X-Service-Token": "not-it"})
+
+    assert wrong.status_code == missing.status_code == 401
+    assert wrong.json() == missing.json()
+
+
+def test_the_right_token_passes_through(tokened: TestClient) -> None:
+    response = tokened.post(SEARCH, json=A_QUERY, headers={"X-Service-Token": A_TOKEN})
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("path", ["/health", "/openapi.json", "/docs"])
+def test_the_probes_and_the_docs_do_not_need_the_token(tokened: TestClient, path: str) -> None:
+    assert tokened.get(path).status_code == 200
+
+
+def test_without_a_configured_token_no_token_is_asked_for(app: FastAPI) -> None:
+    # Development. Production refuses to start without one: see test_config.
+    app.dependency_overrides[get_rate_limiter] = NoRateLimit
+
+    assert TestClient(app).post(SEARCH, json=A_QUERY).status_code == 200
 
 
 # ── The limiter itself ───────────────────────────────────────────────────────────────────────

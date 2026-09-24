@@ -76,8 +76,12 @@ make up                 # equivale a: docker compose up --build
 
 `make up` levanta también la base de datos del corpus y **aplica las migraciones al arrancar el
 contenedor de la API**: no hay ningún paso manual, un contenedor que arranca es un contenedor
-cuyo esquema corresponde al código que ejecuta. Puedes comprobarlo en `GET /health`, que
-informa del estado del almacén (`ok`, `unavailable` o `disabled`).
+cuyo esquema corresponde al código que ejecuta. Puedes comprobarlo en `GET /ready`, que
+informa del estado del almacén, de la caché y del presupuesto del día (`GET /health` solo dice si
+el proceso está vivo, a propósito). Todos los puertos se publican solo en `127.0.0.1`.
+
+Para probar la seguridad en local, define en `.env` `API_KEY` y `SERVICE_TOKEN`: la API los exige
+y la interfaz los envía. Vacíos, la API queda abierta y avisa en cada petición.
 
 **Sin Docker (desarrollo):**
 
@@ -110,7 +114,7 @@ los compara con [`corpus.lock.json`](corpus.lock.json) y **abre una issue** si a
 movido. Ejecutar `make ingest` y commitear el `corpus.lock.json` actualizado cierra el ciclo.
 
 La base de datos es **opcional** mientras trabajas en la revisión de anuncios: sin
-`DATABASE_URL` el servicio arranca igual y `/health` responde `"database": "disabled"`. Para
+`DATABASE_URL` el servicio arranca igual y `/ready` responde `"database": "disabled"`. Para
 usarla en local, levanta solo la base con `docker compose up -d db` y exporta:
 
 ```bash
@@ -197,18 +201,24 @@ Ninguna capa corrige el texto: todas rechazan y explican el motivo, porque quita
 
 **Gestión de secretos.** Las claves solo llegan por variables de entorno. El fichero `.env` está en `.gitignore` y `.env.example` documenta las variables necesarias, sin valores.
 
-**El corpus no es un endpoint abierto.** Los endpoints de normativa (`/search` y `/ask`) están detrás de dos guardas a nivel de router, de modo que un endpoint nuevo bajo `/regulations` queda protegido por estar ahí, no por acordarse ([ADR 0014](docs/decisions/0014-grounding-and-retrieval-security.md)):
+**Dos capas de acceso, para que exponer el servicio requiera dos errores y no uno** ([ADR 0014](docs/decisions/0014-grounding-and-retrieval-security.md), [ADR 0020](docs/decisions/0020-access-spend-and-probes.md)):
 
-| Guarda | Qué hace |
-|---|---|
-| `X-API-Key` | Clave ausente y clave errónea devuelven el **mismo** 401: decirle a un atacante cuál de las dos era es información gratis |
-| Límite de peticiones | Ventana fija sobre Redis, 30/minuto por clave (o por IP si no hay clave), con `Retry-After` en el 429 |
+| Guarda | Dónde | Qué hace |
+|---|---|---|
+| `X-Service-Token` | Middleware sobre toda la API | ¿Puedes hablar con este servicio? Solo lo tiene la interfaz, como lo tendría el backend de un marketplace |
+| `X-API-Key` | Cada router de negocio, revisión incluida | ¿Qué endpoints puedes usar? Un endpoint nuevo bajo un router protegido queda protegido por estar ahí |
+| Límite de peticiones | Los mismos routers | Ventana fija sobre Redis, 30/minuto por clave, con `Retry-After` en el 429 |
+| Tope de gasto diario | Antes de cada llamada a un modelo | Al llegar a `DAILY_SPEND_CAP_USD` (2 $ por defecto) deja de llamar a modelos hasta medianoche UTC y responde 503 |
 
-`/health` queda fuera a propósito: una sonda que necesita un secreto deja de funcionar el día que el secreto rota. Y `RAG_API_KEY` vacía deja el corpus abierto —correcto en local— **registrando un aviso en cada petición**, para que nunca sea un estado silencioso en producción.
+Las comparaciones son de tiempo constante, y un secreto ausente y uno erróneo reciben el **mismo** 401: decirle a un atacante cuál de las dos era es información gratis. Las sondas y la documentación OpenAPI quedan fuera a propósito: una sonda que necesita un secreto deja de funcionar el día que el secreto rota.
 
-El limitador **nunca tumba el servicio**: si Redis no responde, la petición pasa y se registra el fallo. Un limitador que convierte la caída de una dependencia opcional en la caída del producto tiene las prioridades al revés.
+**En producción no arranca sin secretos.** Con `ENVIRONMENT=production`, una clave, el token, un proveedor, la base de datos o Redis vacíos impiden arrancar, nombrando lo que falta y nunca un valor. Un token vacío no falla más tarde: compara igual que la cabecera vacía de cualquiera y abre la puerta sin avisar. En desarrollo arranca igual y avisa en cada petición.
 
-**Pendiente** (#5): token de servicio para todo el API, claves por llamante con rotación y cuotas.
+**El tope de gasto para, no avisa**, porque puede que nadie esté mirando cuando un bucle o el script de otro empieza a gastar. Una revisión cacheada se sirve aunque el presupuesto esté agotado, porque no cuesta nada.
+
+El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la petición pasa y se registra el fallo. Convertir la caída de una dependencia opcional en la caída del producto tiene las prioridades al revés.
+
+**Sondas.** `/health` dice si el proceso está vivo y no toca nada: una sonda de vida que consulta la base de datos reinicia un servicio sano cada vez que la base tose. `/ready` dice si puede atender ahora (base de datos, caché y presupuesto) y responde 503 con `Retry-After` cuando no: es motivo para esperar, no para reiniciar.
 
 ### **2.6. Tests**
 
@@ -352,7 +362,7 @@ Ese 100% es lo importante: la fuga que el [ADR 0012](docs/decisions/0012-retriev
 
 **Latencia.** Una revisión completa tarda unos 6 segundos con Claude Haiku 4.5 y unos 3 con GPT-5.4 mini. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. Una revisión repetida la sirve la caché exacta en ~1 ms, sin llamar al modelo.
 
-**Coste.** La revisión más barata es la que no se pide: un acierto de caché cuesta 0 $ y 1 ms. Para el resto, cada revisión informa de lo que ha costado, calculado con una tabla de precios propia a partir del modelo que respondió de verdad. Medido sobre el mismo anuncio: **0,0057 $ con Claude Haiku 4.5** (2.340 + 678 tokens) y **0,0030 $ con GPT-5.4 mini** (1.176 + 464 tokens). Las capas que no necesitan el modelo (tamaño, inyección, datos personales) ahorran la llamada entera, y el límite de gasto está configurado en la consola del proveedor.
+**Coste.** La revisión más barata es la que no se pide: un acierto de caché cuesta 0 $ y 1 ms. Para el resto, cada revisión informa de lo que ha costado, calculado con una tabla de precios propia a partir del modelo que respondió de verdad. Medido sobre el mismo anuncio: **0,0057 $ con Claude Haiku 4.5** (2.340 + 678 tokens) y **0,0030 $ con GPT-5.4 mini** (1.176 + 464 tokens). Las capas que no necesitan el modelo (tamaño, inyección, datos personales) ahorran la llamada entera. El gasto del día tiene un tope propio que corta las llamadas al llegar a él (2 $ por defecto, unas 350 revisiones), y el límite de la consola del proveedor queda como última línea.
 
 La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde con la versión fechada del modelo (`claude-haiku-4-5-20251001`) y una búsqueda exacta fallaría y cobraría cero. Un modelo desconocido devuelve coste vacío y deja un aviso en el log: un hueco es honesto, un cero es mentira.
 
@@ -459,6 +469,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0017](docs/decisions/0017-api-not-mcp.md) | Una API HTTP y no un servidor MCP; dónde entrarían MCP y A2A |
 | [0018](docs/decisions/0018-data-privacy-and-providers.md) | Qué datos llegan a qué proveedor, y por qué los personales se rechazan en la puerta |
 | [0019](docs/decisions/0019-no-semantic-cache.md) | ⚠️ Caché semántica medida y **descartada**: serviría la revisión equivocada |
+| [0020](docs/decisions/0020-access-spend-and-probes.md) | Token de servicio y claves por router, tope de gasto diario que corta, arranque que falla sin secretos, vida ≠ disponibilidad |
 
 ---
 
@@ -539,7 +550,8 @@ La especificación completa se genera sola y está en `http://localhost:8000/doc
 | `POST /api/v1/listings/review` | Revisa un anuncio de alquiler y devuelve incidencias, veredicto y coste |
 | `POST /api/v1/regulations/search` | Busca en la normativa y devuelve los fragmentos con su puntuación |
 | `POST /api/v1/regulations/ask` | Responde una pregunta sobre normativa con citas verificables al BOE |
-| `GET /health` | Estado del servicio y del almacén del corpus |
+| `GET /health` | Sonda de vida: el proceso responde (sin tocar nada) |
+| `GET /ready` | Sonda de disponibilidad: base de datos, caché y presupuesto del día; 503 si no puede atender |
 
 ```yaml
 paths:
@@ -589,7 +601,7 @@ paths:
           description: La petición no cumple el esquema
   /health:
     get:
-      summary: Sonda de salud del servicio
+      summary: Sonda de vida del proceso
       responses:
         "200":
           description: Servicio operativo
@@ -671,5 +683,5 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 
 **Una API, todavía no un agente para otros agentes.** El servicio se consume por HTTP. Ofrecerlo por MCP para uso interno o por A2A a los agentes de otros portales sería un adaptador sobre la misma API, con sus propias credenciales ([ADR 0017](docs/decisions/0017-api-not-mcp.md)).
 
-**La clave de acceso es un secreto compartido.** Claves por llamante, rotación y cuotas son parte del endurecimiento de producción (#5).
+**La clave de acceso es un secreto compartido.** Detrás de la interfaz, todos los visitantes comparten la clave de la interfaz, así que el límite de peticiones es global en la demo pública (el tope de gasto es el límite real). Límites por visitante exigirían que la interfaz reenviara una identidad del visitante en la que la API confiara porque el token avala a la interfaz; claves por llamante con rotación y cuotas son el siguiente paso con más de un cliente.
 

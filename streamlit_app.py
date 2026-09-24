@@ -4,10 +4,9 @@ This file only says what the product is and where the API is; each page talks to
 HTTP and holds no business logic of its own.
 """
 
-import httpx
 import streamlit as st
 
-from app.config import get_settings
+from ui_api import api_url, is_api_available
 
 st.set_page_config(page_title="Asistente de alquiler", page_icon="🏠")
 st.title("Asistente de alquiler")
@@ -26,13 +25,7 @@ st.markdown(
     """
 )
 
-api_url = get_settings().api_url
-try:
-    healthy = httpx.get(f"{api_url}/health", timeout=2).status_code == 200
-except httpx.HTTPError:
-    healthy = False
-
-if healthy:
-    st.caption(f"API conectada en {api_url}")
+if is_api_available():
+    st.caption(f"API conectada en {api_url()}")
 else:
     st.error("API no disponible")

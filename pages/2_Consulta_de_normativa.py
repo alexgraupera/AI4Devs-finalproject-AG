@@ -8,40 +8,15 @@ built from.
 
 from typing import Any
 
-import httpx
 import streamlit as st
 
-from app.config import get_settings
-
-UNEXPECTED_ERROR = "No se ha podido contactar con el servicio. Inténtalo de nuevo."
+from ui_api import is_api_available, post
 
 JURISDICTIONS = {
     "Toda España": None,
     "Estatal": ["state"],
     "Cataluña": ["catalonia"],
 }
-
-
-def is_api_available(api_url: str) -> bool:
-    try:
-        return httpx.get(f"{api_url}/health", timeout=2).status_code == 200
-    except httpx.HTTPError:
-        return False
-
-
-def ask(api_url: str, payload: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
-    """Returns (answer, error message). The API already words its errors for the person reading."""
-    # The retrieval endpoints are behind an API key when one is configured.
-    headers = {"X-API-Key": get_settings().rag_api_key} if get_settings().rag_api_key else {}
-    try:
-        response = httpx.post(f"{api_url}/api/v1/regulations/ask", json=payload, headers=headers, timeout=120)
-    except httpx.HTTPError:
-        return None, UNEXPECTED_ERROR
-
-    body = response.json()
-    if response.is_success:
-        return body, None
-    return None, str(body.get("error", {}).get("message", UNEXPECTED_ERROR))
 
 
 def render_sources(citations: list[dict[str, Any]]) -> None:
@@ -117,8 +92,7 @@ with st.expander("Qué normativa puedo consultar"):
         """
     )
 
-api_url = get_settings().api_url
-if not is_api_available(api_url):
+if not is_api_available():
     st.error("API no disponible")
     st.stop()
 
@@ -137,7 +111,7 @@ if submitted:
         st.stop()
 
     with st.spinner("Buscando en la normativa..."):
-        body, error = ask(api_url, {"question": question, "jurisdictions": JURISDICTIONS[scope]})
+        body, error = post("/api/v1/regulations/ask", {"question": question, "jurisdictions": JURISDICTIONS[scope]})
 
     if error is not None:
         st.error(error)

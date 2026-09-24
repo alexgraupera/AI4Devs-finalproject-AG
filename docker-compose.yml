@@ -1,22 +1,24 @@
 services:
   api:
     build: .
-    # The schema is brought up to date before the first request, never by hand: a container
-    # that starts is a container whose database matches the code it is running.
-    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    # The entrypoint brings the schema up to date before the first request, never by hand: a
+    # container that starts is a container whose database matches the code it is running.
     env_file:
       - path: .env
         required: false
     environment:
       REDIS_URL: redis://cache:6379/0
       DATABASE_URL: postgresql+asyncpg://rental:rental@db:5432/rental
+      API_KEY: ${API_KEY:-}
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-}
     depends_on:
       cache:
         condition: service_healthy
       db:
         condition: service_healthy
+    # Published on the loopback only: reachable from this machine, not from its network.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s
@@ -26,10 +28,15 @@ services:
   ui:
     build: .
     command: ["streamlit", "run", "streamlit_app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+    # The UI holds the credentials a marketplace backend would, and nothing else: no provider
+    # keys, no database. Compose reads them from `.env` in this directory.
     environment:
       API_URL: http://api:8000
+      API_KEY: ${API_KEY:-}
+      RAG_API_KEY: ${RAG_API_KEY:-}
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-}
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     depends_on:
       api:
         condition: service_healthy
@@ -44,7 +51,9 @@ services:
       retries: 5
 
   # The corpus store. The port is published because inspecting what was ingested with psql is
-  # part of working on the RAG layer, unlike the cache, which is never read by hand.
+  # part of working on the RAG layer, unlike the cache, which is never read by hand. Loopback
+  # only: `5432:5432` would publish it on every interface, and Docker's rules bypass a host
+  # firewall like UFW, so nobody would notice.
   db:
     image: pgvector/pgvector:pg17
     environment:
@@ -52,7 +61,7 @@ services:
       POSTGRES_PASSWORD: rental
       POSTGRES_DB: rental
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - corpus:/var/lib/postgresql/data
     healthcheck:

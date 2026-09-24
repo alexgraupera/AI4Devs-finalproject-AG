@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from app.domain.errors import CorpusUnavailable, LLMUnavailable, NotAListing, ReviewGenerationError, Unauthorized
 from app.foundation.guardrails.input import InputGuardrailViolation
 from app.foundation.guardrails.rate_limit import RateLimited
+from app.foundation.guardrails.spend import BudgetExhausted
 
 MESSAGES: dict[str, str] = {
     "empty_text": "El texto está vacío",
@@ -24,6 +25,8 @@ MESSAGES: dict[str, str] = {
     "corpus_unavailable": "La normativa no está disponible en este momento",
     "unauthorized": "Clave de acceso no válida",
     "rate_limited": "Demasiadas consultas seguidas. Espera unos segundos y vuelve a intentarlo.",
+    "budget_exhausted": "El servicio ha alcanzado su límite de uso diario. Vuelve a intentarlo mañana.",
+    "not_ready": "El servicio está arrancando o saturado. Vuelve a intentarlo en unos segundos.",
 }
 
 
@@ -66,3 +69,9 @@ def register_error_handlers(app: FastAPI) -> None:
         # Retry-After tells a well-behaved client exactly how long to wait, instead of leaving
         # it to guess and retry into the same wall.
         return error_response("rate_limited", status_code=429, headers={"Retry-After": str(error.retry_after)})
+
+    @app.exception_handler(BudgetExhausted)
+    async def _budget(_: Request, error: BudgetExhausted) -> JSONResponse:
+        # 503, not 429: it is not this caller asking too often, it is the service out of budget
+        # for everyone until the day turns.
+        return error_response("budget_exhausted", status_code=503, headers={"Retry-After": str(error.retry_after)})
