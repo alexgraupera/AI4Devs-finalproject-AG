@@ -3,6 +3,7 @@ from typing import Any
 import streamlit as st
 
 from ui_api import WAKING_UP, is_api_available, post
+from ui_feedback import render_feedback
 
 SEVERITY_LABELS = {"high": "Alta", "medium": "Media", "low": "Baja"}
 SEVERITY_ICONS = {"high": "🔴", "medium": "🟠", "low": "🟡"}
@@ -92,6 +93,12 @@ if submitted:
         review, error = post("/api/v1/listings/review", listing)
 
     if error is not None:
+        st.session_state.pop("review_result", None)
         st.error(error)
     elif review is not None:
-        render_review(review)
+        st.session_state["review_result"] = review
+
+# Rendered from the session, not from the submit: a click on the feedback buttons reruns the page.
+if "review_result" in st.session_state:
+    render_review(st.session_state["review_result"])
+    render_feedback("listing_review", st.session_state["review_result"].get("request_id"))
