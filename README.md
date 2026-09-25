@@ -400,7 +400,9 @@ Ese 100% es lo importante: la fuga que el [ADR 0012](docs/decisions/0012-retriev
 
 La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde con la versión fechada del modelo (`claude-haiku-4-5-20251001`) y una búsqueda exacta fallaría y cobraría cero. Un modelo desconocido devuelve coste vacío y deja un aviso en el log: un hueco es honesto, un cero es mentira.
 
-**Disponibilidad.** El código pide al Router un modelo lógico (`listing-reviewer`) y nunca nombra un proveedor. Si Anthropic falla, responde OpenAI sin que el cliente se entere; el proveedor real aparece en `usage`. Probado con una clave primaria inválida: la revisión se completó igual.
+**Disponibilidad.** El código pide al Router un modelo lógico (`listing-reviewer`) y nunca nombra un proveedor. Si Anthropic falla, responde OpenAI sin que el cliente se entere; el proveedor real aparece en `usage`. Probado con una clave primaria inválida: la revisión se completó igual. Y probado de verdad sin querer: el 25 de septiembre la cuenta de Anthropic alcanzó su límite mensual y rechazó todas las llamadas hasta el 1 de octubre; el servicio siguió respondiendo con OpenAI sin cambiar una línea ([ADR 0023](docs/decisions/0023-a-model-per-role.md)).
+
+**Un modelo por papel.** Quien escribe (Claude Haiku 4.5) no es quien verifica: el juez de la verificación de citas y el crítico del agente van en el otro proveedor (GPT-5.4 mini), para no compartir los puntos ciegos de quien escribió. Cada llamada tiene un tiempo máximo (45 s), un presupuesto de tokens (4.000) y temperatura 0, y una respuesta cortada por el presupuesto falla con su nombre en vez de por accidente. Se probó un reranker más barato (GPT-5.4 nano) y se descartó: pierde 8 puntos de recall@1.
 
 **Coste de una consulta de normativa.** Tres tramos, medidos:
 
@@ -505,6 +507,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0019](docs/decisions/0019-no-semantic-cache.md) | ⚠️ Caché semántica medida y **descartada**: serviría la revisión equivocada |
 | [0020](docs/decisions/0020-access-spend-and-probes.md) | Token de servicio y claves por router, tope de gasto diario que corta, arranque que falla sin secretos, vida ≠ disponibilidad |
 | [0021](docs/decisions/0021-hosting-on-render.md) | Render gratuito descrito como Blueprint; lo que cuesta el plan gratuito y por qué Hugging Face no servía |
+| [0023](docs/decisions/0023-a-model-per-role.md) | Un modelo por papel (el juez en el otro proveedor) y cada llamada acotada; el reranker barato, medido y descartado |
 
 ---
 
