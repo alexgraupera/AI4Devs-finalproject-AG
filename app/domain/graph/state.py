@@ -16,7 +16,7 @@ from dataclasses import asdict
 from decimal import Decimal
 from typing import Annotated, Any, TypedDict
 
-from app.domain.schemas.listing_agent_review import TraceStep
+from app.domain.schemas.listing_agent_review import Step, TraceStep
 from app.foundation.llm.usage import LLMUsage
 from app.generation.agentic.ports import RegulationFragment
 
@@ -52,15 +52,22 @@ class ReviewState(TypedDict, total=False):
 # ── Conversions at the edges ────────────────────────────────────────────────────────────────
 
 
-def usage_to_json(usage: LLMUsage) -> dict[str, Any]:
+def usage_to_json(usage: LLMUsage, step: Step = Step.PLAN) -> dict[str, Any]:
     data = asdict(usage)
     data["estimated_cost_usd"] = str(usage.estimated_cost_usd) if usage.estimated_cost_usd is not None else None
+    data["step"] = step.value
     return data
 
 
 def usage_from_json(data: dict[str, Any]) -> LLMUsage:
-    cost = data.get("estimated_cost_usd")
-    return LLMUsage(**{**data, "estimated_cost_usd": Decimal(cost) if cost is not None else None})
+    fields = {key: value for key, value in data.items() if key != "step"}
+    cost = fields.get("estimated_cost_usd")
+    return LLMUsage(**{**fields, "estimated_cost_usd": Decimal(cost) if cost is not None else None})
+
+
+def step_of(data: dict[str, Any]) -> Step:
+    """Which step a recorded call belongs to; a checkpoint written before #52 has none, and was the actor."""
+    return Step(data.get("step", Step.PLAN))
 
 
 def fragment_to_json(fragment: RegulationFragment) -> dict[str, Any]:

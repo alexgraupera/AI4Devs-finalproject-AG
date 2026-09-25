@@ -31,18 +31,20 @@ from langgraph.types import Command
 
 from app.domain.errors import NotAListing, RunNotFound, RunNotWaiting
 from app.domain.graph.listing_review_graph import GraphConfig, build_review_graph, critic_from_json
-from app.domain.graph.state import ReviewState, fragments_from_json, usage_from_json
+from app.domain.graph.state import ReviewState, fragments_from_json, step_of, usage_from_json
 from app.domain.schemas.listing_agent_review import (
     AgentFinding,
     AgentReview,
     AgentReviewCandidate,
     AgentReviewedListing,
     CitedFinding,
+    CostBreakdown,
     HumanAction,
     HumanDecision,
     HumanReviewRequest,
     ListingRewrite,
     RejectedFinding,
+    Step,
     StopReason,
     TraceStep,
 )
@@ -75,7 +77,11 @@ log = structlog.get_logger()
 # v2: decides the region before searching (v1 never searched the Catalan law for a Barcelona
 # listing) and checks a datum is really absent before reporting it missing (ADR 0024).
 # v3: quotes the listing in `evidence` for every finding about what it says (ADR 0025).
-PROMPT_VERSION = "v3"
+# v4: the checklist v3 of the pipeline and its rule on notes claiming a prior review (#52, ADR 0031).
+PROMPT_VERSION = "v4"
+
+# The steps of a trace that are tool executions, for the cost breakdown.
+TOOL_NAMES = frozenset({CheckListingFields.spec.name, SearchRegulations.spec.name})
 
 # Shown to the person a paused review waits for: why it did not go straight to publishing.
 ESCALATION_REASON = "El revisor no ha podido respaldar todas las conclusiones del agente con el anuncio y la normativa."
@@ -100,6 +106,8 @@ class _Run:
     run_id: str | None = None
     paused: bool = False
     rejected: list[RejectedFinding] = field(default_factory=list)
+    # Every model call with the step it belongs to, for the cost breakdown.
+    calls: list[tuple[Step, LLMUsage]] = field(default_factory=list)
 
 
 class RetrieverSearch:
@@ -237,7 +245,7 @@ class AgentReviewService:
             log.warning("agent_review.rewrite_new_figures", figures=rewrite.new_figures)
         step = TraceStep(
             step=len(reviewed.trace) + 1,
-            tool="rewrite",
+            tool=Step.REWRITE.value,
             result=f"{len(rewrite.changes)} cambios, {len(rewrite.placeholders)} datos por completar",
             ok=not rewrite.new_figures,
             latency_ms=rewrite.usage.latency_ms if rewrite.usage else 0,
@@ -253,6 +261,7 @@ class AgentReviewService:
             review=reviewed.review.model_copy(update={"rewrite": corrected}),
             trace=[*reviewed.trace, step],
             usage=combined(reviewed.usage, rewrite.usage),
+            cost=reviewed.cost.add(Step.REWRITE, rewrite.usage),
         )
 
     async def pending(self, run_id: str) -> AgentReviewedListing:
@@ -313,6 +322,7 @@ class AgentReviewService:
             run_id=run.run_id,
             pending_review=pending,
             human_decision=decision,
+            cost=CostBreakdown.of(run.calls, [step for step in run.trace if step.tool in TOOL_NAMES]),
         )
 
     async def _run_loop(self, listing: Listing) -> _Run:
@@ -326,6 +336,7 @@ class AgentReviewService:
         )
         run = await loop.run(listing)
         trace, usage = list(run.trace), run.usage
+        calls: list[tuple[Step, LLMUsage]] = [(Step.PLAN, run.usage)]
         findings, escalated, dropped = run.output.findings, False, 0
 
         if self._critic is not None and run.output.is_rental_listing:
@@ -333,6 +344,8 @@ class AgentReviewService:
             while True:
                 verdict = await criticise(run.output.findings, listing, run.fragments, self._critic)
                 usage = combined(usage, verdict.usage)
+                if verdict.usage is not None:
+                    calls.append((Step.CRITIC, verdict.usage))
                 decision = decide(
                     verdict,
                     attempt=attempt,
@@ -360,6 +373,7 @@ class AgentReviewService:
                 run = await loop.run(listing, feedback=feedback_for(verdict.rejected))
                 trace += [step.model_copy(update={"step": len(trace) + i}) for i, step in enumerate(run.trace, start=1)]
                 usage = combined(usage, run.usage)
+                calls.append((Step.PLAN, run.usage))
 
         return _Run(
             orchestrator="loop",
@@ -371,6 +385,7 @@ class AgentReviewService:
             stop_reason=run.stop_reason,
             escalated=escalated,
             dropped=dropped,
+            calls=calls,
         )
 
     async def _compiled(self) -> tuple[CompiledStateGraph[Any, Any, Any, Any], BaseCheckpointSaver[Any]]:
@@ -422,7 +437,8 @@ class AgentReviewService:
         return self._graph_run(final, run_id, paused=paused)
 
     def _graph_run(self, final: dict[str, Any], run_id: str, *, paused: bool = False) -> _Run:
-        usages = [usage_from_json(u) for u in final.get("usage", [])]
+        recorded = final.get("usage", [])
+        usages = [usage_from_json(u) for u in recorded]
         usage = usages[0]
         for more in usages[1:]:
             usage = combined(usage, more)
@@ -440,6 +456,7 @@ class AgentReviewService:
             escalated=final.get("outcome") == BossDecision.ESCALATE.value,
             dropped=len(critic.rejected) if critic is not None else 0,
             paused=paused,
+            calls=[(step_of(u), usage) for u, usage in zip(recorded, usages, strict=True)],
             rejected=[
                 RejectedFinding(
                     message=r.finding.message, legal_basis=r.finding.legal_basis, problem=r.problem, reason=r.reason

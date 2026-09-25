@@ -40,6 +40,8 @@ def test_returns_findings_with_citations_the_trace_and_the_cost(client: TestClie
     assert [step["tool"] for step in body["trace"]] == ["search_regulations", SUBMIT]
     assert body["trace"][0]["thought"] == "Busco la fianza"
     assert body["usage"]["estimated_cost_usd"] == "0.004"
+    assert [(step["step"], step["calls"]) for step in body["cost_breakdown"]] == [("plan", 2), ("tools", 1)]
+    assert body["cost_breakdown"][0]["estimated_cost_usd"] == "0.004"
 
 
 def test_an_empty_listing_is_rejected_before_the_agent_runs(client: TestClient) -> None:

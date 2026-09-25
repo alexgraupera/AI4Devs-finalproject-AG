@@ -140,3 +140,33 @@ async def test_the_judge_sees_the_quote_each_finding_rests_on() -> None:
     await criticise([finding], A_LISTING, FRAGMENTS, judge)
 
     assert judge.user is not None and "Cita del anuncio: «Fianza de dos meses.»" in judge.user
+
+
+async def test_a_wrong_article_is_not_wrong_when_every_cited_fragment_is_that_article() -> None:
+    # The error of the first listing evaluation (#52): "art. 61.2" for a rule of 61.2.c, rejected as
+    # the wrong article. The finding names article 36 and cites only article 36: the article is right.
+    judge = ScriptedJudge(judged(1, False, Problem.WRONG_ARTICLE))
+
+    result = await criticise(
+        [a_finding("Fianza de dos meses", legal_basis="LAU art. 36.5")], A_LISTING, FRAGMENTS, judge
+    )
+
+    assert result.rejected == []
+
+
+async def test_a_wrong_article_stands_when_the_finding_names_another_article() -> None:
+    judge = ScriptedJudge(judged(1, False, Problem.WRONG_ARTICLE))
+
+    result = await criticise(
+        [a_finding("Fianza de dos meses", legal_basis="LAU art. 20.1")], A_LISTING, FRAGMENTS, judge
+    )
+
+    assert [r.problem for r in result.rejected] == [Problem.WRONG_ARTICLE]
+
+
+async def test_a_wrong_article_stands_when_the_finding_cites_no_fragment() -> None:
+    judge = ScriptedJudge(judged(1, False, Problem.WRONG_ARTICLE))
+
+    result = await criticise([a_finding("Fianza", legal_basis="LAU art. 36", sources=[])], A_LISTING, FRAGMENTS, judge)
+
+    assert [r.problem for r in result.rejected] == [Problem.WRONG_ARTICLE]

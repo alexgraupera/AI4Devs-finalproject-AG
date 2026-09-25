@@ -6,7 +6,9 @@ where each legal finding came from: the model names the numbers of the fragments
 conductor turns those numbers into citations from what the search tool actually returned.
 """
 
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -124,6 +126,93 @@ class HumanReviewRequest(BaseModel):
     rejected: list[RejectedFinding] = Field(default_factory=list)
 
 
+class Step(StrEnum):
+    """Where a review spends: the actor's turns, the tools it runs, the critic, the rewrite."""
+
+    PLAN = "plan"
+    TOOLS = "tools"
+    CRITIC = "critic"
+    REWRITE = "rewrite"
+
+
+@dataclass(frozen=True)
+class StepCost:
+    step: str
+    # Model calls billed, retries included; tool executions for `tools`.
+    calls: int
+    input_tokens: int
+    output_tokens: int
+    latency_ms: int
+    estimated_cost_usd: Decimal | None
+
+    def __add__(self, other: "StepCost") -> "StepCost":
+        costs = [c for c in (self.estimated_cost_usd, other.estimated_cost_usd) if c is not None]
+        return StepCost(
+            step=self.step,
+            calls=self.calls + other.calls,
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            latency_ms=self.latency_ms + other.latency_ms,
+            estimated_cost_usd=sum(costs, Decimal(0)) if costs else None,
+        )
+
+
+@dataclass(frozen=True)
+class CostBreakdown:
+    """A review's cost step by step, so the next optimisation is read rather than argued (#52).
+
+    Tools cost no tokens: their step carries their calls and their time. The embedding of a search
+    query is not priced (a query is ~20 tokens; at $0.13 per million it is below the rounding).
+    """
+
+    steps: list[StepCost] = field(default_factory=list)
+
+    @classmethod
+    def of(cls, calls: Sequence[tuple[Step, LLMUsage]], tool_steps: Sequence["TraceStep"] = ()) -> "CostBreakdown":
+        breakdown = cls()
+        for step, usage in calls:
+            breakdown = breakdown.add(step, usage)
+        if tool_steps:
+            breakdown = breakdown._merged(
+                StepCost(
+                    step=Step.TOOLS,
+                    calls=len(tool_steps),
+                    input_tokens=0,
+                    output_tokens=0,
+                    latency_ms=sum(s.latency_ms for s in tool_steps),
+                    estimated_cost_usd=Decimal(0),
+                )
+            )
+        return breakdown
+
+    def add(self, step: Step, usage: LLMUsage | None) -> "CostBreakdown":
+        if usage is None:
+            return self
+        return self._merged(
+            StepCost(
+                step=step,
+                calls=usage.attempts,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                latency_ms=usage.latency_ms,
+                estimated_cost_usd=usage.estimated_cost_usd,
+            )
+        )
+
+    @property
+    def total(self) -> StepCost:
+        total = StepCost("total", 0, 0, 0, 0, None)
+        for step in self.steps:
+            total = total + step
+        return total
+
+    def _merged(self, cost: StepCost) -> "CostBreakdown":
+        by_step = {s.step: s for s in self.steps}
+        by_step[cost.step] = by_step[cost.step] + cost if cost.step in by_step else cost
+        order = list(Step)
+        return CostBreakdown(sorted(by_step.values(), key=lambda s: order.index(Step(s.step))))
+
+
 @dataclass(frozen=True)
 class AgentReviewedListing:
     review: AgentReview
@@ -140,3 +229,5 @@ class AgentReviewedListing:
     pending_review: HumanReviewRequest | None = None
     # What the person decided, once they have.
     human_decision: HumanDecision | None = None
+    # Where the cost went, step by step (#52).
+    cost: CostBreakdown = field(default_factory=CostBreakdown)
