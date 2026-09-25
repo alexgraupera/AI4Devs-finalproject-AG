@@ -10,10 +10,10 @@ How the quality of the system is measured, what the numbers are today, and every
 | Answers | Is the answer faithful, relevant, correct, and does it refuse what the corpus does not cover? | `make eval-answers` | ✅ [ADR 0022](decisions/0022-answer-evaluation.md) |
 | Semantic cache | Would a similarity threshold serve the right review? | `make benchmark-semantic-cache` | ✅ [ADR 0019](decisions/0019-no-semantic-cache.md) |
 | Listing reviews | Which defects does a review find, and which does it invent? | `make eval-listings` | ✅ [ADR 0030](decisions/0030-listing-review-evaluation.md) |
-| Regression gate | Did a change make anything worse? | `make eval-gate` | 🔜 #50 |
+| Regression gate | Did a change make anything worse? | `make eval-gate`; mocked cases in CI | ✅ [ADR 0032](decisions/0032-regression-gate.md) |
 | Agent vs pipeline | What does the agent buy for its extra calls, and which step loses what? | `make eval-listings` (both paths) | ✅ [ADR 0031](decisions/0031-agent-vs-pipeline.md) |
 
-Tests never call a model; these commands are the only code that does. None of them runs in the deploy pipeline.
+Tests never call a model; these commands are the only code that does. None of them runs in the deploy pipeline: CI runs the regression cases with the model mocked, and [`evals.yml`](../.github/workflows/evals.yml) runs the real evaluations on demand (weekly once `EVALS_SCHEDULE_ENABLED` is set), applies the gate and uploads the reports.
 
 ## The golden set
 
@@ -149,6 +149,22 @@ After fixing the critic (prompt v3 and a code check on `wrong_article`) and movi
 
 **What it says:** the search never loses an article; the actor finds the most (94%, the Catalan law included) and invents the most (confirmations like "la fianza indicada es correcta" with a legal basis); the critic, on the same model, removes correct findings and not the confirmations. The pipeline stays the review; the agent is re-measured with the critic on the other provider from 2026-10-01 ([ADR 0031](decisions/0031-agent-vs-pipeline.md)). This phase's runs cost **$0.82**.
 
+## The regression gate
+
+[`evals/baseline.json`](../evals/baseline.json) holds the promoted baseline: the answers of 2026-09-25 and the pipeline's listings of #52, with the commit and the models that answered. `make eval-gate` compares the newest whole runs against it ([ADR 0032](decisions/0032-regression-gate.md)):
+
+| Kind | Metrics | Rule |
+|---|---|---|
+| Safety | Out-of-domain refusals, regression cases passed, adversarial listings handled, legal bases outside the checklist, clean listings called illegal | Zero tolerance |
+| Answers | Answered, cites expected, context recall | May drop 8 points (two questions) |
+| | Faithfulness, relevance, correctness | May drop 5 points |
+| | Opening holds | May drop 9 points (two answers) |
+| Listings | Precision, recall, verdict accuracy | May drop 7 points (one listing) |
+| | F1 | May drop 5 points |
+| Cost | Per question, per review | May rise 25% |
+
+An improvement never fails; a metric missing from the run always does. A subset or a run without the judge is not compared. The mocked regression cases, in CI on every pull request: #34's opening rule and the metric that fails it, a citation to a fragment never retrieved (Q&A and agent), and both injections of the listings dataset.
+
 ## Iterations: what each measurement decided
 
 Chronological. Each row is a change that was measured before it was kept or deleted.
@@ -179,6 +195,8 @@ docker compose up -d db && make migrate ingest      # the corpus, once
 make benchmark-retrieval                             # ~$0.30 with the reranker
 make eval-answers                                    # both variants, ~$1.20 and ~20 minutes
 make eval-listings                                   # pipeline and agent, ~$0.60 and ~6 minutes
+make eval-gate                                       # the newest whole runs against evals/baseline.json
+make eval-promote                                    # the newest whole runs become the baseline: by hand, deliberately
 uv run python -m evals.listings.run --path cag --cag-prompt v2   # a prompt version, ~$0.03
 uv run python -m evals.listings.run --path agent --only barcelona-offer-incomplete   # one case, with its trace
 uv run python -m evals.listings.run --path agent --repeat 3 --only barcelona-offer-incomplete,girona-fees-and-offer
@@ -190,7 +208,7 @@ Results go to `benchmarks/retrieval/results/` and `evals/results/` as JSON with 
 
 ## Limitations
 
-- **One run is one sample.** The generation, the reranker and the judge vary between runs; one question is 4 points on 25. Differences smaller than two questions are noise until #50 repeats runs and reports ranges.
+- **One run is one sample.** The generation, the reranker and the judge vary between runs; one question is 4 points on 25. The gate's tolerances are that noise ([ADR 0032](decisions/0032-regression-gate.md)); `--repeat` measures it for the listings when a decision needs it.
 - **32 questions and 18 listings** decide between techniques whose differences are large, not fine-tuning. One listing is 6 points of verdict accuracy.
 - **The judge is a model** on a different provider; its analysis is kept so its grades can be checked.
 - **No online evaluation yet.** What real users ask and find wrong arrives with the feedback of #51.
