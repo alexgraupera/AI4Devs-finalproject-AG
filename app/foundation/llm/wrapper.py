@@ -15,7 +15,7 @@ from typing import Any, Protocol, TypeVar
 import instructor
 import openai
 import structlog
-from instructor.core import InstructorRetryException
+from instructor.core import IncompleteOutputException, InstructorRetryException
 from litellm.exceptions import (
     APIConnectionError,
     InternalServerError,
@@ -48,22 +48,52 @@ class StructuredLLM(Protocol):
     async def complete_structured(self, *, system: str, user: str, schema: type[T]) -> StructuredCompletion[T]: ...
 
 
-def build_router(primary_model: str, fallback_model: str | None = None, num_retries: int = 2) -> Router:
-    """One deployment per logical name, plus an explicit fallback edge between them."""
-    model_list: list[dict[str, Any]] = [{"model_name": LOGICAL_MODEL, "litellm_params": {"model": primary_model}}]
+def build_router(
+    primary_model: str,
+    fallback_model: str | None = None,
+    num_retries: int = 2,
+    *,
+    timeout_seconds: float | None = None,
+) -> Router:
+    """One deployment per logical name, plus an explicit fallback edge between them.
+
+    One router per role (generator, judge, reranker), built in the composition root: each role has
+    its own primary and its own fallback, and the code that asks never names either.
+
+    `drop_params` lets one call carry a temperature to a model that rejects it (the reasoning ones
+    only accept their default) instead of failing: the parameter is dropped for that model only.
+    """
+    params: dict[str, Any] = {"drop_params": True}
+    if timeout_seconds is not None:
+        params["timeout"] = timeout_seconds
+
+    model_list: list[dict[str, Any]] = [
+        {"model_name": LOGICAL_MODEL, "litellm_params": {"model": primary_model, **params}}
+    ]
     fallbacks: list[dict[str, list[str]]] = []
 
     if fallback_model:
-        model_list.append({"model_name": FALLBACK_MODEL, "litellm_params": {"model": fallback_model}})
+        model_list.append({"model_name": FALLBACK_MODEL, "litellm_params": {"model": fallback_model, **params}})
         fallbacks.append({LOGICAL_MODEL: [FALLBACK_MODEL]})
 
-    return Router(model_list=model_list, fallbacks=fallbacks, num_retries=num_retries)
+    return Router(model_list=model_list, fallbacks=fallbacks, num_retries=num_retries, timeout=timeout_seconds)
 
 
 class LLMWrapper:
-    def __init__(self, router: Router, max_retries: int = 2) -> None:
+    def __init__(
+        self,
+        router: Router,
+        max_retries: int = 2,
+        *,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
+    ) -> None:
         self._router = router
         self._max_retries = max_retries
+        # A hard budget per call, not a style instruction: an answer that hits it is truncated
+        # and treated as a failure (see `llm.truncated`), never returned half-written.
+        self._max_tokens = max_tokens
+        self._temperature = temperature
         # from_litellm picks the sync or async client from the callable it gets; Router.acompletion
         # is a coroutine function, and async_client makes that explicit instead of inferred.
         self._client = instructor.from_litellm(router.acompletion, async_client=True)
@@ -75,6 +105,11 @@ class LLMWrapper:
         started = time.perf_counter()
         accumulator = UsageAccumulator()
         token = current_usage.set(accumulator)
+        options: dict[str, Any] = {}
+        if self._max_tokens is not None:
+            options["max_tokens"] = self._max_tokens
+        if self._temperature is not None:
+            options["temperature"] = self._temperature
         try:
             output, raw = await self._client.chat.completions.create_with_completion(
                 model=LOGICAL_MODEL,
@@ -84,8 +119,18 @@ class LLMWrapper:
                 ],
                 response_model=schema,
                 max_retries=self._max_retries,
+                **options,
             )
+        except IncompleteOutputException as error:
+            # The model ran out of tokens mid-answer. A truncated structure must never reach a
+            # user, and it must not look like "the model is bad" in the logs either: it is a
+            # budget that is too small for the task, and it is named as such.
+            log.warning("llm.truncated", schema=schema.__name__, max_tokens=self._max_tokens)
+            raise ReviewGenerationError(f"the answer was truncated at {self._max_tokens} tokens") from error
         except InstructorRetryException as error:
+            if isinstance(error.__cause__, IncompleteOutputException):
+                log.warning("llm.truncated", schema=schema.__name__, max_tokens=self._max_tokens)
+                raise ReviewGenerationError(f"the answer was truncated at {self._max_tokens} tokens") from error
             # Instructor exhausted its re-prompts. It wraps whatever ended the attempts, so a
             # provider outage in disguise must not be reported as a bad answer from the model.
             if isinstance(error.__cause__, _UNAVAILABLE):

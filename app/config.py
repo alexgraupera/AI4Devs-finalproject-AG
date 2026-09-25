@@ -15,10 +15,25 @@ class Settings(BaseSettings):
 
     api_url: str = "http://localhost:8000"
 
+    # A model per role (ADR 0023). The generator writes reviews and answers.
     llm_model: str = "anthropic/claude-haiku-4-5"
     # Empty disables the fallback: one provider, and a failure is a failure.
     llm_fallback_model: str = "openai/gpt-5.4-mini"
     llm_max_retries: int = 2
+    # The judge checks what the generator wrote (the grounding check, and the critic of #40). It
+    # sits on the other provider so it does not share the generator's blind spots.
+    llm_judge_model: str = "openai/gpt-5.4-mini"
+    llm_judge_fallback_model: str = "anthropic/claude-haiku-4-5"
+    # The reranker reads twenty articles and orders them. Empty means the generator's models.
+    llm_rerank_model: str = ""
+    llm_rerank_fallback_model: str = ""
+
+    # Bounds on every call. A model call that hangs holds a request and a thread; one that runs
+    # out of tokens returns half a structure. Both become named failures instead.
+    llm_timeout_seconds: float = 45.0
+    llm_max_tokens: int = 4_000
+    # Predictable output over creative output. Models that reject the parameter get their default.
+    llm_temperature: float | None = 0.0
 
     # Empty disables the cache: every review is computed.
     redis_url: str = ""

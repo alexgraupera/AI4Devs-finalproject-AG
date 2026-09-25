@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from instructor.core import InstructorRetryException
+from instructor.core import IncompleteOutputException, InstructorRetryException
 from litellm.exceptions import RateLimitError
 
 from app.domain.errors import LLMUnavailable, ReviewGenerationError
@@ -53,9 +53,13 @@ class RawCompletion:
         self.usage = Usage(prompt_tokens, completion_tokens)
 
 
-def wrapper_with(completions: FakeCompletions) -> LLMWrapper:
+def wrapper_with(
+    completions: FakeCompletions, *, max_tokens: int | None = None, temperature: float | None = None
+) -> LLMWrapper:
     wrapper = LLMWrapper.__new__(LLMWrapper)
     wrapper._max_retries = 2
+    wrapper._max_tokens = max_tokens
+    wrapper._temperature = temperature
     wrapper._client = type("Client", (), {"chat": type("Chat", (), {"completions": completions})()})()
     return wrapper
 
@@ -70,6 +74,17 @@ def test_builds_the_router_with_primary_and_fallback_deployments() -> None:
     names = [deployment["model_name"] for deployment in router.model_list]
     assert names == [LOGICAL_MODEL, FALLBACK_MODEL]
     assert router.fallbacks == [{LOGICAL_MODEL: [FALLBACK_MODEL]}]
+
+
+def test_every_deployment_carries_the_timeout_and_drops_unsupported_parameters() -> None:
+    router = build_router(
+        primary_model="anthropic/claude-haiku-4-5", fallback_model="openai/gpt-5.4-mini", timeout_seconds=45
+    )
+
+    for deployment in router.model_list:
+        assert deployment["litellm_params"]["timeout"] == 45
+        # A reasoning model rejects a temperature; the parameter is dropped for it, not the call.
+        assert deployment["litellm_params"]["drop_params"] is True
 
 
 def test_builds_a_router_without_fallback_when_it_is_not_configured() -> None:
@@ -175,3 +190,36 @@ async def test_falls_back_to_the_final_completion_when_no_attempt_was_recorded()
 
 def test_isolates_the_accumulator_of_each_call() -> None:
     assert current_usage.get() is None
+
+
+async def test_the_token_budget_and_the_temperature_reach_the_call() -> None:
+    completions = FakeCompletions(RawCompletion("claude-haiku-4-5"))
+
+    await complete(wrapper_with(completions, max_tokens=4_000, temperature=0.0))
+
+    assert completions.called_with is not None
+    assert completions.called_with["max_tokens"] == 4_000
+    assert completions.called_with["temperature"] == 0.0
+
+
+async def test_nothing_is_sent_for_the_bounds_that_are_not_configured() -> None:
+    completions = FakeCompletions(RawCompletion("claude-haiku-4-5"))
+
+    await complete(wrapper_with(completions))
+
+    assert completions.called_with is not None
+    assert "max_tokens" not in completions.called_with
+    assert "temperature" not in completions.called_with
+
+
+async def test_a_truncated_answer_is_a_generation_error_never_a_half_structure() -> None:
+    with pytest.raises(ReviewGenerationError, match="truncated"):
+        await complete(wrapper_with(FakeCompletions(error=IncompleteOutputException()), max_tokens=4_000))
+
+
+async def test_a_truncation_behind_the_re_prompts_is_still_named_a_truncation() -> None:
+    error = InstructorRetryException("gave up", n_attempts=2, total_usage=0)
+    error.__cause__ = IncompleteOutputException()
+
+    with pytest.raises(ReviewGenerationError, match="truncated"):
+        await complete(wrapper_with(FakeCompletions(error=error), max_tokens=4_000))

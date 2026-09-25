@@ -25,15 +25,42 @@ from app.generation.rag.rerank import Reranker
 from app.generation.rag.retriever import Retriever
 
 
-@lru_cache
-def get_llm_wrapper() -> LLMWrapper:
+def _wrapper_for(primary_model: str, fallback_model: str) -> LLMWrapper:
     settings = get_settings()
     router = build_router(
-        primary_model=settings.llm_model,
-        fallback_model=settings.llm_fallback_model or None,
+        primary_model=primary_model,
+        fallback_model=fallback_model or None,
         num_retries=settings.llm_max_retries,
+        timeout_seconds=settings.llm_timeout_seconds,
     )
-    return LLMWrapper(router=router, max_retries=settings.llm_max_retries)
+    return LLMWrapper(
+        router=router,
+        max_retries=settings.llm_max_retries,
+        max_tokens=settings.llm_max_tokens,
+        temperature=settings.llm_temperature,
+    )
+
+
+@lru_cache
+def get_llm_wrapper() -> LLMWrapper:
+    """The generator: writes the reviews and the answers."""
+    settings = get_settings()
+    return _wrapper_for(settings.llm_model, settings.llm_fallback_model)
+
+
+@lru_cache
+def get_judge_wrapper() -> LLMWrapper:
+    """The judge: checks what the generator wrote, on the other provider (ADR 0023)."""
+    settings = get_settings()
+    return _wrapper_for(settings.llm_judge_model, settings.llm_judge_fallback_model)
+
+
+@lru_cache
+def get_rerank_wrapper() -> LLMWrapper:
+    settings = get_settings()
+    if not settings.llm_rerank_model:
+        return get_llm_wrapper()
+    return _wrapper_for(settings.llm_rerank_model, settings.llm_rerank_fallback_model)
 
 
 @lru_cache
@@ -136,7 +163,7 @@ def get_reranker() -> Reranker | None:
     settings = get_settings()
     if not settings.rerank_enabled:
         return None
-    return Reranker(get_llm_wrapper(), top_n=settings.retrieval_top_k)
+    return Reranker(get_rerank_wrapper(), top_n=settings.retrieval_top_k)
 
 
 @lru_cache
@@ -144,6 +171,7 @@ def get_regulation_qa_service() -> RegulationQAService:
     settings = get_settings()
     return RegulationQAService(
         llm=get_llm_wrapper(),
+        judge=get_judge_wrapper(),
         retriever=get_retriever(),
         moderation=get_moderation_client(),
         reranker=get_reranker(),

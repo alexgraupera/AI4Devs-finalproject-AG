@@ -433,3 +433,25 @@ async def test_a_refusal_without_a_model_call_records_nothing_spent() -> None:
     await qa.ask(A_QUESTION)
 
     assert spend.recorded == [Decimal(0)]
+
+
+# ── The judge on its own model ──────────────────────────────────────────────────────────────
+
+
+async def test_the_grounding_check_asks_the_judge_never_the_generator() -> None:
+    generator = FakeLLM(a_candidate())
+    judge = FakeLLM(a_candidate())
+    qa = RegulationQAService(llm=generator, judge=judge, retriever=FakeRetriever())  # type: ignore[arg-type]
+
+    await qa.ask(A_QUESTION)
+
+    assert generator.calls == 1 and generator.grounding_calls == 0
+    assert judge.grounding_calls == 1 and judge.calls == 0
+
+
+async def test_without_a_judge_the_generator_checks_its_own_answer() -> None:
+    llm = FakeLLM(a_candidate())
+
+    await service(llm, FakeRetriever()).ask(A_QUESTION)
+
+    assert llm.grounding_calls == 1

@@ -37,13 +37,17 @@ from app.generation.rag.retriever import Retriever
 from benchmarks.retrieval.questions import Question, load_questions
 from evals.answers.judge import judge_answer
 from evals.answers.metrics import AnswerMetrics, AnswerOutcome, regression_passed, summarise
-from evals.recording import RecordingLLM, cost_by_stage
+from evals.recording import RecordedCall, RecordingLLM, cost_by_stage
 
 RESULTS_DIR = pathlib.Path(__file__).parents[1] / "results"
 
 # The judge runs on the other provider from the generator, so it does not share its blind spots.
 JUDGE_MODEL = "openai/gpt-5.4-mini"
 JUDGE_FALLBACK_MODEL = "anthropic/claude-haiku-4-5"
+
+
+# The grounding check runs on the generator itself, as it did before #47.
+ON_GENERATOR = "generator"
 
 
 @dataclass(frozen=True)
@@ -53,13 +57,18 @@ class AnswerVariant:
     name: str
     prompt_version: str = "v2"
     rerank: bool = True
+    # The model of the grounding check. None: the configured judge (`LLM_JUDGE_MODEL`).
+    grounding_model: str | None = None
 
 
 # `prompt-v1` is the prompt before the fix of #34: it is here so the regression case has a
 # configuration it is expected to fail on, which is what proves the case can catch the bug.
+# `grounding-on-generator` is the configuration before #47, to measure what the judge on the other
+# provider changes.
 VARIANTS: tuple[AnswerVariant, ...] = (
     AnswerVariant(name="baseline"),
     AnswerVariant(name="prompt-v1", prompt_version="v1"),
+    AnswerVariant(name="grounding-on-generator", grounding_model=ON_GENERATOR),
 )
 
 
@@ -198,6 +207,7 @@ def save(results: list[tuple[AnswerVariant, AnswerMetrics, list[AnswerOutcome]]]
         "llm_model": settings.llm_model,
         "embedding_model": settings.embedding_model,
         "judge_model": JUDGE_MODEL,
+        "grounding_judge_model": settings.llm_judge_model,
         "run_cost_usd": run_cost,
         "results": [
             {"variant": asdict(variant), "metrics": asdict(metrics), "outcomes": [asdict(o) for o in outcomes]}
@@ -218,28 +228,31 @@ async def measure(
     questions = load_questions()
     engine = create_engine(settings.database_url)
     embeddings = LiteLLMEmbeddings(model=settings.embedding_model, dimensions=settings.embedding_dimensions)
-    generator = RecordingLLM(
-        LLMWrapper(
-            router=build_router(settings.llm_model, settings.llm_fallback_model or None, settings.llm_max_retries),
-            max_retries=settings.llm_max_retries,
-        )
+    calls: list[RecordedCall] = []
+    generator = RecordingLLM(wrapper_for(settings.llm_model, settings.llm_fallback_model), calls=calls)
+    reranker_model = (
+        RecordingLLM(wrapper_for(settings.llm_rerank_model, settings.llm_rerank_fallback_model), calls=calls)
+        if settings.llm_rerank_model
+        else generator
     )
-    judge = (
-        LLMWrapper(
-            router=build_router(judge_model, JUDGE_FALLBACK_MODEL, settings.llm_max_retries),
-            max_retries=settings.llm_max_retries,
-        )
-        if judge_model
-        else None
-    )
+    judge = wrapper_for(judge_model, JUDGE_FALLBACK_MODEL) if judge_model else None
     moderation: ModerationClient | None = LiteLLMModeration() if settings.openai_api_key else None
 
     try:
         results = []
         for variant in variants:
+            grounding = (
+                generator
+                if variant.grounding_model == ON_GENERATOR
+                else RecordingLLM(
+                    wrapper_for(variant.grounding_model or settings.llm_judge_model, settings.llm_judge_fallback_model),
+                    calls=calls,
+                )
+            )
             # No cache and no spend guard: an evaluation that reads a cache measures the cache (S5).
             service = RegulationQAService(
                 llm=generator,
+                judge=grounding,
                 retriever=Retriever(
                     session_factory(engine),
                     embeddings,
@@ -247,7 +260,7 @@ async def measure(
                     min_score=settings.retrieval_min_score,
                 ),
                 moderation=moderation,
-                reranker=Reranker(generator, top_n=settings.retrieval_top_k) if variant.rerank else None,
+                reranker=Reranker(reranker_model, top_n=settings.retrieval_top_k) if variant.rerank else None,
                 check_claims=settings.grounding_enabled,
                 min_confidence=settings.grounding_min_confidence,
                 model=settings.llm_model,
@@ -266,6 +279,22 @@ async def measure(
     embedding_cost = embeddings.tokens / 1_000_000 * PRICE_PER_MILLION_TOKENS.get(embeddings.model, 0.0)
     run_cost = embedding_cost + sum(sum(o.cost_by_stage.values()) for _, _, outcomes in results for o in outcomes)
     return results, run_cost
+
+
+def wrapper_for(primary_model: str, fallback_model: str) -> LLMWrapper:
+    """A model as production calls it: the same timeout, token budget and temperature."""
+    settings = get_settings()
+    return LLMWrapper(
+        router=build_router(
+            primary_model,
+            fallback_model or None,
+            settings.llm_max_retries,
+            timeout_seconds=settings.llm_timeout_seconds,
+        ),
+        max_retries=settings.llm_max_retries,
+        max_tokens=settings.llm_max_tokens,
+        temperature=settings.llm_temperature,
+    )
 
 
 def main() -> int:
