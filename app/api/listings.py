@@ -16,6 +16,7 @@ from app.domain.schemas.listing_agent_review import (
     HumanAction,
     HumanDecision,
     HumanReviewRequest,
+    ListingRewrite,
     StopReason,
     TraceStep,
 )
@@ -78,6 +79,8 @@ class AgentReviewResponse(BaseModel):
     dropped_findings: int
     pending_review: HumanReviewRequest | None
     human_decision: HumanDecision | None
+    # The listing corrected for its final findings, for the person publishing to accept or edit.
+    rewrite: ListingRewrite | None
     usage: UsageResponse
 
     @classmethod
@@ -100,6 +103,7 @@ class AgentReviewResponse(BaseModel):
             dropped_findings=reviewed.dropped_findings,
             pending_review=reviewed.pending_review,
             human_decision=reviewed.human_decision,
+            rewrite=reviewed.review.rewrite,
             usage=UsageResponse(**vars(reviewed.usage)),
         )
 

@@ -435,6 +435,8 @@ El estado es JSON plano (leer clases de una fila de la base de datos es un riesg
 
 **Una persona decide lo que el agente no puede sostener** ([ADR 0027](docs/decisions/0027-human-in-the-loop.md)). Si el jefe escala, el grafo **se detiene antes de publicar** (`interrupt`) y la API responde `202`: la revisión propuesta y las incidencias que el crítico rechazó, con su motivo. La persona **aprueba**, **ajusta** (marca qué incidencias quedan) o **descarta**, y el grafo continúa donde paró, aunque sea otro proceso días después. Probado así: un proceso revisa y pausa, otro proceso nuevo lee la revisión pendiente, aplica la decisión y termina, sin dejar nada guardado. Las revisiones que se sostienen no despiertan a nadie.
 
+**Y propone el anuncio corregido** ([ADR 0028](docs/decisions/0028-listing-rewrite.md)), a partir de las incidencias que sobrevivieron al crítico y a la decisión de la persona: corrige solo lo que hay que corregir, deja **huecos entre corchetes** para los datos que no puede inventar y el código señala cualquier cifra que no estuviera en el anuncio original. Probado con el anuncio de Madrid: fianza y honorarios corregidos, calificación energética y conceptos del precio como huecos, ninguna cifra nueva.
+
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
 **Latencia.** Una revisión completa tarda unos 6 segundos con Claude Haiku 4.5 y unos 3 con GPT-5.4 mini. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. Una revisión repetida la sirve la caché exacta en ~1 ms, sin llamar al modelo.
@@ -556,6 +558,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0025](docs/decisions/0025-actor-critic-boss.md) | ⚠️ Actor, crítico y jefe; el modelo cita y el código comprueba. Tres versiones, cada una por un fallo encontrado a mano |
 | [0026](docs/decisions/0026-langgraph-orchestration.md) | LangGraph con estado JSON en Postgres; el bucle a mano se conserva como referencia; nada guardado al terminar |
 | [0027](docs/decisions/0027-human-in-the-loop.md) | Pausa antes de publicar con `interrupt`, leída del checkpoint y nunca guardada como estado; decisión registrada antes de reanudar |
+| [0028](docs/decisions/0028-listing-rewrite.md) | El anuncio corregido se escribe con las incidencias finales, no a mitad del bucle; el código señala cifras inventadas |
 
 ---
 

@@ -52,7 +52,7 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 | Capability | Status |
 |---|---|
 | Agent loop with function calling: validate fields (in code), search the regulations, submit a validated review, with hard exits and a trace | ✅ #38 |
-| Rewrite the listing, with accept and edit | 🔜 #39 |
+| Rewrite the listing from the final findings, with gaps for data it cannot invent and new figures flagged in code; editable in the UI | ✅ #39 |
 | Actor-critic-boss: a critic on the other provider judges each finding against the listing and the whole cited article; the boss accepts, retries once or escalates | ✅ #40 |
 | Graph orchestration (LangGraph) with typed JSON state, reducers, conditional routing and a Postgres checkpointer; nothing kept once a run ends | ✅ #41 |
 | Human-in-the-loop: an escalated review pauses before publishing (`interrupt`), and resumes with a person's decision (approve, adjust, reject), on any process | ✅ #42 |

@@ -9,6 +9,7 @@ empty prompt, which the model would answer anyway.
 """
 
 from pathlib import Path
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
@@ -48,6 +49,13 @@ def render_agent_critic_prompt(listing: Listing, findings: str, version: str = "
     """Render the prompts the critic judges the agent's findings with, against the listing and the sources."""
     system = _env.get_template(f"agent_critic/{version}/system.j2").render()
     user = _env.get_template(f"agent_critic/{version}/user.j2").render(listing=listing, findings=findings)
+    return system, user
+
+
+def render_agent_rewrite_prompt(listing: Listing, findings: list[Any], version: str = "v1") -> tuple[str, str]:
+    """Render the prompts that rewrite a listing to fix its findings, and nothing else."""
+    system = _env.get_template(f"agent_rewrite/{version}/system.j2").render()
+    user = _env.get_template(f"agent_rewrite/{version}/user.j2").render(listing=listing, findings=findings)
     return system, user
 
 
