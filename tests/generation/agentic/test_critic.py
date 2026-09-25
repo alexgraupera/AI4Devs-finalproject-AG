@@ -45,8 +45,8 @@ class ScriptedJudge:
         return StructuredCompletion(output=CriticVerdict(judgements=self.judgements), usage=A_USAGE)  # type: ignore[arg-type]
 
 
-def judged(index: int, supported: bool, problem: Problem = Problem.NONE) -> FindingJudgement:
-    return FindingJudgement(finding_index=index, supported=supported, problem=problem, reason="porque sí")
+def judged(index: int, supported: bool, problem: Problem = Problem.NONE, quote: str = "") -> FindingJudgement:
+    return FindingJudgement(finding_index=index, supported=supported, problem=problem, quote=quote, reason="porque sí")
 
 
 FRAGMENTS = {36: a_fragment(36)}
@@ -63,7 +63,9 @@ async def test_a_supported_finding_survives() -> None:
 async def test_a_finding_the_listing_contradicts_is_rejected_with_its_problem() -> None:
     # The error of the first hand check of #38: a rating reported missing that the listing states.
     missing_rating = a_finding("Falta la calificación energética", legal_basis="RD 390/2021 art. 15.2")
-    judge = ScriptedJudge(judged(1, True), judged(2, False, Problem.CONTRADICTS_LISTING))
+    judge = ScriptedJudge(
+        judged(1, True), judged(2, False, Problem.CONTRADICTS_LISTING, quote="Certificado energético D")
+    )
 
     result = await criticise([a_finding("Fianza de dos meses"), missing_rating], A_LISTING, FRAGMENTS, judge)
 
@@ -110,3 +112,31 @@ async def test_a_critic_that_cannot_run_keeps_everything_and_says_so() -> None:
 
     assert result.unavailable
     assert len(result.supported) == 1
+
+
+async def test_a_contradiction_the_critic_cannot_quote_does_not_remove_the_finding() -> None:
+    # The error of the first actor-critic run: a correct deposit finding rejected as contradicting a
+    # listing that said exactly that. Without a quote from the listing, the critic's word is not enough.
+    judge = ScriptedJudge(judged(1, False, Problem.CONTRADICTS_LISTING, quote="el anuncio dice otra cosa"))
+
+    result = await criticise([a_finding("Pides dos meses de fianza")], A_LISTING, FRAGMENTS, judge)
+
+    assert result.rejected == []
+    assert result.confidence == 1.0
+
+
+async def test_a_rule_the_sources_do_not_hold_needs_no_quote_to_be_rejected() -> None:
+    judge = ScriptedJudge(judged(1, False, Problem.RULE_NOT_IN_SOURCES))
+
+    result = await criticise([a_finding("Fianza de tres meses permitida")], A_LISTING, FRAGMENTS, judge)
+
+    assert [r.problem for r in result.rejected] == [Problem.RULE_NOT_IN_SOURCES]
+
+
+async def test_the_judge_sees_the_quote_each_finding_rests_on() -> None:
+    judge = ScriptedJudge(judged(1, True))
+    finding = a_finding("Pides dos meses de fianza").model_copy(update={"evidence": "Fianza de dos meses."})
+
+    await criticise([finding], A_LISTING, FRAGMENTS, judge)
+
+    assert judge.user is not None and "Cita del anuncio: «Fianza de dos meses.»" in judge.user

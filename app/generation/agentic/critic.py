@@ -23,12 +23,18 @@ from app.domain.schemas.listing_review import Listing
 from app.foundation.llm.usage import LLMUsage
 from app.foundation.llm.wrapper import StructuredLLM
 from app.foundation.prompts.loader import render_agent_critic_prompt
+from app.foundation.text import appears_in
 from app.generation.agentic.ports import RegulationFragment
 
 log = structlog.get_logger()
 
-PROMPT_VERSION = "v1"
-SOURCE_CHARS = 1_500
+# v2: `contradicts_listing` needs a quote of the listing, checked in code, after v1 rejected a
+# correct deposit finding as contradicting a listing that said exactly that (ADR 0025).
+PROMPT_VERSION = "v2"
+# The whole article, never a cut: the critic reads only the cited fragments, and a rule cut off at
+# the end of a long article (Catalan article 61 is 1,942 characters) is a rule it would reject for
+# not being there. 6,000 is the longest a chunk can be (CHUNK_MAX_CHARS, ADR 0009).
+SOURCE_CHARS = 6_000
 
 
 class Problem(StrEnum):
@@ -42,6 +48,9 @@ class FindingJudgement(BaseModel):
     finding_index: int = Field(description="El número de la incidencia")
     supported: bool = Field(description="True si el anuncio y los fragmentos la sostienen")
     problem: Problem = Field(description="Qué falla, o none")
+    quote: str = Field(
+        default="", description="Si el problema es contradicts_listing, la frase exacta del anuncio que lo demuestra"
+    )
     reason: str = Field(description="Una frase: qué dice la incidencia y qué dicen el anuncio o los fragmentos")
 
 
@@ -88,10 +97,16 @@ async def criticise(
     # A judgement for a finding that does not exist is ignored; a finding the critic did not
     # judge is kept: the critic did not object to it.
     by_index = {j.finding_index: j for j in completion.output.judgements if 1 <= j.finding_index <= len(findings)}
+    stated = listing.as_text()
     supported, rejected = [], []
     for index, finding in enumerate(findings, start=1):
         judgement = by_index.get(index)
         if judgement is None or judgement.supported:
+            supported.append(finding)
+        elif judgement.problem == Problem.CONTRADICTS_LISTING and not appears_in(judgement.quote, stated):
+            # The critic says the listing contradicts the finding but cannot show where: its word
+            # alone does not remove a finding. Code checks the quote, as it checks the actor's.
+            log.info("agent.critic_unverified_rejection", finding=finding.message[:80], quote=judgement.quote[:80])
             supported.append(finding)
         else:
             rejected.append(Rejection(finding=finding, problem=judgement.problem, reason=judgement.reason))
@@ -112,6 +127,9 @@ def _render(findings: list[AgentFinding], fragments: dict[int, RegulationFragmen
             f"- Mensaje: {finding.message}",
             f"- Base legal: {finding.legal_basis or 'ninguna (incidencia de calidad)'}",
             f"- Gravedad: {finding.severity}",
+            f"- Cita del anuncio: «{finding.evidence}»"
+            if finding.evidence
+            else "- Cita del anuncio: ninguna (dice que falta algo)",
         ]
         cited = [fragments[chunk_id] for chunk_id in finding.sources if chunk_id in fragments]
         if cited:

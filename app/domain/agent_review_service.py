@@ -35,6 +35,7 @@ from app.foundation.guardrails.spend import SpendGuard
 from app.foundation.llm.tools import ToolCallingLLM
 from app.foundation.llm.usage import combined
 from app.foundation.llm.wrapper import StructuredLLM
+from app.foundation.text import appears_in
 from app.generation.agentic.boss import (
     DEFAULT_ESCALATE_BELOW,
     DEFAULT_MAX_ATTEMPTS,
@@ -52,7 +53,8 @@ log = structlog.get_logger()
 
 # v2: decides the region before searching (v1 never searched the Catalan law for a Barcelona
 # listing) and checks a datum is really absent before reporting it missing (ADR 0024).
-PROMPT_VERSION = "v2"
+# v3: quotes the listing in `evidence` for every finding about what it says (ADR 0025).
+PROMPT_VERSION = "v3"
 
 
 class RetrieverSearch:
@@ -191,7 +193,7 @@ class AgentReviewService:
             estimated_cost_usd=float(usage.estimated_cost_usd) if usage.estimated_cost_usd is not None else None,
         )
         return AgentReviewedListing(
-            review=self._checked(findings, run),
+            review=self._checked(findings, run, listing),
             trace=trace,
             usage=usage,
             stop_reason=run.stop_reason,
@@ -199,8 +201,9 @@ class AgentReviewService:
             dropped_findings=dropped,
         )
 
-    def _checked(self, findings: list[AgentFinding], run: AgentRun) -> AgentReview:
-        cited = [self._cited(finding, run.fragments) for finding in findings]
+    def _checked(self, findings: list[AgentFinding], run: AgentRun, listing: Listing) -> AgentReview:
+        stated = listing.as_text()
+        cited = [self._cited(finding, run.fragments) for finding in findings if _quotes_the_listing(finding, stated)]
         kept = [finding for finding in cited if finding is not None]
         verdict = Verdict.REQUEST_CHANGES if any(f.severity == Severity.HIGH for f in kept) else Verdict.APPROVE
         if len(kept) != len(run.output.findings) or verdict != run.output.verdict:
@@ -262,3 +265,16 @@ def _critic_step(step: int, verdict: CriticResult) -> TraceStep:
 
 def _boss_step(step: int, decision: BossDecision) -> TraceStep:
     return TraceStep(step=step, tool="boss", result=f"Decisión: {decision}")
+
+
+def _quotes_the_listing(finding: AgentFinding, stated: str) -> bool:
+    """A finding about what the listing says must quote it, and the quote must be there.
+
+    A finding that invents its own evidence ("honorarios a cargo del inquilino" in a listing that
+    says the opposite) is dropped here, in code, before any model is asked about it. A finding
+    about what is missing quotes nothing, and passes.
+    """
+    if not finding.evidence or appears_in(finding.evidence, stated):
+        return True
+    log.warning("guardrail.dropped_finding", reason="evidence_not_in_listing", evidence=finding.evidence[:120])
+    return False

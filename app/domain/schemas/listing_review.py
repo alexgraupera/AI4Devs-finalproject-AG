@@ -24,6 +24,18 @@ class Listing(BaseModel):
     municipality: str | None = None
     energy_rating: str | None = None
 
+    def as_text(self) -> str:
+        """Everything the listing states, text and fields, as one text a quote can be checked against."""
+        fields = {
+            "Precio": f"{self.price_eur_month} €/mes" if self.price_eur_month is not None else None,
+            "Superficie útil": f"{self.usable_surface_m2} m²" if self.usable_surface_m2 is not None else None,
+            "Habitaciones": self.rooms,
+            "Municipio": self.municipality,
+            "Calificación energética": self.energy_rating,
+        }
+        stated = [f"{name}: {value}" for name, value in fields.items() if value not in (None, "")]
+        return "\n".join([self.text, *stated])
+
 
 class FindingCategory(StrEnum):
     ENERGY_LABEL = "energy_label"

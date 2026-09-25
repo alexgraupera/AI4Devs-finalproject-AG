@@ -25,6 +25,13 @@ class StopReason(StrEnum):
 
 
 class AgentFinding(Finding):
+    evidence: str = Field(
+        default="",
+        description=(
+            "La frase exacta del anuncio (o el dato estructurado) a la que se refiere la incidencia, "
+            "copiada literalmente. Vacío si la incidencia es que falta algo"
+        ),
+    )
     sources: list[int] = Field(
         default_factory=list,
         description=(

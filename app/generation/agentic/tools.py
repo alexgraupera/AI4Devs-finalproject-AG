@@ -18,7 +18,9 @@ from app.generation.agentic.ports import RegulationFragment, RegulationSearch
 
 JURISDICTIONS = {"state": "normativa estatal", "catalonia": "normativa de Cataluña"}
 MAX_QUERY_CHARS = 300
-FRAGMENT_CHARS = 1_500
+# Enough for nine articles in ten to arrive whole (the 90th percentile is 3,482 characters) without
+# a search result flooding the agent's context: at 1,500 the tail of Catalan article 61 was cut off.
+FRAGMENT_CHARS = 3_000
 
 
 @dataclass(frozen=True)

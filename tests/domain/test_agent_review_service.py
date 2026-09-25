@@ -214,3 +214,31 @@ async def test_the_critic_and_the_boss_appear_in_the_trace_and_the_critic_in_the
     assert [step.tool for step in reviewed.trace] == ["search_regulations", SUBMIT, "critic", "boss"]
     assert reviewed.trace[-1].result == "Decisión: accept"
     assert reviewed.usage.estimated_cost_usd == Decimal("0.0064")
+
+
+# ── Evidence: a finding about the listing must quote it ──────────────────────────────────────
+
+
+async def test_a_finding_whose_quote_is_not_in_the_listing_never_reaches_the_user() -> None:
+    invented = {**finding(legal_basis="LAU art. 20.1", sources=[36]), "evidence": "honorarios a cargo del inquilino"}
+    listing = Listing(text="Estudio en Gràcia de 38 m², amueblado. Honorarios de agencia a cargo del propietario.")
+
+    reviewed = await service_for(review_with(invented)).review(listing)
+
+    assert reviewed.review.findings == []
+
+
+async def test_a_finding_that_quotes_the_listing_is_kept() -> None:
+    quoted = {**finding(legal_basis="LAU art. 36.1", sources=[36]), "evidence": "Fianza de dos meses"}
+
+    reviewed = await service_for(review_with(quoted)).review(A_LISTING)
+
+    assert len(reviewed.review.findings) == 1
+
+
+async def test_a_quote_of_a_structured_field_counts_as_the_listing() -> None:
+    quoted = {**finding(legal_basis=None, sources=[], severity="low"), "evidence": "Municipio: Madrid"}
+
+    reviewed = await service_for(review_with(quoted, verdict="approve")).review(A_LISTING)
+
+    assert len(reviewed.review.findings) == 1
