@@ -7,12 +7,15 @@ would be silently dropped, and the model would look wrong when the configuration
 import re
 from pathlib import Path
 
+import pytest
+
 from app.foundation.guardrails.output import ALLOWED_LEGAL_BASIS
 
-CHECKLIST = Path("app/foundation/prompts/listing_review/v2/checklist.j2").read_text(encoding="utf-8")
+CHECKLISTS = sorted(Path("app/foundation/prompts/listing_review").glob("v*/checklist.j2"))
 
 
-def test_every_source_in_the_checklist_is_allowed_by_the_output_guardrail() -> None:
-    cited = set(re.findall(r"\(((?:LAU|RD|Ley)[^)]+)\)", CHECKLIST))
+@pytest.mark.parametrize("checklist", CHECKLISTS, ids=lambda path: path.parent.name)
+def test_every_source_in_the_checklist_is_allowed_by_the_output_guardrail(checklist: Path) -> None:
+    cited = set(re.findall(r"\(((?:LAU|RD|Ley)[^)]+)\)", checklist.read_text(encoding="utf-8")))
 
     assert cited == set(ALLOWED_LEGAL_BASIS)
