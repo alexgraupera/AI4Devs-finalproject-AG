@@ -104,8 +104,11 @@ class AgentLoop:
         self._timeout = timeout_seconds
         self._prompt_version = prompt_version
 
-    async def run(self, listing: Listing) -> AgentRun:
+    async def run(self, listing: Listing, *, feedback: str | None = None) -> AgentRun:
+        """One pass of the actor. `feedback` is what the critic rejected last time, quoted back."""
         system, user = render_agent_review_prompt(listing, version=self._prompt_version)
+        if feedback:
+            user = f"{user}\n\n{feedback}"
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
         trace: list[TraceStep] = []
         usages: list[LLMUsage] = []

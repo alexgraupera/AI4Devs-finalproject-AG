@@ -198,4 +198,8 @@ def get_agent_review_service() -> AgentReviewService:
         timeout_seconds=settings.agent_timeout_seconds,
         max_fragments=settings.agent_max_fragments,
         spend=get_spend_guard(),
+        critic=get_judge_wrapper() if settings.agent_critic_enabled else None,
+        critic_min_confidence=settings.agent_critic_min_confidence,
+        critic_escalate_below=settings.agent_critic_escalate_below,
+        max_review_attempts=settings.agent_max_review_attempts,
     )

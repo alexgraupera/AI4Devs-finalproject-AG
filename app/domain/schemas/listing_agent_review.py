@@ -72,3 +72,7 @@ class AgentReviewedListing:
     trace: list[TraceStep]
     usage: LLMUsage
     stop_reason: StopReason
+    # The critic could not back every conclusion even after a retry: a person has to look.
+    escalated: bool = False
+    # How many findings the critic removed because the listing or the sources did not hold them.
+    dropped_findings: int = 0

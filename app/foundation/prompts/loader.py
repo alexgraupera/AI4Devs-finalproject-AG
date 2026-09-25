@@ -44,6 +44,13 @@ def render_agent_review_prompt(listing: Listing, version: str = "v1") -> tuple[s
     return system, user
 
 
+def render_agent_critic_prompt(listing: Listing, findings: str, version: str = "v1") -> tuple[str, str]:
+    """Render the prompts the critic judges the agent's findings with, against the listing and the sources."""
+    system = _env.get_template(f"agent_critic/{version}/system.j2").render()
+    user = _env.get_template(f"agent_critic/{version}/user.j2").render(listing=listing, findings=findings)
+    return system, user
+
+
 def render_regulations_qa_prompt(question: str, context: str, version: str = "v1") -> tuple[str, str]:
     """Render the system and user prompts of the regulation Q&A use case."""
     system = _env.get_template(f"regulations_qa/{version}/system.j2").render()

@@ -61,6 +61,10 @@ class AgentReviewResponse(BaseModel):
     # Every step the agent took, so a review can be followed from the listing to each citation.
     trace: list[TraceStep]
     stop_reason: StopReason
+    # The critic could not back every conclusion: a person has to check this review.
+    escalated: bool
+    # Findings the critic removed because the listing or the cited articles did not hold them.
+    dropped_findings: int
     usage: UsageResponse
 
     @classmethod
@@ -71,6 +75,8 @@ class AgentReviewResponse(BaseModel):
             summary=reviewed.review.summary,
             trace=reviewed.trace,
             stop_reason=reviewed.stop_reason,
+            escalated=reviewed.escalated,
+            dropped_findings=reviewed.dropped_findings,
             usage=UsageResponse(**vars(reviewed.usage)),
         )
 

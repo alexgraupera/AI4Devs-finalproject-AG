@@ -18,6 +18,8 @@ TOOL_LABELS = {
     "check_listing_fields": "Comprobar los datos del anuncio",
     "search_regulations": "Consultar la normativa",
     "submit_review": "Entregar la revisión",
+    "critic": "Comprobación de las incidencias contra el anuncio y la normativa",
+    "boss": "Decisión sobre la revisión",
     "(sin herramienta)": "Respuesta sin herramienta",
 }
 
@@ -65,6 +67,11 @@ def render_usage(usage: dict[str, Any]) -> None:
 
 
 def render_review(body: dict[str, Any]) -> None:
+    if body["escalated"]:
+        st.error(
+            "Esta revisión necesita una comprobación humana: el agente no ha podido respaldar todas "
+            "sus conclusiones con la normativa."
+        )
     if body["stop_reason"] != "completed":
         st.warning("El agente ha alcanzado el límite de pasos. La revisión puede estar incompleta.")
     if body["verdict"] == "approve":
@@ -73,6 +80,11 @@ def render_review(body: dict[str, Any]) -> None:
         st.warning(VERDICT_LABELS["request_changes"])
     st.write(body["summary"])
     render_findings(body["findings"])
+    if body["dropped_findings"]:
+        st.caption(
+            f"Se han descartado {body['dropped_findings']} incidencias que el anuncio o la normativa "
+            "consultada no respaldaban."
+        )
     render_trace(body["trace"])
     render_usage(body["usage"])
 

@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     agent_timeout_seconds: float = 90.0
     # Fragments per search the agent reads: its context grows with every one.
     agent_max_fragments: int = 5
+    # Actor-critic-boss (ADR 0025): the critic judges every finding; the boss accepts at this share
+    # of supported findings, sends the actor back once in between, and escalates below the floor.
+    agent_critic_enabled: bool = True
+    agent_critic_min_confidence: float = 0.7
+    agent_critic_escalate_below: float = 0.4
+    agent_max_review_attempts: int = 2
 
     # Business endpoints (reviews and regulations). Empty leaves them open, which is right for
     # local development and logged as a warning on every request; production refuses to start.
