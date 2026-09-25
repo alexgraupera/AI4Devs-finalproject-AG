@@ -3,7 +3,14 @@
 from decimal import Decimal
 
 from app.domain.errors import LLMUnavailable, NotAListing
-from app.domain.schemas.listing_agent_review import AgentReview, AgentReviewedListing, CitedFinding, StopReason
+from app.domain.schemas.listing_agent_review import (
+    AgentFinding,
+    AgentReview,
+    AgentReviewedListing,
+    CitedFinding,
+    StopReason,
+    TraceStep,
+)
 from app.domain.schemas.listing_review import (
     Finding,
     FindingCategory,
@@ -17,9 +24,13 @@ from app.domain.schemas.regulation_answer import Citation
 from app.foundation.guardrails.input import InputGuardrailViolation
 from app.foundation.guardrails.output import check_review
 from app.foundation.llm.usage import LLMUsage
+from app.generation.agentic.critic import CriticResult, Problem, Rejection, critic_step
+from app.generation.agentic.ports import RegulationFragment
+from app.generation.agentic.tools import SearchRegulations
 from evals.listings.dataset import AnnotatedListing
-from evals.listings.metrics import summarise
-from evals.listings.run import render, review_with_agent, review_with_pipeline
+from evals.listings.metrics import ListingOutcome, summarise
+from evals.listings.run import articles_read, critic_rejections, render, review_with_agent, review_with_pipeline
+from tests.generation.agentic.test_tools import FakeSearch, a_fragment
 
 USAGE = LLMUsage(
     provider="openai",
@@ -123,3 +134,59 @@ async def test_the_report_quotes_the_findings_outside_the_annotation() -> None:
     outcome.expected = {("RD 390/2021", "15")}
     report = render({"cag": (summarise([outcome]), [outcome])})
     assert "- `deposit` · LAU 36: La fianza excede una mensualidad." in report
+
+
+async def test_the_articles_read_come_from_what_the_search_tool_returned() -> None:
+    catalan = RegulationFragment(
+        chunk_id=245,
+        text="Artículo 61. Oferta para el arrendamiento.",
+        score=0.6,
+        law_id="BOE-A-2008-3657",
+        law_title="Ley 18/2007, de 28 de diciembre, del derecho a la vivienda.",
+        article_title="Artículo 61",
+        citation_url="https://www.boe.es/#a61",
+        jurisdiction="catalonia",
+    )
+    result = await SearchRegulations(FakeSearch([a_fragment(36), catalan])).run({"query": "oferta"})
+    trace = [TraceStep(step=1, tool="search_regulations", result=result.content)]
+
+    assert articles_read(trace) == {("LAU", "36"), ("Ley 18/2007", "61")}
+
+
+def test_the_critic_rejections_are_read_from_its_step_with_their_article() -> None:
+    offer = AgentFinding(
+        category=FindingCategory.OTHER,
+        severity=Severity.HIGH,
+        message="Falta el plazo del arrendamiento.",
+        suggestion="Indícalo.",
+        legal_basis="Ley 18/2007 art. 61.2",
+    )
+    step = critic_step(5, CriticResult(supported=[], rejected=[Rejection(offer, Problem.WRONG_ARTICLE, "no")]))
+
+    assert critic_rejections([step]) == [(("Ley 18/2007", "61"), "wrong_article")]
+
+
+def test_repeated_runs_of_a_listing_are_reported_together() -> None:
+    first = ListingOutcome(
+        id="deposit",
+        tags=[],
+        expected={("LAU", "36")},
+        expected_verdict="request_changes",
+        expected_error=None,
+        found={("LAU", "36")},
+        verdict="request_changes",
+    )
+    second = ListingOutcome(
+        id="deposit",
+        tags=[],
+        expected={("LAU", "36")},
+        expected_verdict="request_changes",
+        expected_error=None,
+        verdict="approve",
+        repeat=2,
+    )
+
+    report = render({"agent": (summarise([first, second]), [first, second])})
+
+    assert "| `deposit` | LAU 36 | LAU 36 (1/2) |  | ❌ approve (1/2) |" in report
+    assert "by repeat: F1 1.00, 0.00" in report

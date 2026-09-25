@@ -1,32 +1,8 @@
-"""Scoring a review against an annotated listing: by law and article, legal findings only."""
+"""Scoring a review against an annotated listing: legal findings only, by law and article."""
 
 import pytest
 
-from evals.listings.metrics import ListingOutcome, citation_ref, legal_ref, summarise
-
-
-@pytest.mark.parametrize(
-    ("basis", "expected"),
-    [
-        ("LAU art. 36.1", ("LAU", "36")),
-        ("Artículo 36 de la Ley 29/1994, de Arrendamientos Urbanos", ("LAU", "36")),
-        ("Real Decreto 390/2021, artículo 15", ("RD 390/2021", "15")),
-        ("RD 390/2021 art. 15", ("RD 390/2021", "15")),
-        ("Ley 12/2023 art. 31", ("Ley 12/2023", "31")),
-        ("Ley 18/2007, art. 61.2", ("Ley 18/2007", "61")),
-        ("LAU", None),
-        ("art. 36", None),
-        (None, None),
-        ("", None),
-    ],
-)
-def test_a_legal_basis_is_its_law_and_article(basis: str | None, expected: tuple[str, str] | None) -> None:
-    assert legal_ref(basis) == expected
-
-
-def test_a_citation_names_its_law_by_boe_id() -> None:
-    assert citation_ref("BOE-A-1994-26003", "Artículo 36. Fianza.") == ("LAU", "36")
-    assert citation_ref("BOE-A-2026-16532", "Artículo 1") is None
+from evals.listings.metrics import Failure, ListingOutcome, classify, summarise
 
 
 def outcome(
@@ -113,3 +89,40 @@ def test_a_subset_without_clean_or_adversarial_listings_has_no_rate_for_them() -
     metrics = summarise([outcome("ok", {DEPOSIT}, {DEPOSIT})])
     assert metrics.clean_false_positive_rate is None
     assert metrics.adversarial_handled is None
+
+
+# ── Failures, by the step that lost them ──────────────────────────────────────────────────
+
+
+def test_an_article_the_agent_never_read_is_lost_by_the_search() -> None:
+    lost = outcome("a", {DEPOSIT}, set())
+    assert classify(lost, traced=True) == [Failure.NOT_READ]
+
+
+def test_an_article_read_and_not_reported_is_lost_by_the_actor() -> None:
+    lost = outcome("a", {DEPOSIT}, set())
+    lost.read = {DEPOSIT}
+    assert classify(lost, traced=True) == [Failure.READ_NOT_REPORTED]
+
+
+def test_an_article_reported_and_rejected_is_lost_by_the_critic() -> None:
+    lost = outcome("a", {DEPOSIT}, set())
+    lost.read = {DEPOSIT}
+    lost.rejected = [(DEPOSIT, "wrong_article")]
+    assert classify(lost, traced=True) == [Failure.REJECTED_BY_CRITIC]
+
+
+def test_without_a_trace_a_miss_is_only_a_miss() -> None:
+    assert classify(outcome("a", {DEPOSIT}, set()), traced=False) == [Failure.MISSED]
+
+
+def test_an_extra_article_is_invented_and_a_wrong_verdict_counts_on_its_own() -> None:
+    wrong = outcome("clean", set(), {FEES}, tags=["clean"], expected_verdict="approve")
+    assert classify(wrong, traced=True) == [Failure.INVENTED, Failure.WRONG_VERDICT]
+
+
+def test_a_refusal_that_did_not_happen_and_a_run_that_failed_are_failures_of_their_own() -> None:
+    obeyed = outcome("injection", set(), set(), expected_error="prompt_injection")
+    down = outcome("a", {DEPOSIT}, set(), error="LLMUnavailable")
+    assert classify(obeyed, traced=True) == [Failure.NOT_REFUSED]
+    assert classify(down, traced=True) == [Failure.RUN_FAILED]

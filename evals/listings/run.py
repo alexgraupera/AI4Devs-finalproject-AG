@@ -9,6 +9,7 @@ both paths is the comparison of #52: what the agent's extra calls buy.
     python -m evals.listings.run --path agent    # the agent of #3, with its critic
     python -m evals.listings.run                 # both
     python -m evals.listings.run --path agent --only barcelona-offer-incomplete   # one case, cents
+    python -m evals.listings.run --path agent --repeat 3 --only a,b,c             # the variance of a few cases
 
 The agent runs as the graph with an in-memory checkpointer and the human pause off: an escalation
 is recorded, not waited on. The rewrite is off too: it is not what is scored, and it costs a call.
@@ -19,28 +20,32 @@ import asyncio
 import json
 import logging
 import pathlib
+import re
 import sys
 import time
+from collections import defaultdict
 from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from app.config import get_settings
-from app.domain.agent_review_service import AgentReviewService, RetrieverSearch
+from app.domain.agent_review_service import TOOL_NAMES, AgentReviewService, RetrieverSearch
 from app.domain.errors import NotAListing
+from app.domain.legal_refs import LegalRef, citation_ref, legal_ref
 from app.domain.listing_review_service import PROMPT_VERSION, ListingReviewService
-from app.domain.schemas.listing_agent_review import AgentReviewedListing
+from app.domain.schemas.listing_agent_review import AgentReviewedListing, TraceStep
 from app.domain.schemas.listing_review import Listing, ReviewedListing
 from app.foundation.guardrails.input import InputGuardrailViolation, ModerationClient
 from app.foundation.guardrails.moderation import LiteLLMModeration
 from app.foundation.guardrails.output import check_review
 from app.foundation.persistence.checkpoints import MemoryCheckpoints
 from app.foundation.persistence.database import create_engine, session_factory
+from app.generation.agentic.tools import SearchRegulations
 from app.generation.rag.embeddings import LiteLLMEmbeddings
 from app.generation.rag.retriever import Retriever
 from evals.answers.run import wrapper_for
 from evals.listings.dataset import AnnotatedListing, load_listings
-from evals.listings.metrics import ListingMetrics, ListingOutcome, citation_ref, legal_ref, summarise
+from evals.listings.metrics import Failure, ListingMetrics, ListingOutcome, failure_counts, summarise
 
 RESULTS_DIR = pathlib.Path(__file__).parents[1] / "results"
 PATHS = ("cag", "agent")
@@ -87,6 +92,7 @@ async def review_with_pipeline(case: AnnotatedListing, service: PipelineReviews)
             outcome.notes.append((ref, finding.message))
     outcome.verdict = reviewed.review.verdict.value
     outcome.cost_usd = float(reviewed.usage.estimated_cost_usd or 0)
+    outcome.step_costs = {"review": outcome.cost_usd}
     return outcome
 
 
@@ -114,7 +120,39 @@ async def review_with_agent(case: AnnotatedListing, service: AgentReviews) -> Li
         for step in reviewed.trace
     ]
     outcome.cost_usd = float(reviewed.usage.estimated_cost_usd or 0)
+    outcome.stop_reason = reviewed.stop_reason.value
+    outcome.read = articles_read(reviewed.trace)
+    outcome.rejected = critic_rejections(reviewed.trace)
+    outcome.tool_errors = sum(1 for step in reviewed.trace if step.tool in TOOL_NAMES and not step.ok)
+    outcome.step_costs = {step.step: float(step.estimated_cost_usd or 0) for step in reviewed.cost.steps}
     return outcome
+
+
+# "[245] Ley 18/2007, de 28 de diciembre, ... · Artículo 61 (normativa de Cataluña)", as the search tool writes it.
+_FRAGMENT = re.compile(r"^\[\d+\] (.+?) · (Art[íi]culo \d+)", re.MULTILINE)
+# "Rechazada «...» [Ley 18/2007 art. 61.2] (rule_not_in_sources)", as the critic's step writes it.
+_REJECTION = re.compile(r"\[([^\]]+)\] \((\w+)\)")
+
+
+def articles_read(trace: list[TraceStep]) -> set[LegalRef]:
+    """Every article a search returned to the agent: what it could have cited."""
+    read = set()
+    for step in trace:
+        if step.tool == SearchRegulations.spec.name and step.ok:
+            for law, article in _FRAGMENT.findall(step.result):
+                if (ref := legal_ref(f"{article} de {law}")) is not None:
+                    read.add(ref)
+    return read
+
+
+def critic_rejections(trace: list[TraceStep]) -> list[tuple[LegalRef | None, str]]:
+    """Every finding the critic rejected, as its article and the problem the critic named."""
+    return [
+        (legal_ref(basis), problem)
+        for step in trace
+        if step.tool == "critic"
+        for basis, problem in _REJECTION.findall(step.result)
+    ]
 
 
 def _refusal(error: Exception) -> str:
@@ -154,29 +192,87 @@ def render(results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]]) -> s
             f"| ${m.cost_per_review_usd:.4f} | {m.p50_latency_ms / 1000:.1f} s | {m.p95_latency_ms / 1000:.1f} s |"
         )
     for path, (_, outcomes) in results.items():
+        repeats = max((o.repeat for o in outcomes), default=1)
+        if repeats > 1:
+            by_repeat = [summarise([o for o in outcomes if o.repeat == r]) for r in range(1, repeats + 1)]
+            lines += ["", f"`{path}` by repeat: F1 " + ", ".join(f"{m.f1:.2f}" for m in by_repeat)]
+    lines += _failures(results) + _step_costs(results)
+    for path, (_, outcomes) in results.items():
+        lines += _by_listing(path, outcomes)
+    return "\n".join(lines)
+
+
+def _failures(results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]]) -> list[str]:
+    counts = {path: failure_counts(outs, traced=path.startswith("agent")) for path, (_, outs) in results.items()}
+    kinds = [kind for kind in Failure if any(kind in c for c in counts.values())]
+    if not kinds:
+        return []
+    lines = ["", "**Failures, by the step that lost them**", "", "| Failure | " + " | ".join(counts) + " |"]
+    lines.append("|---|" + "---:|" * len(counts))
+    lines += [f"| {kind} | " + " | ".join(str(c[kind]) for c in counts.values()) + " |" for kind in kinds]
+    return lines
+
+
+def _step_costs(results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]]) -> list[str]:
+    lines = []
+    for path, (_, outcomes) in results.items():
+        reviewed = [o for o in outcomes if o.error is None and o.step_costs]
+        if not reviewed or not path.startswith("agent"):
+            continue
+        totals: dict[str, float] = defaultdict(float)
+        for o in reviewed:
+            for step, cost in o.step_costs.items():
+                totals[step] += cost
+        whole = sum(totals.values()) or 1.0
         lines += [
             "",
-            f"**`{path}`: listing by listing**",
+            f"**`{path}`: cost per review, by step**",
             "",
-            "| Listing | expected | missed | extra | verdict |",
-            "|---|---|---|---|---|",
+            "| Step | cost / review | share |",
+            "|---|---:|---:|",
         ]
-        for o in outcomes:
-            if o.must_refuse:
-                verdict = "✅ refused" if o.error == o.expected_error else f"❌ {o.error or o.verdict}"
-                lines.append(f"| `{o.id}` | refuse: {o.expected_error} | | | {verdict} |")
-                continue
-            missed = ", ".join(" ".join(r) for r in sorted(o.expected - o.found)) or ""
-            extra = ", ".join(" ".join(r) for r in sorted(o.found - o.expected)) or ""
-            verdict = o.error or ("✅" if o.verdict == o.expected_verdict else f"❌ {o.verdict}")
-            expected = ", ".join(" ".join(r) for r in sorted(o.expected)) or "none"
-            flag = " (escalated)" if o.escalated else ""
-            lines.append(f"| `{o.id}` | {expected} | {missed} | {extra} | {verdict}{flag} |")
-        extras = [(o.id, ref, message) for o in outcomes for ref, message in o.notes if ref not in o.expected]
-        if extras:
-            lines += ["", f"**`{path}`: findings outside the annotation**", ""]
-            lines += [f"- `{id}` · {' '.join(ref)}: {message}" for id, ref, message in extras]
-    return "\n".join(lines)
+        lines += [f"| {step} | ${cost / len(reviewed):.4f} | {cost / whole:.0%} |" for step, cost in totals.items()]
+    return lines
+
+
+def _by_listing(path: str, outcomes: list[ListingOutcome]) -> list[str]:
+    runs: dict[str, list[ListingOutcome]] = defaultdict(list)
+    for o in outcomes:
+        runs[o.id].append(o)
+    lines = ["", f"**`{path}`: listing by listing**", "", "| Listing | expected | missed | extra | verdict |"]
+    lines.append("|---|---|---|---|---|")
+    for id, tries in runs.items():
+        first, n = tries[0], len(tries)
+        if first.must_refuse:
+            refused = sum(o.error == o.expected_error for o in tries)
+            verdict = "✅ refused" if refused == n else f"❌ refused {refused}/{n}"
+            lines.append(f"| `{id}` | refuse: {first.expected_error} | | | {verdict} |")
+            continue
+        expected = ", ".join(" ".join(r) for r in sorted(first.expected)) or "none"
+        missed = _tally([o.expected - o.found for o in tries if o.error is None], n)
+        extra = _tally([o.found - o.expected for o in tries if o.error is None], n)
+        right = sum(o.verdict == o.expected_verdict for o in tries)
+        errors = sorted({o.error for o in tries if o.error})
+        wrong = sorted({o.verdict for o in tries if o.verdict and o.verdict != o.expected_verdict})
+        share = f" ({n - right}/{n})" if n > 1 else ""
+        verdict = "✅" if right == n else f"❌ {', '.join(errors + wrong)}{share}"
+        escalated = sum(o.escalated for o in tries)
+        flag = (" (escalated)" if n == 1 else f" (escalated {escalated}/{n})") if escalated else ""
+        lines.append(f"| `{id}` | {expected} | {missed} | {extra} | {verdict}{flag} |")
+    extras = [(o.id, ref, message) for o in outcomes for ref, message in o.notes if ref not in o.expected]
+    if extras:
+        lines += ["", f"**`{path}`: findings outside the annotation**", ""]
+        lines += [f"- `{id}` · {' '.join(ref)}: {message}" for id, ref, message in extras]
+    return lines
+
+
+def _tally(refs_per_run: list[set[LegalRef]], runs: int) -> str:
+    """ "LAU 36" in a single run; "LAU 36 (2/3)" when it happened in two runs of three."""
+    counts: dict[LegalRef, int] = defaultdict(int)
+    for refs in refs_per_run:
+        for ref in refs:
+            counts[ref] += 1
+    return ", ".join(" ".join(ref) + (f" ({k}/{runs})" if runs > 1 else "") for ref, k in sorted(counts.items()))
 
 
 def save(results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]], run_cost: float) -> pathlib.Path:
@@ -189,6 +285,8 @@ def save(results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]], run_co
         data["expected"] = sorted(" ".join(r) for r in o.expected)
         data["found"] = sorted(" ".join(r) for r in o.found)
         data["notes"] = [{"ref": " ".join(ref), "message": message} for ref, message in o.notes]
+        data["read"] = sorted(" ".join(r) for r in o.read)
+        data["rejected"] = [{"ref": " ".join(ref) if ref else None, "problem": problem} for ref, problem in o.rejected]
         return data
 
     document = {
@@ -204,7 +302,11 @@ def save(results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]], run_co
 
 
 async def measure(
-    paths: tuple[str, ...], only: set[str] | None = None, cag_prompt: str = PROMPT_VERSION
+    paths: tuple[str, ...],
+    only: set[str] | None = None,
+    cag_prompt: str = PROMPT_VERSION,
+    repeat: int = 1,
+    critic: bool = True,
 ) -> tuple[dict[str, tuple[ListingMetrics, list[ListingOutcome]]], float]:
     settings = get_settings()
     cases = [case for case in load_listings() if not only or case.id in only]
@@ -216,7 +318,11 @@ async def measure(
         pipeline = ListingReviewService(
             llm=generator, moderation=moderation, model=settings.llm_model, prompt_version=cag_prompt
         )
-        outcomes = [await review_with_pipeline(case, pipeline) for case in cases]
+        outcomes = []
+        for r in range(1, repeat + 1):
+            for case in cases:
+                outcomes.append(outcome := await review_with_pipeline(case, pipeline))
+                outcome.repeat = r
         results[f"cag {cag_prompt}"] = (summarise(outcomes), outcomes)
 
     if "agent" in paths:
@@ -242,15 +348,19 @@ async def measure(
                 max_iterations=settings.agent_max_iterations,
                 timeout_seconds=settings.agent_timeout_seconds,
                 max_fragments=settings.agent_max_fragments,
-                critic=wrapper_for(settings.llm_judge_model, settings.llm_judge_fallback_model),
+                critic=wrapper_for(settings.llm_judge_model, settings.llm_judge_fallback_model) if critic else None,
                 critic_min_confidence=settings.agent_critic_min_confidence,
                 critic_escalate_below=settings.agent_critic_escalate_below,
                 max_review_attempts=settings.agent_max_review_attempts,
                 checkpoints=MemoryCheckpoints(),
                 human_review=False,
             )
-            outcomes = [await review_with_agent(case, agent) for case in cases]
-            results["agent"] = (summarise(outcomes), outcomes)
+            outcomes = []
+            for r in range(1, repeat + 1):
+                for case in cases:
+                    outcomes.append(outcome := await review_with_agent(case, agent))
+                    outcome.repeat = r
+            results["agent" if critic else "agent without critic"] = (summarise(outcomes), outcomes)
         finally:
             await engine.dispose()
 
@@ -265,11 +375,15 @@ def main() -> int:
     parser.add_argument(
         "--cag-prompt", default=PROMPT_VERSION, help="The pipeline's prompt version (listing_review/<v>)"
     )
+    parser.add_argument("--repeat", type=int, default=1, help="Review every listing N times: the variance is a result")
+    parser.add_argument("--no-critic", action="store_true", help="The agent without its critic: what the critic adds")
     arguments = parser.parse_args()
     paths = PATHS if arguments.path == "both" else (arguments.path,)
     only = set(arguments.only.split(",")) if arguments.only else None
 
-    results, run_cost = asyncio.run(measure(paths, only, arguments.cag_prompt))
+    results, run_cost = asyncio.run(
+        measure(paths, only, arguments.cag_prompt, arguments.repeat, critic=not arguments.no_critic)
+    )
     print(render(results))
     print(f"\nCost of the run: ${run_cost:.4f}")
     print(f"Saved to {save(results, run_cost)}")
