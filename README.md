@@ -696,9 +696,18 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 
 ## 8. 🆕 Evaluación (evals)
 
-> Describe la suite de evaluación: test sets, métricas (retrieval, generación, detección de defectos, latencia y coste), rúbrica del LLM-as-judge, casos de regresión y resultados por iteración. El detalle irá en `docs/evals.md`, que llega con la suite de evaluación (#4).
+> Describe la suite de evaluación: test sets, métricas (retrieval, generación, detección de defectos, latencia y coste), rúbrica del LLM-as-judge, casos de regresión y resultados por iteración. Detalle en [`docs/evals.md`](docs/evals.md).
 
 **Hoy está medida la recuperación.** Un set dorado de 29 preguntas en tres familias (lenguaje legal, paráfrasis y fuera de dominio) con recall@k, MRR y tasa de no-respuesta, ejecutable con `make benchmark-retrieval` ([`benchmarks/retrieval/`](benchmarks/retrieval/README.md)). Con él se ajustaron el umbral y el top-k ([ADR 0012](docs/decisions/0012-retrieval-baseline-and-tuning.md)), se eliminaron la búsqueda híbrida y la reformulación y se conservó el reranking ([ADR 0013](docs/decisions/0013-advanced-retrieval-measured.md)), y se calibró la verificación de citas ([ADR 0014](docs/decisions/0014-grounding-and-retrieval-security.md)). Los resultados están en la sección 2.8.
+
+**Y están medidas las respuestas** (`make eval-answers`, [ADR 0022](docs/decisions/0022-answer-evaluation.md)): las 32 preguntas pasan por el servicio real y un juez de **otro proveedor** (GPT-5.4 mini) las califica con una rúbrica versionada. Métricas al estilo RAGAS: las de recuperación salen exactas de las etiquetas y las de generación del juez, que lista las afirmaciones mientras el código hace las cuentas.
+
+| Prompt | Respondidas | Rechazos fuera de dominio | Citan el artículo esperado | Fidelidad | Corrección | Caso de regresión #34 |
+|---|---:|---:|---:|---:|---:|---|
+| v1 | 84% | 100% | 76% | 0,95 | 0,68 | ❌ se niega a responder |
+| **v2 (actual)** | **92%** | **100%** | **88%** | 0,90 | **0,76** | ❌ la primera frase aún se contradice |
+
+**La evaluación encontró lo que la prueba a mano no vio:** el arreglo del bug #34 está incompleto. Por eso existe un caso de regresión, y por eso se ha visto fallar antes de darlo por bueno. La mitad del coste de una respuesta es el reranking (0,0077 $ de 0,0164 $).
 
 ---
 

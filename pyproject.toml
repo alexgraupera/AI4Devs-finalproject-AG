@@ -45,7 +45,7 @@ allowed-confusables = ["–"]
 python_version = "3.12"
 strict = true
 mypy_path = "src"
-packages = ["app", "benchmarks", "tests"]
+packages = ["app", "benchmarks", "evals", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

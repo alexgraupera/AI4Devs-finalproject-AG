@@ -61,13 +61,13 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 
 | Capability | Status |
 |---|---|
-| Golden sets: regulation Q&A, annotated listings and adversarial cases | ✅ #24 (retrieval), 🔜 #4 (the rest) |
+| Golden sets: regulation Q&A with reference answers, conflicts and a regression case; annotated listings | ✅ #24, #48; 🔜 #49 (listings) |
 | Retrieval metrics (recall@k, MRR) over a golden set, per technique | ✅ #24 |
-| Generation metrics (faithfulness, correctness, citation accuracy) | 🔜 #4 |
-| Cost and latency per stage | 🔜 #4 |
-| Regression gate against a promoted baseline, with zero tolerance on safety metrics | 🔜 #4 |
-| A/B comparison of prompt and retrieval variants | 🔜 #4 |
-| Dashboard built from the events the service already logs | 🔜 #4 |
+| Generation metrics (faithfulness, relevance, correctness, citation accuracy) with a judge on the other provider | ✅ #48 |
+| Cost and latency per stage | ✅ #48 |
+| Regression gate against a promoted baseline, with zero tolerance on safety metrics | 🔜 #50 |
+| A/B comparison of prompt and retrieval variants | ✅ #48 (named variants per run) |
+| Dashboard built from the events the service already logs | Out of scope until the production measurement session (see #4) |
 
 ### Production
 

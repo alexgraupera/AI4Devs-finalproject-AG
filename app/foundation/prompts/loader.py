@@ -56,3 +56,14 @@ def render_regulations_grounding_prompt(answer: str, sources: str, version: str 
     system = _env.get_template(f"regulations_grounding/{version}/system.j2").render()
     user = _env.get_template(f"regulations_grounding/{version}/user.j2").render(answer=answer, sources=sources)
     return system, user
+
+
+def render_eval_answer_judge_prompt(
+    question: str, reference: str, context: str, answer: str, version: str = "v1"
+) -> tuple[str, str]:
+    """Render the prompts the answer evaluation judges an answer with. Never used by the service."""
+    system = _env.get_template(f"eval_answer_judge/{version}/system.j2").render()
+    user = _env.get_template(f"eval_answer_judge/{version}/user.j2").render(
+        question=question, reference=reference, context=context, answer=answer
+    )
+    return system, user
