@@ -64,3 +64,8 @@ Prompt v2 adds two rules: decide the region from the municipality before searchi
 - An agent review costs several model calls: one per turn, each carrying the growing conversation. #52 measures it against the pipeline, step by step.
 - The agent can cite any article of the corpus, not only the five of the checklist, which is the point: a Catalan listing gets the Catalan law.
 - The loop keeps state in memory for the length of a request. A pause for a human (#42) needs that state to survive a restart, which is what the graph and its checkpointer bring in #41.
+
+## Measured (#52)
+
+On the 18 annotated listings ([ADR 0031](0031-agent-vs-pipeline.md)), the agent without its critic finds 94% of the expected articles, the Catalan law included, against 81% for the pipeline; but it also reports confirmations and advice as legal findings (precision 58% against 100%), at eight times the pipeline's cost. The region rule of prompt v2 holds: no expected article was missed for not being searched.
+

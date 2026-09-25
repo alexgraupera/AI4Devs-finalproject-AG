@@ -439,6 +439,8 @@ El estado es JSON plano (leer clases de una fila de la base de datos es un riesg
 
 **Y propone el anuncio corregido** ([ADR 0028](docs/decisions/0028-listing-rewrite.md)), a partir de las incidencias que sobrevivieron al crítico y a la decisión de la persona: corrige solo lo que hay que corregir, deja **huecos entre corchetes** para los datos que no puede inventar y el código señala cualquier cifra que no estuviera en el anuncio original. Probado con el anuncio de Madrid: fianza y honorarios corregidos, calificación energética y conceptos del precio como huecos, ninguna cifra nueva.
 
+**¿Merece la pena el agente? Medido, depende del anuncio** ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)). Con los mismos 18 anuncios anotados, el pipeline (CAG) sigue siendo la revisión: F1 0,90, precisión 100% y 0,0017 $. El agente **sin crítico** encuentra más que nadie (recall 94%, y es el único que ve la ley catalana), pero añade confirmaciones y consejos con base legal («la fianza indicada es correcta») que bajan su precisión al 58%, a 8 veces el coste. Y el crítico, mientras comparta modelo con el actor (Anthropic está en su límite hasta el 1 de octubre), **resta**: rechaza incidencias correctas y baja el recall al 75%. La conclusión es de arquitectura: el pipeline revisa, y el agente vale para lo que el checklist no ve, la normativa autonómica, cuando su precisión aguante.
+
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
 **Latencia.** Una revisión completa tarda unos 6 segundos con Claude Haiku 4.5 y unos 3 con GPT-5.4 mini. Un rechazo por guardrail local es inmediato (unos 4 ms), porque la única capa que sale a la red se ejecuta la última. Una revisión repetida la sirve la caché exacta en ~1 ms, sin llamar al modelo.
@@ -450,6 +452,8 @@ La búsqueda en la tabla usa el prefijo más largo, porque el proveedor responde
 **Disponibilidad.** El código pide al Router un modelo lógico (`listing-reviewer`) y nunca nombra un proveedor. Si Anthropic falla, responde OpenAI sin que el cliente se entere; el proveedor real aparece en `usage`. Probado con una clave primaria inválida: la revisión se completó igual. Y probado de verdad sin querer: el 25 de septiembre la cuenta de Anthropic alcanzó su límite mensual y rechazó todas las llamadas hasta el 1 de octubre; el servicio siguió respondiendo con OpenAI sin cambiar una línea ([ADR 0023](docs/decisions/0023-a-model-per-role.md)).
 
 **Un modelo por papel.** Quien escribe (Claude Haiku 4.5) no es quien verifica: el juez de la verificación de citas y el crítico del agente van en el otro proveedor (GPT-5.4 mini), para no compartir los puntos ciegos de quien escribió. Cada llamada tiene un tiempo máximo (45 s), un presupuesto de tokens (4.000) y temperatura 0, y una respuesta cortada por el presupuesto falla con su nombre en vez de por accidente. Se probó un reranker más barato (GPT-5.4 nano) y se descartó: pierde 8 puntos de recall@1.
+
+**Coste del agente, paso a paso.** Cada revisión del agente devuelve su coste desglosado (`cost_breakdown`: razonamiento del actor, herramientas, crítico y anuncio corregido) y la interfaz lo muestra. Medido sobre 15 revisiones: **el 86% es el actor**, porque cada turno relee la conversación entera con los fragmentos ya leídos; el crítico es el 14% y las herramientas nada. Lo siguiente que abaratar es el contexto del actor, no el crítico ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)).
 
 **Coste de una consulta de normativa.** Tres tramos, medidos:
 
@@ -563,6 +567,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0028](docs/decisions/0028-listing-rewrite.md) | El anuncio corregido se escribe con las incidencias finales, no a mitad del bucle; el código señala cifras inventadas |
 | [0029](docs/decisions/0029-least-privilege-and-audit.md) | Permisos por papel como datos, denegados por defecto y comprobados antes de ejecutar; auditoría de cada llamada |
 | [0030](docs/decisions/0030-listing-review-evaluation.md) | ⚠️ Revisiones medidas con 18 anuncios anotados: prompt `v3` sin falsos positivos, y el agente peor que el pipeline hasta arreglar su crítico |
+| [0031](docs/decisions/0031-agent-vs-pipeline.md) | ⚠️ Agente contra pipeline, medido: el pipeline revisa, el actor ve más (y la ley catalana), y el crítico en el mismo modelo resta |
 
 ---
 
@@ -777,9 +782,11 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 | Pipeline, prompt v2 | 65-72% | 81% | 0,72-0,76 | 0% | 87% | 100% | 0,0016 $ |
 | Pipeline, v3 primer borrador | 100% | 75% | 0,86 | 0% | 80% | ❌ obedece la inyección sin patrón | 0,0015 $ |
 | **Pipeline, prompt v3 (actual)** | **100%** | **81%** | **0,90** | **0%** | **87%** | **100%** | **0,0015 $** |
-| Agente (grafo y crítico) | 67% | 75% | 0,71 | 75% | 67% | 100% | 0,0297 $ |
+| Agente (grafo y crítico), antes de #52 | 67% | 75% | 0,71 | 75% | 67% | 100% | 0,0297 $ |
+| Agente, crítico v3 y prompt v4 | 55% | 75% | 0,63 | 25% | 67% | 100% | 0,0228 $ |
+| Agente sin crítico | 58% | **94%** | 0,71 | 50% | 80% | 100% | 0,0132 $ |
 
-**Casi todos los falsos positivos eran el mismo artículo** (Ley 12/2023 art. 31, pidiendo más desglose a anuncios que ya decían qué incluye el precio), y el `v3` los elimina. **El agente sale peor que el pipeline y cuesta unas 19 veces más**, y la traza dice por qué: en Barcelona encuentra las cuatro omisiones del artículo 61 catalán y su crítico las rechaza todas, confundiendo un apartado con un artículo. Se arregla en #52 y se mide con este mismo set.
+**Casi todos los falsos positivos eran el mismo artículo** (Ley 12/2023 art. 31, pidiendo más desglose a anuncios que ya decían qué incluye el precio), y el `v3` los elimina. **El agente sale peor que el pipeline y cuesta unas 19 veces más**, y la traza dice por qué: en Barcelona encuentra las cuatro omisiones del artículo 61 catalán y su crítico las rechaza todas, confundiendo un apartado con un artículo. Arreglado ese error, el crítico sigue restando mientras comparta modelo con el actor: cada fallo queda clasificado por el paso que lo perdió (la búsqueda nunca; el actor inventa confirmaciones; el crítico rechaza lo correcto), y el desglose de coste dice qué optimizar después ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)).
 
 ---
 
@@ -790,6 +797,8 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 **El corpus son cuatro normas.** LAU, Ley 12/2023, RD 390/2021 y la ley catalana de vivienda. La fiscalidad del alquiler (IRPF), las comunidades de propietarios, los procedimientos judiciales y la normativa de las otras quince comunidades autónomas **no están**, y el asistente lo dice en vez de improvisar. Ampliarlo es añadir líneas a `app/ingestion/sources.py`; cada norma nueva cuesta unos milésimos de dólar en embeddings.
 
 **Las resoluciones de zonas tensionadas se añaden a mano.** El BOE no publica una lista consolidada legible por máquina, así que cada trimestre alguien tiene que añadir el identificador nuevo. El detector de deriva semanal avisa de las leyes que cambian, no de las resoluciones que aparecen.
+
+**El crítico del agente resta mientras comparta modelo con el actor.** Con Anthropic en su límite, actor y crítico son GPT-5.4 mini, justo lo que el diseño de un modelo por papel quería evitar, y medido baja el recall del 94% al 75%. Se vuelve a medir con el actor en Claude Haiku 4.5 a partir del 1 de octubre; si aun así resta, el crítico pasará de filtrar a solo avisar a una persona ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)). Y el actor del agente convierte confirmaciones en incidencias legales, que es su siguiente arreglo.
 
 **El juez que verifica es el mismo modelo barato que escribe.** Se equivoca a veces en ambos sentidos: midiendo sobre 22 preguntas marcó como no sostenida una afirmación que sí estaba en el artículo. Un juez más capaz costaría más por pregunta; ese trade no está medido.
 
