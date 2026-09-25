@@ -51,7 +51,8 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 
 | Capability | Status |
 |---|---|
-| Agent loop with function calling: search the regulations, validate fields, rewrite the listing | 🔜 #3 |
+| Agent loop with function calling: validate fields (in code), search the regulations, submit a validated review, with hard exits and a trace | ✅ #38 |
+| Rewrite the listing, with accept and edit | 🔜 #39 |
 | Actor-critic-boss: findings without a supporting citation do not reach the user | 🔜 #3 |
 | Graph orchestration with typed state, conditional routing and persistence | 🔜 #3 |
 | Human-in-the-loop: the run pauses before publishing when confidence is low, and resumes with the human decision | 🔜 #3 |

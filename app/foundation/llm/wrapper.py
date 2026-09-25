@@ -9,6 +9,7 @@ Provider failures are translated here into the domain's own errors, and what the
 measured here too, so nothing above this module has to know what `litellm` raises or charges.
 """
 
+import json
 import time
 from typing import Any, Protocol, TypeVar
 
@@ -28,6 +29,7 @@ from pydantic import BaseModel
 
 from app.domain.errors import LLMUnavailable, ReviewGenerationError
 from app.foundation.llm.pricing import estimate_cost, provider_of
+from app.foundation.llm.tools import RequestedToolCall, ToolCompletion, ToolSpec
 from app.foundation.llm.usage import LLMUsage, StructuredCompletion, UsageAccumulator, current_usage
 
 log = structlog.get_logger()
@@ -147,6 +149,90 @@ class LLMWrapper:
 
         latency_ms = int((time.perf_counter() - started) * 1000)
         return StructuredCompletion(output=output, usage=usage_of(accumulator, raw, latency_ms))
+
+    async def complete_with_tools(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        tools: list[ToolSpec],
+        force_tool: str | None = None,
+    ) -> ToolCompletion:
+        """One turn of an agent: the model answers or asks for tools. The code runs them, not this.
+
+        The same Router, fallback and error translation as `complete_structured`. There is no
+        Instructor here: the structure of a tool call is the provider's, and its arguments are
+        validated by the tool that receives them, which is what can tell the model what was wrong.
+        """
+        started = time.perf_counter()
+        options: dict[str, Any] = {
+            "tools": [tool.as_openai() for tool in tools],
+            "tool_choice": {"type": "function", "function": {"name": force_tool}} if force_tool else "auto",
+        }
+        if self._max_tokens is not None:
+            options["max_tokens"] = self._max_tokens
+        if self._temperature is not None:
+            options["temperature"] = self._temperature
+
+        try:
+            # Never streamed (no `stream` option), so the response is a complete ModelResponse;
+            # the Router's signature covers both shapes, hence the Any.
+            response: Any = await self._router.acompletion(
+                model=LOGICAL_MODEL,
+                messages=messages,  # type: ignore[arg-type]
+                **options,
+            )
+        except _UNAVAILABLE as error:
+            raise LLMUnavailable(str(error)) from error
+        except openai.APIError as error:
+            raise ReviewGenerationError(str(error)) from error
+
+        choice = response.choices[0]
+        if choice.finish_reason == "length":
+            log.warning("llm.truncated", schema="tool_call", max_tokens=self._max_tokens)
+            raise ReviewGenerationError(f"the agent turn was truncated at {self._max_tokens} tokens")
+
+        message = choice.message
+        raw_calls = list(message.tool_calls or [])
+        assistant: dict[str, Any] = {"role": "assistant", "content": message.content}
+        if raw_calls:
+            assistant["tool_calls"] = [
+                {
+                    "id": call.id,
+                    "type": "function",
+                    "function": {"name": call.function.name, "arguments": call.function.arguments or "{}"},
+                }
+                for call in raw_calls
+            ]
+
+        model = str(getattr(response, "model", None) or LOGICAL_MODEL)
+        usage = getattr(response, "usage", None)
+        input_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        output_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+        return ToolCompletion(
+            content=message.content,
+            tool_calls=[_requested(call) for call in raw_calls],
+            usage=LLMUsage(
+                provider=provider_of(model),
+                model=model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                estimated_cost_usd=estimate_cost(model, input_tokens, output_tokens),
+            ),
+            message=assistant,
+        )
+
+
+def _requested(call: Any) -> RequestedToolCall:
+    """Arguments arrive as a JSON string. Invalid JSON is kept, so the model can be told so."""
+    raw = call.function.arguments or "{}"
+    try:
+        arguments = json.loads(raw)
+    except json.JSONDecodeError:
+        return RequestedToolCall(id=call.id, name=call.function.name, malformed=raw)
+    if not isinstance(arguments, dict):
+        return RequestedToolCall(id=call.id, name=call.function.name, malformed=raw)
+    return RequestedToolCall(id=call.id, name=call.function.name, arguments=arguments)
 
 
 def _record_attempt(response: Any) -> None:

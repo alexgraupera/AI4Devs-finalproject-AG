@@ -7,6 +7,7 @@ from litellm.exceptions import RateLimitError
 
 from app.domain.errors import LLMUnavailable, ReviewGenerationError
 from app.domain.schemas.listing_review import ListingReview, Verdict
+from app.foundation.llm.tools import ToolSpec
 from app.foundation.llm.usage import UsageAccumulator, current_usage
 from app.foundation.llm.wrapper import (
     FALLBACK_MODEL,
@@ -223,3 +224,128 @@ async def test_a_truncation_behind_the_re_prompts_is_still_named_a_truncation() 
 
     with pytest.raises(ReviewGenerationError, match="truncated"):
         await complete(wrapper_with(FakeCompletions(error=error), max_tokens=4_000))
+
+
+# ── Tool calling ────────────────────────────────────────────────────────────────────────────
+
+
+class Function:
+    def __init__(self, name: str, arguments: str) -> None:
+        self.name = name
+        self.arguments = arguments
+
+
+class ToolCall:
+    def __init__(self, id: str, name: str, arguments: str) -> None:
+        self.id = id
+        self.function = Function(name, arguments)
+
+
+class Message:
+    def __init__(self, content: str | None, tool_calls: list[ToolCall] | None) -> None:
+        self.content = content
+        self.tool_calls = tool_calls
+
+
+class Choice:
+    def __init__(self, message: Message, finish_reason: str = "tool_calls") -> None:
+        self.message = message
+        self.finish_reason = finish_reason
+
+
+class ToolResponse:
+    def __init__(
+        self, message: Message, *, model: str = "claude-haiku-4-5-20251001", finish_reason: str = "tool_calls"
+    ) -> None:
+        self.choices = [Choice(message, finish_reason)]
+        self.model = model
+        self.usage = Usage(2_000, 150)
+
+
+class FakeRouter:
+    def __init__(self, response: Any = None, error: Exception | None = None) -> None:
+        self.response = response
+        self.error = error
+        self.kwargs: dict[str, Any] = {}
+
+    async def acompletion(self, **kwargs: Any) -> Any:
+        self.kwargs = kwargs
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+
+def tool_wrapper(router: FakeRouter, **options: Any) -> LLMWrapper:
+    wrapper = wrapper_with(FakeCompletions(), **options)
+    wrapper._router = router  # type: ignore[assignment]
+    return wrapper
+
+
+SEARCH_SPEC = ToolSpec(name="search_regulations", description="Busca", parameters={"type": "object", "properties": {}})
+
+
+async def complete_tools(wrapper: LLMWrapper, force_tool: str | None = None) -> Any:
+    return await wrapper.complete_with_tools(
+        messages=[{"role": "user", "content": "hola"}], tools=[SEARCH_SPEC], force_tool=force_tool
+    )
+
+
+async def test_returns_the_requested_tool_calls_with_their_arguments_parsed() -> None:
+    message = Message("Busco la fianza", [ToolCall("c1", "search_regulations", '{"query": "fianza"}')])
+
+    completion = await complete_tools(tool_wrapper(FakeRouter(ToolResponse(message))))
+
+    assert completion.content == "Busco la fianza"
+    assert [(c.id, c.name, c.arguments) for c in completion.tool_calls] == [
+        ("c1", "search_regulations", {"query": "fianza"})
+    ]
+
+
+async def test_carries_the_assistant_message_forward_with_its_tool_calls() -> None:
+    message = Message(None, [ToolCall("c1", "search_regulations", '{"query": "fianza"}')])
+
+    completion = await complete_tools(tool_wrapper(FakeRouter(ToolResponse(message))))
+
+    assert completion.message["role"] == "assistant"
+    assert completion.message["tool_calls"][0]["id"] == "c1"
+
+
+async def test_malformed_arguments_are_surfaced_instead_of_raising() -> None:
+    message = Message(None, [ToolCall("c1", "search_regulations", "{not json")])
+
+    (call,) = (await complete_tools(tool_wrapper(FakeRouter(ToolResponse(message))))).tool_calls
+
+    assert call.malformed == "{not json"
+    assert call.arguments == {}
+
+
+async def test_prices_the_turn_by_the_model_that_answered() -> None:
+    usage = (await complete_tools(tool_wrapper(FakeRouter(ToolResponse(Message("ok", None)))))).usage
+
+    assert usage.provider == "anthropic"
+    assert usage.input_tokens == 2_000
+    assert usage.estimated_cost_usd is not None
+
+
+async def test_sends_the_tools_and_forces_one_when_asked() -> None:
+    router = FakeRouter(ToolResponse(Message(None, [ToolCall("c1", "search_regulations", "{}")])))
+
+    await complete_tools(tool_wrapper(router, max_tokens=4_000), force_tool="search_regulations")
+
+    assert router.kwargs["tools"] == [SEARCH_SPEC.as_openai()]
+    assert router.kwargs["tool_choice"] == {"type": "function", "function": {"name": "search_regulations"}}
+    assert router.kwargs["max_tokens"] == 4_000
+
+
+async def test_a_truncated_agent_turn_is_a_generation_error() -> None:
+    router = FakeRouter(ToolResponse(Message("a medias", None), finish_reason="length"))
+
+    with pytest.raises(ReviewGenerationError, match="truncated"):
+        await complete_tools(tool_wrapper(router, max_tokens=100))
+
+
+async def test_a_provider_outage_during_a_tool_call_is_unavailable() -> None:
+    error = RateLimitError("rate limited", llm_provider="anthropic", model="claude-haiku-4-5")
+
+    with pytest.raises(LLMUnavailable):
+        await complete_tools(tool_wrapper(FakeRouter(error=error)))
