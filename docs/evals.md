@@ -165,6 +165,16 @@ After fixing the critic (prompt v3 and a code check on `wrong_article`) and movi
 
 An improvement never fails; a metric missing from the run always does. A subset or a run without the judge is not compared. The mocked regression cases, in CI on every pull request: #34's opening rule and the metric that fails it, a citation to a fragment never retrieved (Q&A and agent), and both injections of the listings dataset.
 
+## From a thumbs down to a golden case
+
+The golden sets are what the engineer thought of. What people ask and find wrong is what the next cases should be made of, so every review and answer carries a 👍/👎 (#51), stored in `feedback` with the `request_id` of the request it rates and an optional comment (personal data masked), never with the listing or the question.
+
+1. **Read the week's votes down**: `SELECT request_id, kind, comment, created_at FROM feedback WHERE rating = 'down' ORDER BY created_at DESC`.
+2. **Follow the id into the logs**: every event of that request carries it (`listing_review.completed`, `agent_review.completed`, `regulations_qa.*`, the guardrails), with the prompt version, the model that answered, the articles read, the stop reason and the cost. The `feedback.recorded` event links the vote (`rated_request_id`) to the request it rates.
+3. **Reproduce and decide who was wrong.** The person, the regulation or the system. Only the last becomes a case.
+4. **Write the case** from what the logs and the comment say, never from the person's text (it was not kept, on purpose): a question goes to [`benchmarks/retrieval/questions.yaml`](../benchmarks/retrieval/questions.yaml) with its expected articles and a reference answer; a listing goes to [`evals/datasets/listings.yaml`](../evals/datasets/listings.yaml), rewritten without personal data, with its expected articles and verdict. Tag it `from-feedback`, and `regression` once the fix lands, so the gate protects it.
+5. **Measure the fix** with the runner, and promote the baseline when it holds.
+
 ## Iterations: what each measurement decided
 
 Chronological. Each row is a change that was measured before it was kept or deleted.
@@ -211,4 +221,4 @@ Results go to `benchmarks/retrieval/results/` and `evals/results/` as JSON with 
 - **One run is one sample.** The generation, the reranker and the judge vary between runs; one question is 4 points on 25. The gate's tolerances are that noise ([ADR 0032](decisions/0032-regression-gate.md)); `--repeat` measures it for the listings when a decision needs it.
 - **32 questions and 18 listings** decide between techniques whose differences are large, not fine-tuning. One listing is 6 points of verdict accuracy.
 - **The judge is a model** on a different provider; its analysis is kept so its grades can be checked.
-- **No online evaluation yet.** What real users ask and find wrong arrives with the feedback of #51.
+- **The online signal is thin.** Feedback (#51) captures what people find wrong, one vote at a time; a sample of live traffic judged automatically is the next step once there is traffic.

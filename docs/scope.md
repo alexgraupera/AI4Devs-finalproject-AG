@@ -71,6 +71,7 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 | Cost and latency per stage | ✅ #48 |
 | Regression gate against a promoted baseline, with zero tolerance on safety metrics; mocked regression cases in CI; real evals in a manual or weekly workflow | ✅ #50 |
 | A/B comparison of prompt and retrieval variants | ✅ #48 (named variants per run) |
+| User feedback (👍/👎 and a comment) under every review and answer, linked by `request_id` to the log events of the request; comments with personal data masked | ✅ #51 |
 | Dashboard built from the events the service already logs | Out of scope until the production measurement session (see #4) |
 
 ### Production

@@ -525,6 +525,8 @@ Con esos campos se responde a lo que importa cuando algo va mal: qué versión d
 
 El coste suma **todos los intentos**, no solo el último. Cuando el modelo devuelve algo que no encaja en el esquema, se le vuelve a pedir, y ese viaje también se paga: contar solo el intento final haría que un modelo que se equivoca a menudo pareciera más barato de lo que es. El campo `attempts` separa las dos causas de una subida de coste: más tokens o más reintentos. El dashboard y las evals de #4 se construyen contando estos eventos, no leyéndolos.
 
+**Cada petición tiene un identificador** (`request_id`, [#51](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/51)). Lo genera el servicio, se ata a todos los eventos de esa petición y vuelve en la cabecera `X-Request-ID` y en el cuerpo de cada revisión y respuesta. Por eso un 👎 sirve de algo: la valoración se guarda con ese id (y sin el texto del anuncio ni de la pregunta: los datos personales no se acumulan en una tabla de opiniones), y el id lleva a los eventos de la petición, con la versión del prompt, el modelo que respondió, los artículos que leyó y lo que costó. Un comentario con un teléfono o un email se enmascara antes de guardarse. [`docs/evals.md`](docs/evals.md) explica cómo un 👎 se convierte en un caso del set dorado.
+
 Los guardrails registran también lo suyo: `guardrail.moderation_unavailable` cuando el clasificador falla y se sigue adelante, y `guardrail.dropped_finding` cuando se descarta una incidencia que citaba una norma fuera del checklist.
 
 La capa RAG registra lo suyo con la misma intención de que se pueda **contar**: `regulations_qa.invented_citation` cuando el modelo cita un fragmento que no se recuperó, `regulations_qa.grounding_failed` con las afirmaciones concretas que el artículo no sostenía, `regulations_qa.no_context` cuando no se llama al modelo porque no había nada que leer, y `rate_limit.exceeded` / `security.rejected` en la capa de acceso. El coste de una respuesta suma **las tres llamadas** (reranking, generación y verificación): informar solo de la generación dejaría el panel de costes callada pero sistemáticamente equivocado.
@@ -652,6 +654,7 @@ La especificación completa se genera sola y está en `http://localhost:8000/doc
 | `POST /api/v1/listings/agent-review/{run_id}/resume` | La decisión de una persona sobre una revisión en pausa: aprobar, ajustar o descartar |
 | `POST /api/v1/regulations/search` | Busca en la normativa y devuelve los fragmentos con su puntuación |
 | `POST /api/v1/regulations/ask` | Responde una pregunta sobre normativa con citas verificables al BOE |
+| `POST /api/v1/feedback` | Un 👍 o 👎 sobre una revisión o una respuesta, con el `request_id` que la identifica y un comentario opcional. `201` |
 | `GET /health` | Sonda de vida: el proceso responde (sin tocar nada) |
 | `GET /ready` | Sonda de disponibilidad: base de datos, caché y presupuesto del día; 503 si no puede atender |
 
