@@ -63,7 +63,8 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 
 | Capability | Status |
 |---|---|
-| Golden sets: regulation Q&A with reference answers, conflicts and a regression case; annotated listings | ✅ #24, #48; 🔜 #49 (listings) |
+| Golden sets: regulation Q&A with reference answers, conflicts and a regression case; annotated listings | ✅ #24, #48, #49 |
+| Listing review metrics (precision, recall and F1 of legal findings, clean false positives, verdict, adversarial handling), pipeline and agent on the same listings | ✅ #49; agent fixes in #52 |
 | Retrieval metrics (recall@k, MRR) over a golden set, per technique | ✅ #24 |
 | Generation metrics (faithfulness, relevance, correctness, citation accuracy) with a judge on the other provider | ✅ #48 |
 | Cost and latency per stage | ✅ #48 |
