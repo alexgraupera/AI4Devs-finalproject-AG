@@ -11,6 +11,7 @@ from app.domain.schemas.listing_review import Listing
 from app.foundation.llm.tools import RequestedToolCall, ToolCompletion, ToolSpec
 from app.foundation.llm.usage import LLMUsage
 from app.generation.agentic.loop import SUBMIT, AgentLoop
+from app.generation.agentic.policy import TOOL_PERMISSIONS, AgentRole
 from app.generation.agentic.tools import SearchRegulations, ToolResult
 from tests.generation.agentic.test_tools import FakeSearch, a_fragment
 
@@ -77,6 +78,13 @@ class ScriptedModel:
             assert self.forced is not None, "the loop forced a submission the test did not expect"
             return self.forced
         return self.script.pop(0)
+
+
+@pytest.fixture(autouse=True)
+def grant_the_test_tool(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The failing test tool is granted to the reviewer, so these tests exercise failures, not denials."""
+    granted = TOOL_PERMISSIONS[AgentRole.REVIEWER] | {"flaky"}
+    monkeypatch.setitem(TOOL_PERMISSIONS, AgentRole.REVIEWER, granted)
 
 
 class FailingTool:
@@ -164,7 +172,8 @@ async def test_an_unknown_tool_and_malformed_arguments_come_back_as_errors() -> 
     run = await a_loop(model).run(A_LISTING)
 
     assert [step.ok for step in run.trace[:2]] == [False, False]
-    assert "No existe la herramienta" in run.trace[0].result
+    # Deny by default: a tool no role was granted is refused before anything looks it up.
+    assert "Llamada denegada" in run.trace[0].result
 
 
 async def test_the_same_call_failing_twice_stops_the_loop_and_forces_a_submission() -> None:

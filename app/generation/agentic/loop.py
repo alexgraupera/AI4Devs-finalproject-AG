@@ -30,6 +30,7 @@ from app.domain.schemas.listing_review import Listing
 from app.foundation.llm.tools import RequestedToolCall, ToolCallingLLM, ToolSpec
 from app.foundation.llm.usage import LLMUsage, combined
 from app.foundation.prompts.loader import render_agent_review_prompt
+from app.generation.agentic.policy import AgentRole, AuditOutcome, audit, may_call
 from app.generation.agentic.ports import RegulationFragment
 from app.generation.agentic.tools import Tool, ToolResult
 
@@ -96,12 +97,20 @@ class ToolBox:
     that fails all become a `ToolResult` the model reads on its next turn.
     """
 
-    def __init__(self, tools: list[Tool]) -> None:
+    def __init__(self, tools: list[Tool], *, role: AgentRole = AgentRole.REVIEWER) -> None:
         self._tools = {tool.spec.name: tool for tool in tools}
-        self.specs = [tool.spec for tool in tools] + [SUBMIT_SPEC]
+        self._role = role
+        # The model is told only about the tools its role may call: least privilege starts there,
+        # and the check in `execute` holds even when a model asks for one it was never shown.
+        self.specs = [tool.spec for tool in tools if may_call(role, tool.spec.name)] + [SUBMIT_SPEC]
 
     async def execute(self, call: RequestedToolCall) -> tuple[ToolResult, int]:
         started = time.perf_counter()
+        if not may_call(self._role, call.name):
+            audit(self._role, call.name, AuditOutcome.DENIED, arguments=call.arguments)
+            denied = ToolResult(ok=False, content=f"Llamada denegada: {call.name} no está permitida para este rol.")
+            return denied, int((time.perf_counter() - started) * 1000)
+
         tool = self._tools.get(call.name)
         if call.malformed is not None:
             result = ToolResult(ok=False, content=MALFORMED_ARGUMENTS)
@@ -115,7 +124,15 @@ class ToolBox:
                 # A tool failing is information for the model, never a crash of the run.
                 log.warning("agent.tool_failed", tool=call.name, exc_info=True)
                 result = ToolResult(ok=False, content=TOOL_FAILED.format(error=type(error).__name__))
-        return result, int((time.perf_counter() - started) * 1000)
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        audit(
+            self._role,
+            call.name,
+            AuditOutcome.ALLOWED if result.ok else AuditOutcome.FAILED,
+            arguments=call.arguments,
+            latency_ms=latency_ms,
+        )
+        return result, latency_ms
 
 
 class AgentLoop:
