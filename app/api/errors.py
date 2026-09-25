@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.domain.errors import (
     CorpusUnavailable,
+    FeedbackUnavailable,
     LLMUnavailable,
     NotAListing,
     ReviewGenerationError,
@@ -37,6 +38,7 @@ MESSAGES: dict[str, str] = {
     "not_ready": "El servicio está arrancando o saturado. Vuelve a intentarlo en unos segundos.",
     "run_not_found": "Esta revisión ya no está disponible. Vuelve a lanzarla.",
     "run_not_waiting": "Esta revisión no está esperando ninguna decisión.",
+    "feedback_unavailable": "No se ha podido guardar tu valoración en este momento.",
 }
 
 
@@ -87,6 +89,10 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RunNotWaiting)
     async def _run_not_waiting(_: Request, error: RunNotWaiting) -> JSONResponse:
         return error_response("run_not_waiting", status_code=409)
+
+    @app.exception_handler(FeedbackUnavailable)
+    async def _feedback_unavailable(_: Request, error: FeedbackUnavailable) -> JSONResponse:
+        return error_response("feedback_unavailable", status_code=503)
 
     @app.exception_handler(BudgetExhausted)
     async def _budget(_: Request, error: BudgetExhausted) -> JSONResponse:

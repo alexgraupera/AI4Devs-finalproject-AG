@@ -27,3 +27,7 @@ class RunNotFound(Exception):
 
 class RunNotWaiting(Exception):
     """The review exists but is not waiting for a person, so there is nothing to decide."""
+
+
+class FeedbackUnavailable(Exception):
+    """There is no database to keep feedback in."""

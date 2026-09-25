@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.config import get_settings
 from app.domain.agent_review_service import AgentReviewService, RetrieverSearch
 from app.domain.errors import CorpusUnavailable
+from app.domain.feedback_service import FeedbackService
 from app.domain.listing_review_service import ListingReviewService
 from app.domain.regulation_qa_service import RegulationQAService
 from app.foundation.guardrails.input import ModerationClient
@@ -21,6 +22,7 @@ from app.foundation.guardrails.spend import NoSpendLimit, RedisSpendGuard, Spend
 from app.foundation.llm.wrapper import LLMWrapper, build_router
 from app.foundation.persistence.checkpoints import MemoryCheckpoints, PostgresCheckpoints
 from app.foundation.persistence.database import create_engine, session_factory
+from app.foundation.persistence.feedback import PostgresFeedbackStore
 from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
 from app.generation.rag.embeddings import EmbeddingClient, LiteLLMEmbeddings
 from app.generation.rag.rerank import Reranker
@@ -218,3 +220,10 @@ def get_checkpoints() -> PostgresCheckpoints | MemoryCheckpoints | None:
     if not settings.database_url:
         return MemoryCheckpoints()
     return PostgresCheckpoints(settings.database_url)
+
+
+@lru_cache
+def get_feedback_service() -> FeedbackService:
+    # Without a database the service still reviews and answers; a vote then gets a 503 that says so.
+    engine = get_engine()
+    return FeedbackService(PostgresFeedbackStore(session_factory(engine)) if engine is not None else None)

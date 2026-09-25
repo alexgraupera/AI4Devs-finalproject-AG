@@ -56,8 +56,8 @@ async def test_migrations_create_the_corpus_schema_and_undo_it(engine: AsyncEngi
     # Left at head: the next test, and the developer who ran this, find a usable database.
     await migrate("head")
 
-    assert {"documents", "chunks"} <= set(after_upgrade)
-    assert {"documents", "chunks"}.isdisjoint(after_downgrade)
+    assert {"documents", "chunks", "feedback"} <= set(after_upgrade)
+    assert {"documents", "chunks", "feedback"}.isdisjoint(after_downgrade)
 
 
 async def test_the_vector_extension_is_installed(engine: AsyncEngine) -> None:
