@@ -36,7 +36,9 @@ from app.generation.rag.retriever import Retriever
 
 log = structlog.get_logger()
 
-PROMPT_VERSION = "v1"
+# v2: decides the region before searching (v1 never searched the Catalan law for a Barcelona
+# listing) and checks a datum is really absent before reporting it missing (ADR 0024).
+PROMPT_VERSION = "v2"
 
 
 class RetrieverSearch:

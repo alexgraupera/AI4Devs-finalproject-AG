@@ -95,7 +95,7 @@ class AgentLoop:
         *,
         max_iterations: int = DEFAULT_MAX_ITERATIONS,
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
-        prompt_version: str = "v1",
+        prompt_version: str = "v2",
     ) -> None:
         self._llm = llm
         self._tools = {tool.spec.name: tool for tool in tools}

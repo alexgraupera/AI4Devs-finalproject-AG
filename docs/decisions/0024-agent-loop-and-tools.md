@@ -46,6 +46,19 @@ Every step (tool, arguments, a preview of the result, whether it failed, how lon
 
 The generator of #47 (Claude Haiku 4.5). The session warns that weak models fail at tool use and cost more in retries than they save; whether Haiku is strong enough is measured in #52 on the listings dataset, with the failure classification of the traces, not assumed.
 
+## Checked by hand, and a first iteration
+
+Two listings through the real models (Claude Haiku 4.5, `text-embedding-3-large`), $0.049 in all:
+
+| Listing | Prompt | Steps | What happened | Cost |
+|---|---|---:|---|---:|
+| Madrid: two months of deposit, agency fees on the tenant, no energy rating | v1 | 6 | Field check, four searches (label, deposit, fees, minimum information), submit. Three `high` findings citing RD 390/2021 art. 15, LAU art. 36 and art. 20, each with its BOE link | $0.012 |
+| Barcelona: a clean studio, rating D | v1 | 6 | **Two errors.** It searched only the state rules, never the Catalan law; and it reported the energy rating as missing although the text says "Certificado energético D" and the field says D | $0.011 |
+| Barcelona | **v2** | 7 | Decides the region first and searches the Catalan law: findings on article 61 (term, price update, last rent) and 66. No invented missing rating | $0.014 |
+| Madrid | **v2** | 6 | The same three `high` findings and citations: v2 did not break the case v1 got right | $0.012 |
+
+Prompt v2 adds two rules: decide the region from the municipality before searching, and check the listing, the structured fields and the field check before reporting a datum as missing. A second listing was worth more than a tenth test with a mocked model: both errors were invisible to the unit tests, because they are about what a real model does with the prompt. The listings dataset of #49 turns this kind of check into a measurement.
+
 ## Consequences
 
 - An agent review costs several model calls: one per turn, each carrying the growing conversation. #52 measures it against the pipeline, step by step.
