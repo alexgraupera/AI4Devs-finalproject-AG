@@ -73,7 +73,12 @@ def client() -> Iterator[TestClient]:
 
 def review(client: TestClient, text: str = A_LISTING_TEXT) -> dict[str, object]:
     response = client.post("/api/v1/listings/review", json={"text": text, "municipality": "Madrid"})
-    return {"status": response.status_code, "body": response.json()}
+    body = response.json()
+    # Every review carries the id of its request, the same the header carries (#51): checked in
+    # test_request_id.py, set aside here so the body below stays about the review.
+    if isinstance(body, dict) and "request_id" in body:
+        assert body.pop("request_id") == response.headers["X-Request-ID"]
+    return {"status": response.status_code, "body": body}
 
 
 def test_returns_the_structured_review(client: TestClient) -> None:
