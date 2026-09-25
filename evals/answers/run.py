@@ -8,6 +8,7 @@ change stops being an opinion.
     python -m evals.answers.run                       # every variant
     python -m evals.answers.run --variant baseline    # one of them
     python -m evals.answers.run --no-judge            # labels only, no judge cost
+    python -m evals.answers.run --tag regression      # only the questions with that tag, for cents
 
 It needs the corpus ingested and embedded, and costs about $0.02 per question (the service's calls
 plus the judge's). The report goes to stdout and, with every answer, to `evals/results/`.
@@ -218,14 +219,23 @@ def save(results: list[tuple[AnswerVariant, AnswerMetrics, list[AnswerOutcome]]]
     return path
 
 
+def select(questions: list[Question], tags: list[str]) -> list[Question]:
+    """The questions carrying any of the tags, or all of them. A subset is a quick check, not a baseline."""
+    if not tags:
+        return questions
+    return [question for question in questions if set(question.tags) & set(tags)]
+
+
 async def measure(
-    variants: tuple[AnswerVariant, ...], *, judge_model: str | None
+    variants: tuple[AnswerVariant, ...], *, judge_model: str | None, tags: list[str] | None = None
 ) -> tuple[list[tuple[AnswerVariant, AnswerMetrics, list[AnswerOutcome]]], float]:
     settings = get_settings()
     if not settings.database_url:
         raise SystemExit("DATABASE_URL is not configured: there is no corpus to answer from.")
 
-    questions = load_questions()
+    questions = select(load_questions(), tags or [])
+    if not questions:
+        raise SystemExit(f"No question carries any of the tags {tags}.")
     engine = create_engine(settings.database_url)
     embeddings = LiteLLMEmbeddings(model=settings.embedding_model, dimensions=settings.embedding_dimensions)
     calls: list[RecordedCall] = []
@@ -302,13 +312,16 @@ def main() -> int:
     parser.add_argument("--variant", action="append", default=[], help="Run only these variants by name")
     parser.add_argument("--judge-model", default=JUDGE_MODEL, help="Model that grades the answers")
     parser.add_argument("--no-judge", action="store_true", help="Only the label-based metrics, no judge calls")
+    parser.add_argument("--tag", action="append", default=[], help="Only the questions with any of these tags")
     arguments = parser.parse_args()
 
     chosen = tuple(v for v in VARIANTS if v.name in arguments.variant) if arguments.variant else VARIANTS
     if not chosen:
         raise SystemExit(f"No variant matched. Available: {', '.join(v.name for v in VARIANTS)}")
 
-    results, run_cost = asyncio.run(measure(chosen, judge_model=None if arguments.no_judge else arguments.judge_model))
+    results, run_cost = asyncio.run(
+        measure(chosen, judge_model=None if arguments.no_judge else arguments.judge_model, tags=arguments.tag)
+    )
     print(render(results))
     print(f"\nCost of the run: ${run_cost:.4f}")
     print(f"Saved to {save(results, run_cost=run_cost)}")

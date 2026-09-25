@@ -130,3 +130,12 @@ async def test_a_guardrail_rejection_is_an_outcome_not_a_crash() -> None:
 
     assert outcomes[2].rejected_by == "prompt_injection"  # type: ignore[attr-defined]
     assert not outcomes[2].answered  # type: ignore[attr-defined]
+
+
+def test_a_tag_selects_a_subset_and_no_tag_selects_everything() -> None:
+    from evals.answers.run import select
+
+    tagged = [Question(id="r", question="?", tags=["regression"]), Question(id="o", question="?", tags=["other"])]
+
+    assert [q.id for q in select(tagged, ["regression"])] == ["r"]
+    assert select(tagged, []) == tagged
