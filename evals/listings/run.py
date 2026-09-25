@@ -92,6 +92,7 @@ async def review_with_pipeline(case: AnnotatedListing, service: PipelineReviews)
             outcome.notes.append((ref, finding.message))
     outcome.verdict = reviewed.review.verdict.value
     outcome.cost_usd = float(reviewed.usage.estimated_cost_usd or 0)
+    outcome.model = reviewed.usage.model
     outcome.step_costs = {"review": outcome.cost_usd}
     return outcome
 
@@ -120,6 +121,7 @@ async def review_with_agent(case: AnnotatedListing, service: AgentReviews) -> Li
         for step in reviewed.trace
     ]
     outcome.cost_usd = float(reviewed.usage.estimated_cost_usd or 0)
+    outcome.model = reviewed.usage.model
     outcome.stop_reason = reviewed.stop_reason.value
     outcome.read = articles_read(reviewed.trace)
     outcome.rejected = critic_rejections(reviewed.trace)
@@ -275,7 +277,13 @@ def _tally(refs_per_run: list[set[LegalRef]], runs: int) -> str:
     return ", ".join(" ".join(ref) + (f" ({k}/{runs})" if runs > 1 else "") for ref, k in sorted(counts.items()))
 
 
-def save(results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]], run_cost: float) -> pathlib.Path:
+def save(
+    results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]],
+    run_cost: float,
+    *,
+    only: set[str] | None = None,
+    repeat: int = 1,
+) -> pathlib.Path:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     path = RESULTS_DIR / f"listings-{stamp}.json"
@@ -292,7 +300,12 @@ def save(results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]], run_co
     document = {
         "measured_at": stamp,
         "llm_model": get_settings().llm_model,
+        # What answered: the configured model, or its fallback when the provider refused.
+        "models_used": {p: sorted({o.model for o in outs if o.model}) for p, (_, outs) in results.items()},
         "run_cost_usd": run_cost,
+        # A subset (--only) is a quick check: the regression gate (#50) does not compare it.
+        "only": sorted(only) if only else [],
+        "repeat": repeat,
         "results": {
             p: {"metrics": asdict(m), "outcomes": [outcome_json(o) for o in outs]} for p, (m, outs) in results.items()
         },
@@ -386,7 +399,7 @@ def main() -> int:
     )
     print(render(results))
     print(f"\nCost of the run: ${run_cost:.4f}")
-    print(f"Saved to {save(results, run_cost)}")
+    print(f"Saved to {save(results, run_cost, only=only, repeat=arguments.repeat)}")
     return 0
 
 
