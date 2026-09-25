@@ -82,6 +82,9 @@ class Settings(BaseSettings):
     agent_timeout_seconds: float = 90.0
     # Fragments per search the agent reads: its context grows with every one.
     agent_max_fragments: int = 5
+    # How the agent is orchestrated (ADR 0026): a LangGraph graph whose state is checkpointed in
+    # Postgres after every node, or the hand-written loop it was built from, kept as the reference.
+    agent_orchestrator: Literal["graph", "loop"] = "graph"
     # Actor-critic-boss (ADR 0025): the critic judges every finding; the boss accepts at this share
     # of supported findings, sends the actor back once in between, and escalates below the floor.
     agent_critic_enabled: bool = True

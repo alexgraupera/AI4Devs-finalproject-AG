@@ -83,3 +83,5 @@ class AgentReviewedListing:
     escalated: bool = False
     # How many findings the critic removed because the listing or the sources did not hold them.
     dropped_findings: int = 0
+    # The graph's thread id when the review ran as a graph (#41): the handle a pause is resumed by.
+    run_id: str | None = None

@@ -416,7 +416,24 @@ Cada paso, con lo que el modelo escribió al decidirlo, vuelve en la respuesta y
 
 Y en los dos lados **el modelo cita y el código comprueba**: una incidencia sobre lo que dice el anuncio lleva la frase del anuncio, y el crítico solo puede decir que el anuncio la contradice citando dónde. Una cita que no está en el anuncio no cuenta. Se llegó ahí probando a mano: la primera versión del crítico tiró la incidencia correcta de la fianza y dejó pasar una infracción inventada.
 
-**Siguen** el grafo con estado persistente (#41) y la pausa para una persona (#42).
+**Orquestado con LangGraph** ([ADR 0026](docs/decisions/0026-langgraph-orchestration.md)). El mismo flujo, declarado como grafo con estado tipado y rutas condicionales, y **guardado en Postgres después de cada nodo**: una revisión es una fila que existe mientras corre y que podrá esperar a una persona (#42).
+
+```mermaid
+flowchart LR
+    START --> plan
+    plan -- pide herramientas --> act
+    plan -- sin pasos o sin tiempo --> force_submit
+    act -- entrega la revisión --> critic
+    act -- sigue --> plan
+    force_submit --> critic
+    critic --> boss
+    boss -- reintenta --> plan
+    boss -- acepta o escala --> END
+```
+
+El estado es JSON plano (leer clases de una fila de la base de datos es un riesgo que LangGraph va a bloquear), las listas crecen con reducers para que dos nodos no se pisen, y una revisión terminada **no deja nada guardado**: el checkpoint contiene el texto del anuncio y el servicio no guarda anuncios. El bucle escrito a mano sigue en el repositorio y un test comprueba que los dos devuelven la misma revisión.
+
+**Sigue** la pausa para una persona antes de publicar (#42).
 
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
@@ -537,6 +554,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0023](docs/decisions/0023-a-model-per-role.md) | Un modelo por papel (el juez en el otro proveedor) y cada llamada acotada; el reranker barato, medido y descartado |
 | [0024](docs/decisions/0024-agent-loop-and-tools.md) | El agente: bucle escrito a mano, herramientas, salidas forzadas y lo que no se le confía al modelo |
 | [0025](docs/decisions/0025-actor-critic-boss.md) | ⚠️ Actor, crítico y jefe; el modelo cita y el código comprueba. Tres versiones, cada una por un fallo encontrado a mano |
+| [0026](docs/decisions/0026-langgraph-orchestration.md) | LangGraph con estado JSON en Postgres; el bucle a mano se conserva como referencia; nada guardado al terminar |
 
 ---
 

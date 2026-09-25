@@ -19,6 +19,7 @@ from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMMode
 from app.foundation.guardrails.rate_limit import NoRateLimit, RateLimiter, RedisRateLimiter
 from app.foundation.guardrails.spend import NoSpendLimit, RedisSpendGuard, SpendGuard
 from app.foundation.llm.wrapper import LLMWrapper, build_router
+from app.foundation.persistence.checkpoints import MemoryCheckpoints, PostgresCheckpoints
 from app.foundation.persistence.database import create_engine, session_factory
 from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
 from app.generation.rag.embeddings import EmbeddingClient, LiteLLMEmbeddings
@@ -202,4 +203,16 @@ def get_agent_review_service() -> AgentReviewService:
         critic_min_confidence=settings.agent_critic_min_confidence,
         critic_escalate_below=settings.agent_critic_escalate_below,
         max_review_attempts=settings.agent_max_review_attempts,
+        checkpoints=get_checkpoints(),
     )
+
+
+@lru_cache
+def get_checkpoints() -> PostgresCheckpoints | MemoryCheckpoints | None:
+    """Where a graph run's state lives. None runs the hand-written loop instead of the graph."""
+    settings = get_settings()
+    if settings.agent_orchestrator == "loop":
+        return None
+    if not settings.database_url:
+        return MemoryCheckpoints()
+    return PostgresCheckpoints(settings.database_url)

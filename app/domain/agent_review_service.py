@@ -17,14 +17,27 @@ What this class adds around the loop is what must not be left to the model:
   rejections quoted, or escalates to a person. A finding the critic rejects never reaches the user.
 """
 
+import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any
+from uuid import uuid4
+
 import structlog
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph.state import CompiledStateGraph
 
 from app.domain.errors import NotAListing
+from app.domain.graph.listing_review_graph import GraphConfig, build_review_graph, critic_from_json
+from app.domain.graph.state import ReviewState, fragments_from_json, usage_from_json
 from app.domain.schemas.listing_agent_review import (
     AgentFinding,
     AgentReview,
+    AgentReviewCandidate,
     AgentReviewedListing,
     CitedFinding,
+    StopReason,
     TraceStep,
 )
 from app.domain.schemas.listing_review import Listing, Severity, Verdict
@@ -33,8 +46,9 @@ from app.foundation.guardrails.input import ModerationClient, check_input
 from app.foundation.guardrails.output import ALLOWED_LEGAL_BASIS
 from app.foundation.guardrails.spend import SpendGuard
 from app.foundation.llm.tools import ToolCallingLLM
-from app.foundation.llm.usage import combined
+from app.foundation.llm.usage import LLMUsage, combined
 from app.foundation.llm.wrapper import StructuredLLM
+from app.foundation.prompts.loader import render_agent_review_prompt
 from app.foundation.text import appears_in
 from app.generation.agentic.boss import (
     DEFAULT_ESCALATE_BELOW,
@@ -43,8 +57,8 @@ from app.generation.agentic.boss import (
     BossDecision,
     decide,
 )
-from app.generation.agentic.critic import CriticResult, Rejection, criticise
-from app.generation.agentic.loop import DEFAULT_MAX_ITERATIONS, DEFAULT_TIMEOUT_SECONDS, AgentLoop, AgentRun
+from app.generation.agentic.critic import boss_step, critic_step, criticise, feedback_for
+from app.generation.agentic.loop import DEFAULT_MAX_ITERATIONS, DEFAULT_TIMEOUT_SECONDS, AgentLoop
 from app.generation.agentic.ports import RegulationFragment, RegulationSearch
 from app.generation.agentic.tools import CheckListingFields, SearchRegulations
 from app.generation.rag.retriever import Retriever
@@ -55,6 +69,25 @@ log = structlog.get_logger()
 # listing) and checks a datum is really absent before reporting it missing (ADR 0024).
 # v3: quotes the listing in `evidence` for every finding about what it says (ADR 0025).
 PROMPT_VERSION = "v3"
+
+
+Checkpoints = Callable[[], Awaitable[BaseCheckpointSaver[Any]]]
+
+
+@dataclass(frozen=True)
+class _Run:
+    """What either orchestrator hands back: the rest of the review does not care which one ran."""
+
+    orchestrator: str
+    candidate: AgentReviewCandidate
+    findings: list[AgentFinding]
+    fragments: dict[int, RegulationFragment]
+    trace: list[TraceStep]
+    usage: LLMUsage
+    stop_reason: StopReason
+    escalated: bool = False
+    dropped: int = 0
+    run_id: str | None = None
 
 
 class RetrieverSearch:
@@ -104,6 +137,7 @@ class AgentReviewService:
         critic_min_confidence: float = DEFAULT_MIN_CONFIDENCE,
         critic_escalate_below: float = DEFAULT_ESCALATE_BELOW,
         max_review_attempts: int = DEFAULT_MAX_ATTEMPTS,
+        checkpoints: Checkpoints | None = None,
     ) -> None:
         self._llm = llm
         self._search = search
@@ -118,12 +152,61 @@ class AgentReviewService:
         self._critic_min_confidence = critic_min_confidence
         self._critic_escalate_below = critic_escalate_below
         self._max_review_attempts = max_review_attempts
+        # With a checkpoint store the review runs as a graph; without one, as the hand-written loop.
+        self._checkpoints = checkpoints
+        self._graph: CompiledStateGraph[Any, Any, Any, Any] | None = None
+        self._graph_config = GraphConfig(
+            max_iterations=max_iterations,
+            timeout_seconds=timeout_seconds,
+            max_attempts=max_review_attempts,
+            min_confidence=critic_min_confidence,
+            escalate_below=critic_escalate_below,
+            max_fragments=max_fragments,
+        )
 
     async def review(self, listing: Listing) -> AgentReviewedListing:
         await check_input(listing.text, moderation=self._moderation)
         if self._spend is not None:
             await self._spend.check()
 
+        run = await (self._run_graph(listing) if self._checkpoints is not None else self._run_loop(listing))
+        if self._spend is not None:
+            await self._spend.record(run.usage.estimated_cost_usd)
+
+        if not run.candidate.is_rental_listing:
+            raise NotAListing(run.candidate.summary)
+
+        log.info(
+            "agent_review.completed",
+            orchestrator=run.orchestrator,
+            run_id=run.run_id,
+            prompt_version=self._prompt_version,
+            model=run.usage.model,
+            stop_reason=run.stop_reason,
+            steps=len(run.trace),
+            tools_called=[step.tool for step in run.trace],
+            fragments_read=len(run.fragments),
+            escalated=run.escalated,
+            dropped_findings=run.dropped,
+            input_tokens=run.usage.input_tokens,
+            output_tokens=run.usage.output_tokens,
+            latency_ms=run.usage.latency_ms,
+            estimated_cost_usd=float(run.usage.estimated_cost_usd)
+            if run.usage.estimated_cost_usd is not None
+            else None,
+        )
+        return AgentReviewedListing(
+            review=self._checked(run.findings, run.candidate, run.fragments, listing),
+            trace=run.trace,
+            usage=run.usage,
+            stop_reason=run.stop_reason,
+            escalated=run.escalated,
+            dropped_findings=run.dropped,
+            run_id=run.run_id,
+        )
+
+    async def _run_loop(self, listing: Listing) -> _Run:
+        """The hand-written orchestration (#38, #40), kept as the reference the graph is measured against."""
         loop = AgentLoop(
             self._llm,
             [CheckListingFields(listing), SearchRegulations(self._search, max_fragments=self._max_fragments)],
@@ -133,15 +216,9 @@ class AgentReviewService:
         )
         run = await loop.run(listing)
         trace, usage = list(run.trace), run.usage
-
-        if not run.output.is_rental_listing:
-            # Nothing to criticise in a review of something that is not a listing.
-            if self._spend is not None:
-                await self._spend.record(usage.estimated_cost_usd)
-            raise NotAListing(run.output.summary)
-
         findings, escalated, dropped = run.output.findings, False, 0
-        if self._critic is not None:
+
+        if self._critic is not None and run.output.is_rental_listing:
             attempt = 1
             while True:
                 verdict = await criticise(run.output.findings, listing, run.fragments, self._critic)
@@ -153,7 +230,7 @@ class AgentReviewService:
                     min_confidence=self._critic_min_confidence,
                     escalate_below=self._critic_escalate_below,
                 )
-                trace += [_critic_step(len(trace) + 1, verdict), _boss_step(len(trace) + 2, decision)]
+                trace += [critic_step(len(trace) + 1, verdict), boss_step(len(trace) + 2, decision)]
                 log.info(
                     "agent_review.critic",
                     attempt=attempt,
@@ -170,45 +247,92 @@ class AgentReviewService:
                     )
                     break
                 attempt += 1
-                run = await loop.run(listing, feedback=_feedback(verdict.rejected))
+                run = await loop.run(listing, feedback=feedback_for(verdict.rejected))
                 trace += [step.model_copy(update={"step": len(trace) + i}) for i, step in enumerate(run.trace, start=1)]
                 usage = combined(usage, run.usage)
 
-        if self._spend is not None:
-            await self._spend.record(usage.estimated_cost_usd)
-
-        log.info(
-            "agent_review.completed",
-            prompt_version=self._prompt_version,
-            model=usage.model,
-            stop_reason=run.stop_reason,
-            steps=len(trace),
-            tools_called=[step.tool for step in trace],
-            fragments_read=len(run.fragments),
-            escalated=escalated,
-            dropped_findings=dropped,
-            input_tokens=usage.input_tokens,
-            output_tokens=usage.output_tokens,
-            latency_ms=usage.latency_ms,
-            estimated_cost_usd=float(usage.estimated_cost_usd) if usage.estimated_cost_usd is not None else None,
-        )
-        return AgentReviewedListing(
-            review=self._checked(findings, run, listing),
+        return _Run(
+            orchestrator="loop",
+            candidate=run.output,
+            findings=findings,
+            fragments=run.fragments,
             trace=trace,
             usage=usage,
             stop_reason=run.stop_reason,
             escalated=escalated,
-            dropped_findings=dropped,
+            dropped=dropped,
         )
 
-    def _checked(self, findings: list[AgentFinding], run: AgentRun, listing: Listing) -> AgentReview:
+    async def _run_graph(self, listing: Listing) -> _Run:
+        """The same flow as a LangGraph graph, its state checkpointed after every node (#41)."""
+        assert self._checkpoints is not None
+        checkpointer = await self._checkpoints()
+        if self._graph is None:
+            self._graph = build_review_graph(
+                llm=self._llm,
+                search=self._search,
+                critic=self._critic,
+                config=self._graph_config,
+                checkpointer=checkpointer,
+            )
+
+        run_id = str(uuid4())
+        system, user = render_agent_review_prompt(listing, version=self._prompt_version)
+        initial: ReviewState = {
+            "listing": listing.model_dump(mode="json"),
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "trace": [],
+            "usage": [],
+            "fragments": {},
+            "failures": {},
+            "iterations": 0,
+            "attempt": 1,
+            "deadline": time.time() + self._timeout,
+        }
+        config: RunnableConfig = {
+            "configurable": {"thread_id": run_id},
+            "recursion_limit": self._graph_config.recursion_limit,
+        }
+        try:
+            final = await self._graph.ainvoke(initial, config)
+        finally:
+            # Retention: a finished run leaves nothing behind. The checkpoint holds the listing's
+            # text, and the service keeps no listings (ADR 0018); the trace goes back in the response.
+            await checkpointer.adelete_thread(run_id)
+
+        usages = [usage_from_json(u) for u in final.get("usage", [])]
+        usage = usages[0]
+        for more in usages[1:]:
+            usage = combined(usage, more)
+        critic = critic_from_json(final["critic"]) if final.get("critic") else None
+        candidate = AgentReviewCandidate.model_validate(final["candidate"])
+        return _Run(
+            orchestrator="graph",
+            run_id=run_id,
+            candidate=candidate,
+            findings=critic.supported if critic is not None else candidate.findings,
+            fragments=fragments_from_json(final.get("fragments", {})),
+            trace=[TraceStep.model_validate(step) for step in final.get("trace", [])],
+            usage=usage,
+            stop_reason=StopReason(final.get("stop_reason") or StopReason.COMPLETED),
+            escalated=final.get("outcome") == BossDecision.ESCALATE.value,
+            dropped=len(critic.rejected) if critic is not None else 0,
+        )
+
+    def _checked(
+        self,
+        findings: list[AgentFinding],
+        candidate: AgentReviewCandidate,
+        fragments: dict[int, RegulationFragment],
+        listing: Listing,
+    ) -> AgentReview:
         stated = listing.as_text()
-        cited = [self._cited(finding, run.fragments) for finding in findings if _quotes_the_listing(finding, stated)]
+        cited = [self._cited(finding, fragments) for finding in findings if _quotes_the_listing(finding, stated)]
         kept = [finding for finding in cited if finding is not None]
         verdict = Verdict.REQUEST_CHANGES if any(f.severity == Severity.HIGH for f in kept) else Verdict.APPROVE
-        if len(kept) != len(run.output.findings) or verdict != run.output.verdict:
-            log.info("agent_review.verdict_recomputed", model_verdict=run.output.verdict, verdict=verdict)
-        return AgentReview(findings=kept, verdict=verdict, summary=run.output.summary)
+        if len(kept) != len(candidate.findings) or verdict != candidate.verdict:
+            log.info("agent_review.verdict_recomputed", model_verdict=candidate.verdict, verdict=verdict)
+        return AgentReview(findings=kept, verdict=verdict, summary=candidate.summary)
 
     def _cited(self, finding: AgentFinding, fragments: dict[int, RegulationFragment]) -> CitedFinding | None:
         citations = []
@@ -240,31 +364,6 @@ class AgentReviewService:
             legal_basis=finding.legal_basis,
             citations=citations,
         )
-
-
-def _feedback(rejected: list[Rejection]) -> str:
-    """What the actor is told on a retry: each rejected finding, and why, in the critic's words."""
-    lines = ["Un revisor ha comprobado tu revisión anterior y ha rechazado estas incidencias:"]
-    lines += [f"- «{r.finding.message}» ({r.problem}): {r.reason}" for r in rejected]
-    lines.append(
-        "Vuelve a revisar el anuncio. No repitas esas incidencias salvo que puedas sostenerlas con el "
-        "anuncio y con fragmentos que sí digan lo que afirmas."
-    )
-    return "\n".join(lines)
-
-
-def _critic_step(step: int, verdict: CriticResult) -> TraceStep:
-    if verdict.unavailable:
-        result = "El revisor no ha podido ejecutarse: se mantienen todas las incidencias."
-    elif not verdict.rejected:
-        result = "Todas las incidencias están respaldadas por el anuncio y la normativa."
-    else:
-        result = "; ".join(f"Rechazada «{r.finding.message[:80]}» ({r.problem})" for r in verdict.rejected)
-    return TraceStep(step=step, tool="critic", result=result, ok=not verdict.rejected and not verdict.unavailable)
-
-
-def _boss_step(step: int, decision: BossDecision) -> TraceStep:
-    return TraceStep(step=step, tool="boss", result=f"Decisión: {decision}")
 
 
 def _quotes_the_listing(finding: AgentFinding, stated: str) -> bool:
