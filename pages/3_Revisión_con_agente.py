@@ -9,7 +9,7 @@ from typing import Any
 
 import streamlit as st
 
-from ui_api import WAKING_UP, is_api_available, post
+from ui_api import WAKING_UP, get, is_api_available, post
 
 SEVERITY_LABELS = {"high": "Alta", "medium": "Media", "low": "Baja"}
 SEVERITY_ICONS = {"high": "🔴", "medium": "🟠", "low": "🟡"}
@@ -66,7 +66,57 @@ def render_usage(usage: dict[str, Any]) -> None:
     )
 
 
+def render_pending(body: dict[str, Any]) -> None:
+    """A review that waits for a person: what the agent proposes, what the critic rejected, and the decision."""
+    pending = body["pending_review"]
+    st.warning("El agente ha parado antes de publicar y espera tu decisión.")
+    st.caption(f"Motivo: {pending['reason']}")
+
+    proposed = pending["proposed"]["findings"]
+    st.subheader("Incidencias propuestas")
+    keep = [
+        index
+        for index, finding in enumerate(proposed)
+        if st.checkbox(
+            f"{SEVERITY_ICONS.get(finding['severity'], '•')} {finding['message']}",
+            value=True,
+            key=f"keep-{pending['run_id']}-{index}",
+        )
+    ]
+    if pending["rejected"]:
+        with st.expander(f"Descartadas por el revisor ({len(pending['rejected'])})"):
+            for rejected in pending["rejected"]:
+                st.markdown(f"- ~~{rejected['message']}~~")
+                st.caption(f"{rejected['problem']}: {rejected['reason']}")
+
+    note = st.text_input("Nota para el registro (opcional)", key=f"note-{pending['run_id']}")
+    approve, adjust, reject = st.columns(3)
+    decision = None
+    if approve.button("Aprobar la revisión", type="primary"):
+        decision = {"action": "approve", "note": note or None}
+    if adjust.button("Publicar solo las marcadas"):
+        decision = {"action": "adjust", "keep": keep, "note": note or None}
+    if reject.button("Descartar la revisión"):
+        decision = {"action": "reject", "note": note or None}
+
+    if decision is not None:
+        with st.spinner("Aplicando tu decisión..."):
+            done, error = post(f"/api/v1/listings/agent-review/{pending['run_id']}/resume", decision)
+        st.session_state.pop("agent_run_id", None)
+        if error is not None:
+            st.error(error)
+        elif done is not None:
+            st.session_state["agent_result"] = done
+            st.rerun()
+    render_trace(body["trace"])
+
+
 def render_review(body: dict[str, Any]) -> None:
+    if body["status"] == "discarded":
+        st.info("Revisión descartada. No se ha publicado nada.")
+        return
+    if body["human_decision"] is not None:
+        st.success("Revisión completada con tu decisión.")
     if body["escalated"]:
         st.error(
             "Esta revisión necesita una comprobación humana: el agente no ha podido respaldar todas "
@@ -132,5 +182,20 @@ if submitted:
 
     if error is not None:
         st.error(error)
+    elif body is not None and body["status"] == "waiting_human":
+        # Kept across reruns: a checkbox click reloads the page, and the pending decision must survive it.
+        st.session_state["agent_run_id"] = body["run_id"]
+        st.session_state.pop("agent_result", None)
     elif body is not None:
-        render_review(body)
+        st.session_state.pop("agent_run_id", None)
+        st.session_state["agent_result"] = body
+
+if "agent_run_id" in st.session_state:
+    body, error = get(f"/api/v1/listings/agent-review/{st.session_state['agent_run_id']}")
+    if error is not None:
+        st.session_state.pop("agent_run_id", None)
+        st.error(error)
+    elif body is not None:
+        render_pending(body)
+elif "agent_result" in st.session_state:
+    render_review(st.session_state["agent_result"])

@@ -433,7 +433,7 @@ flowchart LR
 
 El estado es JSON plano (leer clases de una fila de la base de datos es un riesgo que LangGraph va a bloquear), las listas crecen con reducers para que dos nodos no se pisen, y una revisión terminada **no deja nada guardado**: el checkpoint contiene el texto del anuncio y el servicio no guarda anuncios. El bucle escrito a mano sigue en el repositorio y un test comprueba que los dos devuelven la misma revisión.
 
-**Sigue** la pausa para una persona antes de publicar (#42).
+**Una persona decide lo que el agente no puede sostener** ([ADR 0027](docs/decisions/0027-human-in-the-loop.md)). Si el jefe escala, el grafo **se detiene antes de publicar** (`interrupt`) y la API responde `202`: la revisión propuesta y las incidencias que el crítico rechazó, con su motivo. La persona **aprueba**, **ajusta** (marca qué incidencias quedan) o **descarta**, y el grafo continúa donde paró, aunque sea otro proceso días después. Probado así: un proceso revisa y pausa, otro proceso nuevo lee la revisión pendiente, aplica la decisión y termina, sin dejar nada guardado. Las revisiones que se sostienen no despiertan a nadie.
 
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
@@ -555,6 +555,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0024](docs/decisions/0024-agent-loop-and-tools.md) | El agente: bucle escrito a mano, herramientas, salidas forzadas y lo que no se le confía al modelo |
 | [0025](docs/decisions/0025-actor-critic-boss.md) | ⚠️ Actor, crítico y jefe; el modelo cita y el código comprueba. Tres versiones, cada una por un fallo encontrado a mano |
 | [0026](docs/decisions/0026-langgraph-orchestration.md) | LangGraph con estado JSON en Postgres; el bucle a mano se conserva como referencia; nada guardado al terminar |
+| [0027](docs/decisions/0027-human-in-the-loop.md) | Pausa antes de publicar con `interrupt`, leída del checkpoint y nunca guardada como estado; decisión registrada antes de reanudar |
 
 ---
 
@@ -633,7 +634,9 @@ La especificación completa se genera sola y está en `http://localhost:8000/doc
 | Endpoint | Qué hace |
 |---|---|
 | `POST /api/v1/listings/review` | Revisa un anuncio de alquiler y devuelve incidencias, veredicto y coste |
-| `POST /api/v1/listings/agent-review` | La misma revisión hecha por un agente que consulta la normativa: incidencias con sus citas al BOE, los pasos que dio y el coste |
+| `POST /api/v1/listings/agent-review` | La misma revisión hecha por un agente que consulta la normativa: incidencias con sus citas al BOE, los pasos que dio y el coste. `202` si queda esperando a una persona |
+| `GET /api/v1/listings/agent-review/{run_id}` | Una revisión en pausa, tal como está |
+| `POST /api/v1/listings/agent-review/{run_id}/resume` | La decisión de una persona sobre una revisión en pausa: aprobar, ajustar o descartar |
 | `POST /api/v1/regulations/search` | Busca en la normativa y devuelve los fragmentos con su puntuación |
 | `POST /api/v1/regulations/ask` | Responde una pregunta sobre normativa con citas verificables al BOE |
 | `GET /health` | Sonda de vida: el proceso responde (sin tocar nada) |

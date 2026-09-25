@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.domain.schemas.listing_review import Finding, Verdict
 from app.domain.schemas.regulation_answer import Citation
@@ -60,6 +60,36 @@ class AgentReview(BaseModel):
     summary: str
 
 
+class HumanAction(StrEnum):
+    APPROVE = "approve"
+    ADJUST = "adjust"
+    REJECT = "reject"
+
+
+class HumanDecision(BaseModel):
+    """What a person decides on a paused review."""
+
+    action: HumanAction
+    # For `adjust`: the positions (from 0) of the proposed findings that stand. The rest are dropped.
+    keep: list[int] | None = None
+    note: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def _adjust_says_what_stays(self) -> "HumanDecision":
+        if self.action == HumanAction.ADJUST and self.keep is None:
+            raise ValueError("adjust needs `keep`: the findings that stand")
+        return self
+
+
+class RejectedFinding(BaseModel):
+    """A finding the critic did not back, shown to the person so they can see why."""
+
+    message: str
+    legal_basis: str | None
+    problem: str
+    reason: str
+
+
 class TraceStep(BaseModel):
     """One step of a run, for debugging and for the person reading the review."""
 
@@ -71,6 +101,15 @@ class TraceStep(BaseModel):
     latency_ms: int = 0
     # What the model wrote alongside its tool calls, when it wrote anything: its reasoning.
     thought: str | None = None
+
+
+class HumanReviewRequest(BaseModel):
+    """A review the agent could not stand behind, waiting for a person before it is published."""
+
+    run_id: str
+    reason: str
+    proposed: AgentReview
+    rejected: list[RejectedFinding] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -85,3 +124,7 @@ class AgentReviewedListing:
     dropped_findings: int = 0
     # The graph's thread id when the review ran as a graph (#41): the handle a pause is resumed by.
     run_id: str | None = None
+    # Set exactly when the run is paused, waiting for a person (#42).
+    pending_review: HumanReviewRequest | None = None
+    # What the person decided, once they have.
+    human_decision: HumanDecision | None = None

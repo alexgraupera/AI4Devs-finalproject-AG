@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     agent_critic_min_confidence: float = 0.7
     agent_critic_escalate_below: float = 0.4
     agent_max_review_attempts: int = 2
+    # An escalated review pauses for a person before it is published (ADR 0027). Off, it only
+    # carries the flag. Needs the graph orchestrator: the loop cannot pause.
+    agent_human_review_enabled: bool = True
 
     # Business endpoints (reviews and regulations). Empty leaves them open, which is right for
     # local development and logged as a warning on every request; production refuses to start.

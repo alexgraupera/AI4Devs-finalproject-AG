@@ -3,9 +3,9 @@
 ```
 START → plan ─┬─(tool calls)──→ act ─┬─(review submitted)→ critic ─┬─→ boss ─┬─(retry)──→ plan
               │                      ├─(same call failed twice)─┐   └─(not a listing)→ END
-              ├─(no tool call)→ plan └─(otherwise)→ plan        │             └─(accept | escalate)→ END
-              └─(out of steps or time)→ force_submit ←──────────┘
-                                         └──→ critic
+              ├─(no tool call)→ plan └─(otherwise)→ plan        │             ├─(accept)→ END
+              └─(out of steps or time)→ force_submit ←──────────┘             └─(escalate)→ human_gate → END
+                                         └──→ critic                                  (paused until a person decides)
 ```
 
 What the graph adds over the loop of `app/generation/agentic/loop.py` (ADR 0026):
@@ -30,6 +30,7 @@ from typing import Any
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import interrupt
 
 from app.domain.errors import ReviewGenerationError
 from app.domain.graph.state import (
@@ -77,6 +78,8 @@ class GraphConfig:
     min_confidence: float = 0.7
     escalate_below: float = 0.4
     max_fragments: int = 5
+    # An escalated review pauses for a person before it is published (#42). Off, it only carries the flag.
+    human_review: bool = True
 
     @property
     def recursion_limit(self) -> int:
@@ -269,8 +272,22 @@ def build_review_graph(
     def after_critic(state: ReviewState) -> str:
         return END if state.get("outcome") == NOT_A_LISTING else "boss"
 
+    async def human_gate(state: ReviewState) -> dict[str, Any]:
+        """The run stops here and the checkpoint keeps it, for minutes or days, until a person decides.
+
+        Whether a run is waiting is read from the checkpoint, never stored as a status of its own:
+        a second record of the same fact is one a crash between two writes would leave lying.
+        """
+        decision = interrupt({"reason": "escalated", "attempt": state.get("attempt", 1)})
+        return {"human_decision": decision}
+
     def after_boss(state: ReviewState) -> str:
-        return END if state.get("outcome") else "plan"
+        outcome = state.get("outcome")
+        if not outcome:
+            return "plan"
+        if outcome == BossDecision.ESCALATE.value and config.human_review:
+            return "human_gate"
+        return END
 
     graph = StateGraph(ReviewState)
     graph.add_node("plan", plan)
@@ -283,7 +300,9 @@ def build_review_graph(
     graph.add_conditional_edges("act", after_act, ["plan", "critic", "force_submit"])
     graph.add_edge("force_submit", "critic")
     graph.add_conditional_edges("critic", after_critic, ["boss", END])
-    graph.add_conditional_edges("boss", after_boss, ["plan", END])
+    graph.add_node("human_gate", human_gate)
+    graph.add_conditional_edges("boss", after_boss, ["plan", "human_gate", END])
+    graph.add_edge("human_gate", END)
     return graph.compile(checkpointer=checkpointer)
 
 

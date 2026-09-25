@@ -55,7 +55,7 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 | Rewrite the listing, with accept and edit | 🔜 #39 |
 | Actor-critic-boss: a critic on the other provider judges each finding against the listing and the whole cited article; the boss accepts, retries once or escalates | ✅ #40 |
 | Graph orchestration (LangGraph) with typed JSON state, reducers, conditional routing and a Postgres checkpointer; nothing kept once a run ends | ✅ #41 |
-| Human-in-the-loop: the run pauses before publishing when confidence is low, and resumes with the human decision | 🔜 #3 |
+| Human-in-the-loop: an escalated review pauses before publishing (`interrupt`), and resumes with a person's decision (approve, adjust, reject), on any process | ✅ #42 |
 | Least privilege over tools, with an audit trail of every agent action | 🔜 #3 |
 | Property data (Catastro) and market rent range (SERPAVI) as agent tools | 🔜 #6 |
 
