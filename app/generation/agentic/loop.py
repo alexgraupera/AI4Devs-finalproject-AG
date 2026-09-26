@@ -44,6 +44,8 @@ NUDGE_TO_SUBMIT = (
     "No has llamado a ninguna herramienta. Si ya tienes la revisión, entrégala con submit_review; "
     "si te falta consultar algo, llama a la herramienta que corresponda."
 )
+MALFORMED_ARGUMENTS = "Los argumentos no son JSON válido. Vuelve a llamar con un objeto JSON."
+TOOL_FAILED = "La herramienta ha fallado ({error}). Prueba otra cosa."
 FINAL_CALL = (
     "Se ha acabado el margen de pasos. Entrega ahora la revisión con submit_review, solo con lo que "
     "ya has comprobado: no añadas incidencias legales que no hayas consultado."
@@ -87,6 +89,35 @@ class AgentRun:
     fragments: dict[int, RegulationFragment] = field(default_factory=dict)
 
 
+class ToolBox:
+    """Runs the tools a model asks for. Shared by the hand-written loop and the graph of #41.
+
+    Nothing the model asks for raises out of here: an unknown tool, malformed arguments or a tool
+    that fails all become a `ToolResult` the model reads on its next turn.
+    """
+
+    def __init__(self, tools: list[Tool]) -> None:
+        self._tools = {tool.spec.name: tool for tool in tools}
+        self.specs = [tool.spec for tool in tools] + [SUBMIT_SPEC]
+
+    async def execute(self, call: RequestedToolCall) -> tuple[ToolResult, int]:
+        started = time.perf_counter()
+        tool = self._tools.get(call.name)
+        if call.malformed is not None:
+            result = ToolResult(ok=False, content=MALFORMED_ARGUMENTS)
+        elif tool is None:
+            available = ", ".join(self._tools)
+            result = ToolResult(ok=False, content=f"No existe la herramienta {call.name}. Disponibles: {available}.")
+        else:
+            try:
+                result = await tool.run(call.arguments)
+            except Exception as error:
+                # A tool failing is information for the model, never a crash of the run.
+                log.warning("agent.tool_failed", tool=call.name, exc_info=True)
+                result = ToolResult(ok=False, content=TOOL_FAILED.format(error=type(error).__name__))
+        return result, int((time.perf_counter() - started) * 1000)
+
+
 class AgentLoop:
     def __init__(
         self,
@@ -98,8 +129,8 @@ class AgentLoop:
         prompt_version: str = "v3",
     ) -> None:
         self._llm = llm
-        self._tools = {tool.spec.name: tool for tool in tools}
-        self._specs = [tool.spec for tool in tools] + [SUBMIT_SPEC]
+        self._toolbox = ToolBox(tools)
+        self._specs = self._toolbox.specs
         self._max_iterations = max_iterations
         self._timeout = timeout_seconds
         self._prompt_version = prompt_version
@@ -136,7 +167,7 @@ class AgentLoop:
             thought = completion.content
             for call in completion.tool_calls:
                 if call.name == SUBMIT:
-                    candidate, error = _parse_submission(call)
+                    candidate, error = parse_submission(call)
                     trace.append(
                         TraceStep(
                             step=len(trace) + 1,
@@ -148,10 +179,10 @@ class AgentLoop:
                     )
                     if candidate is not None:
                         return self._finished(candidate, trace, usages, StopReason.COMPLETED, fragments)
-                    messages.append(_tool_message(call, error))
+                    messages.append(tool_message(call, error))
                     continue
 
-                result, latency_ms = await self._execute(call)
+                result, latency_ms = await self._toolbox.execute(call)
                 if isinstance(result.data.get("fragments"), list):
                     fragments.update({fragment.chunk_id: fragment for fragment in result.data["fragments"]})
                 trace.append(
@@ -166,7 +197,7 @@ class AgentLoop:
                     )
                 )
                 thought = None
-                messages.append(_tool_message(call, result.content))
+                messages.append(tool_message(call, result.content))
 
                 if not result.ok:
                     key = f"{call.name}:{json.dumps(call.arguments, sort_keys=True)}"
@@ -177,27 +208,6 @@ class AgentLoop:
                 break
 
         return await self._final_submission(messages, trace, usages, stop, fragments)
-
-    async def _execute(self, call: RequestedToolCall) -> tuple[ToolResult, int]:
-        started = time.perf_counter()
-        tool = self._tools.get(call.name)
-        if call.malformed is not None:
-            result = ToolResult(
-                ok=False, content="Los argumentos no son JSON válido. Vuelve a llamar con un objeto JSON."
-            )
-        elif tool is None:
-            available = ", ".join(self._tools)
-            result = ToolResult(ok=False, content=f"No existe la herramienta {call.name}. Disponibles: {available}.")
-        else:
-            try:
-                result = await tool.run(call.arguments)
-            except Exception as error:
-                # A tool failing is information for the model, never a crash of the run.
-                log.warning("agent.tool_failed", tool=call.name, exc_info=True)
-                result = ToolResult(
-                    ok=False, content=f"La herramienta ha fallado ({type(error).__name__}). Prueba otra cosa."
-                )
-        return result, int((time.perf_counter() - started) * 1000)
 
     async def _final_submission(
         self,
@@ -215,7 +225,7 @@ class AgentLoop:
 
         for call in completion.tool_calls:
             if call.name == SUBMIT:
-                candidate, error = _parse_submission(call)
+                candidate, error = parse_submission(call)
                 trace.append(
                     TraceStep(
                         step=len(trace) + 1, tool=SUBMIT, ok=candidate is not None, result=error or "Revisión entregada"
@@ -239,7 +249,7 @@ class AgentLoop:
         return AgentRun(output=candidate, trace=trace, usage=usage, stop_reason=stop, fragments=fragments)
 
 
-def _parse_submission(call: RequestedToolCall) -> tuple[AgentReviewCandidate | None, str]:
+def parse_submission(call: RequestedToolCall) -> tuple[AgentReviewCandidate | None, str]:
     if call.malformed is not None:
         return None, "La revisión no es JSON válido. Vuelve a entregarla."
     try:
@@ -249,5 +259,5 @@ def _parse_submission(call: RequestedToolCall) -> tuple[AgentReviewCandidate | N
         return None, f"La revisión no cumple el esquema ({problems}). Corrígela y vuelve a entregarla."
 
 
-def _tool_message(call: RequestedToolCall, content: str) -> dict[str, Any]:
+def tool_message(call: RequestedToolCall, content: str) -> dict[str, Any]:
     return {"role": "tool", "tool_call_id": call.id, "content": content}

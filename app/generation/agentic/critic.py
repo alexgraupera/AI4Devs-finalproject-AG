@@ -18,7 +18,7 @@ from enum import StrEnum
 import structlog
 from pydantic import BaseModel, Field
 
-from app.domain.schemas.listing_agent_review import AgentFinding
+from app.domain.schemas.listing_agent_review import AgentFinding, TraceStep
 from app.domain.schemas.listing_review import Listing
 from app.foundation.llm.usage import LLMUsage
 from app.foundation.llm.wrapper import StructuredLLM
@@ -137,3 +137,28 @@ def _render(findings: list[AgentFinding], fragments: dict[int, RegulationFragmen
             lines += [f"  [{f.chunk_id}] {f.law_title} · {f.article_title}\n  {f.text[:SOURCE_CHARS]}" for f in cited]
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
+
+
+def feedback_for(rejected: list[Rejection]) -> str:
+    """What the actor is told on a retry: each rejected finding, and why, in the critic's words."""
+    lines = ["Un revisor ha comprobado tu revisión anterior y ha rechazado estas incidencias:"]
+    lines += [f"- «{r.finding.message}» ({r.problem}): {r.reason}" for r in rejected]
+    lines.append(
+        "Vuelve a revisar el anuncio. No repitas esas incidencias salvo que puedas sostenerlas con el "
+        "anuncio y con fragmentos que sí digan lo que afirmas."
+    )
+    return "\n".join(lines)
+
+
+def critic_step(step: int, verdict: CriticResult) -> TraceStep:
+    if verdict.unavailable:
+        result = "El revisor no ha podido ejecutarse: se mantienen todas las incidencias."
+    elif not verdict.rejected:
+        result = "Todas las incidencias están respaldadas por el anuncio y la normativa."
+    else:
+        result = "; ".join(f"Rechazada «{r.finding.message[:80]}» ({r.problem})" for r in verdict.rejected)
+    return TraceStep(step=step, tool="critic", result=result, ok=not verdict.rejected and not verdict.unavailable)
+
+
+def boss_step(step: int, decision: str) -> TraceStep:
+    return TraceStep(step=step, tool="boss", result=f"Decisión: {decision}")
