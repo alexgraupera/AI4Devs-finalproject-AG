@@ -22,5 +22,9 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 # One image for both services: docker-compose.yml sets the command of each one. The entrypoint
 # migrates when there is a database, then execs the command so it runs as PID 1.
+#
+# The port comes from PORT when the platform sets one (Render uses 10000) and is 8000 otherwise.
+# The graceful shutdown gives a review in flight time to finish when a deploy stops the container:
+# a model call takes seconds, not the milliseconds a default timeout assumes.
 ENTRYPOINT ["/app/docker/entrypoint.sh"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --timeout-graceful-shutdown 90"]

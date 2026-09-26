@@ -31,6 +31,10 @@ Alex Graupera
 
 > Puede ser pública o privada, en cuyo caso deberás compartir los accesos de manera segura. Puedes enviarlos a [alvaro@lidr.co](mailto:alvaro@lidr.co) usando algún servicio como [onetimesecret](https://onetimesecret.com/).
 
+**https://ai4devs-rental-ui-ag.onrender.com**
+
+Pública y sin credenciales. Está en el plan gratuito de Render: si nadie la ha usado en los últimos 15 minutos, la primera visita tarda hasta un minuto en despertar el servicio (la interfaz lo avisa mientras espera).
+
 ### 0.5. URL o archivo comprimido del repositorio
 
 https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `finalproject-AG`, tag: `v1.0-final-AG`)
@@ -183,6 +187,36 @@ El paquete `app/` está organizado en capas por responsabilidad: `foundation/` (
 ### **2.4. Infraestructura y despliegue**
 
 > Detalla la infraestructura del proyecto, incluyendo un diagrama en el formato que creas conveniente, y explica el proceso de despliegue que se sigue
+
+Render, en el plan gratuito, descrito como código en [`render.yaml`](render.yaml): coste de infraestructura cero y un despliegue por cada merge a `main` ([ADR 0021](docs/decisions/0021-hosting-on-render.md), guía completa en [`docs/deployment.md`](docs/deployment.md)).
+
+```mermaid
+flowchart LR
+    user([Navegador]) -->|HTTPS| ui
+
+    subgraph render[Render, Frankfurt]
+        ui[Interfaz<br/>Streamlit]
+        api[Servicio de IA<br/>FastAPI]
+        db[(Postgres + pgvector)]
+        cache[(Key Value · Redis)]
+    end
+
+    ui -->|HTTPS · token de servicio + clave| api
+    api -->|red privada| db
+    api -->|red privada| cache
+    api -->|HTTPS| providers[Anthropic · OpenAI]
+    api -->|HTTPS, al arrancar| boe[API de datos abiertos del BOE]
+```
+
+**Una imagen, dos servicios.** La API y la interfaz se construyen desde el mismo `Dockerfile`; solo cambia el comando. Postgres y Redis solo son accesibles desde la red privada.
+
+**El despliegue es hacer merge a `main`.** El CI pasa lint, tipos, tests contra Postgres real y un escaneo de secretos (gitleaks) en cada pull request; Render construye y despliega tras el merge. Ningún secreto vive en el repositorio, en la imagen ni en el CI: las claves de los proveedores se escriben una vez en Render, y la clave y el token los genera la propia plataforma.
+
+**Al arrancar, la API se prepara sola.** Aplica las migraciones y reconstruye el corpus desde el BOE si hace falta: la primera vez descarga las seis fuentes y las embebe (~10 s, 0,02 $); las siguientes ve que nada ha cambiado y no hace nada. Si el BOE no responde, arranca igual con lo que tiene.
+
+**Rollback en un minuto.** Render guarda cada despliegue y vuelve a uno anterior sin reconstruir. Al apagar un contenedor en un despliegue, las revisiones en curso tienen hasta 120 s para terminar en vez de cortarse y pagarse dos veces.
+
+Lo que cuesta el plan gratuito, dicho y no escondido: la API es pública (los servicios gratuitos no reciben tráfico privado), protegida por el token, la clave, el límite de peticiones y el tope de gasto; los servicios se duermen tras 15 minutos; y la base de datos gratuita caduca a los 30 días, lo que aquí se acepta porque el corpus se reconstruye solo.
 
 ### **2.5. Seguridad**
 
@@ -470,6 +504,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0018](docs/decisions/0018-data-privacy-and-providers.md) | Qué datos llegan a qué proveedor, y por qué los personales se rechazan en la puerta |
 | [0019](docs/decisions/0019-no-semantic-cache.md) | ⚠️ Caché semántica medida y **descartada**: serviría la revisión equivocada |
 | [0020](docs/decisions/0020-access-spend-and-probes.md) | Token de servicio y claves por router, tope de gasto diario que corta, arranque que falla sin secretos, vida ≠ disponibilidad |
+| [0021](docs/decisions/0021-hosting-on-render.md) | Render gratuito descrito como Blueprint; lo que cuesta el plan gratuito y por qué Hugging Face no servía |
 
 ---
 

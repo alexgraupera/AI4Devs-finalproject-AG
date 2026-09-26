@@ -73,11 +73,11 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 
 | Capability | Status |
 |---|---|
-| Containers for the whole stack, self-contained image, migrations on start-up | ✅ #7, 🔜 #5 |
-| CI running lint, typecheck and tests on every pull request, database-backed tests included | ✅ #7, #22 |
+| Containers for the whole stack, self-contained image, migrations and corpus bootstrap on start-up | ✅ #7, #53, #54 |
+| CI running lint, typecheck, tests (database-backed included) and a secret scan on every pull request | ✅ #7, #22, #54 |
 | Service token middleware plus per-router API keys and rate limiting, fail fast in production | ✅ #53 |
 | Daily spend cap that stops model calls, liveness and readiness probes | ✅ #53 |
-| Public deployment (or a recorded walkthrough) and spend limits on the providers | 🔜 #5 |
+| Public deployment on Render from `main`, described as a Blueprint | ✅ #54 (live once the Blueprint is created) |
 
 ## Out of scope, and why
 

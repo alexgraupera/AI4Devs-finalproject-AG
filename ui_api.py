@@ -13,6 +13,14 @@ from app.config import get_settings
 
 UNEXPECTED_ERROR = "No se ha podido contactar con el servicio. Inténtalo de nuevo."
 
+# The free hosting tier puts the API to sleep after 15 minutes idle, and the first request wakes
+# it in up to a minute. Giving up after two seconds would call a sleeping service "unavailable".
+WAKE_TIMEOUT_SECONDS = 90
+WAKING_UP = (
+    "Conectando con el servicio... Si nadie lo ha usado en los últimos 15 minutos, "
+    "el plan gratuito lo ha dormido y tarda hasta un minuto en despertar."
+)
+
 
 def api_url() -> str:
     return get_settings().api_url
@@ -28,9 +36,9 @@ def auth_headers() -> dict[str, str]:
     return headers
 
 
-def is_api_available() -> bool:
+def is_api_available(timeout: float = WAKE_TIMEOUT_SECONDS) -> bool:
     try:
-        return httpx.get(f"{api_url()}/health", timeout=5).status_code == 200
+        return httpx.get(f"{api_url()}/health", timeout=timeout).status_code == 200
     except httpx.HTTPError:
         return False
 

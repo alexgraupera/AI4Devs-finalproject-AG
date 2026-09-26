@@ -2,7 +2,7 @@ from typing import Any
 
 import streamlit as st
 
-from ui_api import is_api_available, post
+from ui_api import WAKING_UP, is_api_available, post
 
 SEVERITY_LABELS = {"high": "Alta", "medium": "Media", "low": "Baja"}
 SEVERITY_ICONS = {"high": "🔴", "medium": "🟠", "low": "🟡"}
@@ -54,7 +54,9 @@ def render_review(review: dict[str, Any]) -> None:
 st.set_page_config(page_title="Revisión de anuncios de alquiler", page_icon="🏠")
 st.title("Revisión de anuncios de alquiler")
 
-if not is_api_available():
+with st.spinner(WAKING_UP):
+    available = is_api_available()
+if not available:
     st.error("API no disponible")
     st.stop()
 

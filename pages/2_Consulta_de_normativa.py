@@ -10,7 +10,7 @@ from typing import Any
 
 import streamlit as st
 
-from ui_api import is_api_available, post
+from ui_api import WAKING_UP, is_api_available, post
 
 JURISDICTIONS = {
     "Toda España": None,
@@ -92,7 +92,9 @@ with st.expander("Qué normativa puedo consultar"):
         """
     )
 
-if not is_api_available():
+with st.spinner(WAKING_UP):
+    available = is_api_available()
+if not available:
     st.error("API no disponible")
     st.stop()
 
