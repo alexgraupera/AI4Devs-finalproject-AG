@@ -96,7 +96,7 @@ No secret is in the repository, the image or the CI pipeline: CI only runs tests
 ## Known operational limitations
 
 - **Cold starts.** Free services sleep after 15 minutes without traffic. The first visit wakes the UI and then the API, up to a minute each; the UI says so while it waits.
-- **One instance each.** A deploy has a few seconds of unavailability, and a restart of the API loses the requests in flight beyond the 120 s shutdown window.
+- **One instance each.** A deploy has a few seconds of unavailability, and a restart of the API loses the requests still in flight when the platform's default shutdown window runs out (the free tier does not allow a longer one).
 - **The API is public**, behind its token and key, because free services cannot receive private traffic. On a paid plan it would sit on the private network with only the UI in front.
 - **The database expires** 30 days after creation. Recreating it is a Blueprint sync; the corpus rebuilds itself.
 - **Spend is global.** Behind the UI every visitor shares one key, so the rate limit and the spend cap are shared by all visitors of the demo.

@@ -18,8 +18,8 @@ services:
     autoDeploy: true
     # Liveness only: a platform restarts on failure, so the probe must not touch the database.
     healthCheckPath: /health
-    # Time for a review in flight to finish when a deploy stops the old container.
-    maxShutdownDelaySeconds: 120
+    # No maxShutdownDelaySeconds: the free tier rejects it, so a deploy gives a review in flight
+    # only the platform's default window to finish (ADR 0021).
     envVars:
       - key: ENVIRONMENT
         value: production
