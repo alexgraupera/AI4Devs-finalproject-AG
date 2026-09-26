@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     # Share of an answer's claims the cited articles must support. Measured, not assumed: see ADR 0014.
     grounding_min_confidence: float = 0.7
 
+    # The agent review (ADR 0024). Every loop needs a hard exit: an impossible request must end,
+    # not burn tokens until a provider rate-limits it.
+    agent_max_iterations: int = 6
+    agent_timeout_seconds: float = 90.0
+    # Fragments per search the agent reads: its context grows with every one.
+    agent_max_fragments: int = 5
+
     # Business endpoints (reviews and regulations). Empty leaves them open, which is right for
     # local development and logged as a warning on every request; production refuses to start.
     api_key: str = ""

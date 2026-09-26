@@ -390,7 +390,29 @@ Un juez lee los artículos citados y la respuesta, extrae las afirmaciones jurí
 
 Ese 100% es lo importante: la fuga que el [ADR 0012](docs/decisions/0012-retrieval-baseline-and-tuning.md) aceptó a sabiendas queda cerrada por el otro lado. Una respuesta que el artículo citado no sostiene no se publica, diga lo que diga la puntuación de similitud.
 
-**Agentes (pendiente)**: un agente con function calling que decide qué consultar (normativa, Catastro, precio de mercado) y un paso crítico que descarta las incidencias sin cita.
+**Agente: donde CAG y RAG se juntan (implementado)**
+
+La revisión de siempre solo puede citar los cinco artículos que lleva el prompt: no puede consultar nada. El agente sí. Lee el checklist en su prompt (CAG), busca en el corpus del BOE con una herramienta (RAG) y decide qué comprobar y en qué orden ([ADR 0024](docs/decisions/0024-agent-loop-and-tools.md)).
+
+```
+POST /api/v1/listings/agent-review
+  └→ app/domain/agent_review_service.py        (conductor: guardrails, tope de gasto, citas, guardrail de salida)
+       └→ app/generation/agentic/loop.py        (razona → actúa → observa, escrito a mano)
+            ├→ check_listing_fields              (código, nunca el modelo: datos que faltan y contradicciones)
+            ├→ search_regulations                (el retriever, a través de un puerto)
+            └→ submit_review                     (la revisión, validada contra el esquema)
+```
+
+| Lo que no se deja al modelo | Cómo |
+|---|---|
+| Parar | 6 iteraciones, 90 s o la misma llamada fallando dos veces; entonces entrega lo que tiene y la respuesta avisa de que puede estar incompleta |
+| Citar | El modelo da números de fragmento; la cita se construye con lo que devolvió la búsqueda y un número inventado se descarta |
+| Afirmar algo legal | Una incidencia legal sin un fragmento leído detrás (y fuera del checklist) no llega al usuario |
+| Comprobar los datos | Una herramienta en código que lee el anuncio en revisión: no acepta argumentos, así que el modelo no puede comprobar otro |
+
+Cada paso, con lo que el modelo escribió al decidirlo, vuelve en la respuesta y se ve en la página «Revisión con agente». Las dos revisiones siguen vivas una junto a otra para poder compararlas con números (#52).
+
+**Siguen** el crítico que comprueba que cada artículo dice lo que la incidencia afirma (#40), el grafo con estado persistente (#41) y la pausa para una persona (#42).
 
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
@@ -507,7 +529,9 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0019](docs/decisions/0019-no-semantic-cache.md) | ⚠️ Caché semántica medida y **descartada**: serviría la revisión equivocada |
 | [0020](docs/decisions/0020-access-spend-and-probes.md) | Token de servicio y claves por router, tope de gasto diario que corta, arranque que falla sin secretos, vida ≠ disponibilidad |
 | [0021](docs/decisions/0021-hosting-on-render.md) | Render gratuito descrito como Blueprint; lo que cuesta el plan gratuito y por qué Hugging Face no servía |
+| [0022](docs/decisions/0022-answer-evaluation.md) | Evaluación de respuestas al estilo RAGAS con un juez de otro proveedor: el modelo lee, el código cuenta |
 | [0023](docs/decisions/0023-a-model-per-role.md) | Un modelo por papel (el juez en el otro proveedor) y cada llamada acotada; el reranker barato, medido y descartado |
+| [0024](docs/decisions/0024-agent-loop-and-tools.md) | El agente: bucle escrito a mano, herramientas, salidas forzadas y lo que no se le confía al modelo |
 
 ---
 
@@ -586,6 +610,7 @@ La especificación completa se genera sola y está en `http://localhost:8000/doc
 | Endpoint | Qué hace |
 |---|---|
 | `POST /api/v1/listings/review` | Revisa un anuncio de alquiler y devuelve incidencias, veredicto y coste |
+| `POST /api/v1/listings/agent-review` | La misma revisión hecha por un agente que consulta la normativa: incidencias con sus citas al BOE, los pasos que dio y el coste |
 | `POST /api/v1/regulations/search` | Busca en la normativa y devuelve los fragmentos con su puntuación |
 | `POST /api/v1/regulations/ask` | Responde una pregunta sobre normativa con citas verificables al BOE |
 | `GET /health` | Sonda de vida: el proceso responde (sin tocar nada) |

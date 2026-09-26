@@ -10,6 +10,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.config import get_settings
+from app.domain.agent_review_service import AgentReviewService, RetrieverSearch
 from app.domain.errors import CorpusUnavailable
 from app.domain.listing_review_service import ListingReviewService
 from app.domain.regulation_qa_service import RegulationQAService
@@ -181,5 +182,20 @@ def get_regulation_qa_service() -> RegulationQAService:
         top_k=settings.retrieval_top_k,
         rerank_pool=settings.rerank_pool,
         max_context_chars=settings.max_context_chars,
+        spend=get_spend_guard(),
+    )
+
+
+@lru_cache
+def get_agent_review_service() -> AgentReviewService:
+    settings = get_settings()
+    return AgentReviewService(
+        get_llm_wrapper(),
+        RetrieverSearch(get_retriever(), top_k=settings.retrieval_top_k, min_score=settings.retrieval_min_score),
+        get_moderation_client(),
+        model=settings.llm_model,
+        max_iterations=settings.agent_max_iterations,
+        timeout_seconds=settings.agent_timeout_seconds,
+        max_fragments=settings.agent_max_fragments,
         spend=get_spend_guard(),
     )
