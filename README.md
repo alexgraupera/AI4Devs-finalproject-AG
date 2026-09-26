@@ -25,7 +25,11 @@ Alex Graupera
 
 ### **0.2. Nombre del proyecto:**
 
+**Asistente de alquiler**: revisión de anuncios y consulta de la normativa de alquiler de vivienda en España.
+
 ### **0.3. Descripción breve del proyecto:**
+
+Quien publica un anuncio de alquiler lo pega y recibe una revisión estructurada: qué falta, qué se contradice y qué incumple la normativa, cada incumplimiento con el artículo del BOE que lo respalda. Puede preguntar sobre la normativa y recibir una respuesta con citas que se pueden comprobar, o pedir la revisión a un agente que consulta la normativa, propone el anuncio corregido y se detiene para que una persona decida cuando no puede sostener sus conclusiones. Está construido en las tres capas del programa (CAG → RAG → agentes), medido con evaluaciones que han decidido cada cambio y desplegado en Render.
 
 ### **0.4. URL del proyecto:**
 
@@ -52,13 +56,44 @@ https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `final
 
 > Propósito del producto. Qué valor aporta, qué soluciona, y para quién.
 
+**El problema.** En los portales inmobiliarios se publican a diario anuncios de alquiler que incumplen la normativa sin que nadie lo pretenda: sin la calificación energética que exige el RD 390/2021, con dos meses de fianza cuando la LAU fija uno, con los honorarios de la agencia a cargo del inquilino que la ley pone a cargo del propietario, o sin decir qué incluye el precio. El propietario particular no conoce la norma; la agencia la conoce, pero revisa a mano; y el marketplace o revisa con personas (caro) o no revisa (riesgo de sanción, reclamaciones y anuncios retirados).
+
+**Para quién.** Para quien publica (propietarios y agencias), que corrige antes de publicar en lugar de después de una reclamación. Y para el marketplace, cuyo equipo de calidad deja de revisar a mano lo que se puede revisar solo y se queda con los casos dudosos, que el agente le pasa explícitamente.
+
+**El valor.** Una revisión que dice qué artículo incumple cada problema, con el enlace al BOE, en unos segundos y por unos **0,0015 $** (medido sobre 18 anuncios). Una respuesta que no sale de la normativa indexada no se da: el asistente dice que no lo sabe antes que inventar una norma.
+
 ### **1.2. Características y funcionalidades principales:**
 
 > Enumera y describe las características y funcionalidades específicas que tiene el producto para satisfacer las necesidades identificadas.
 
+| Funcionalidad | Qué hace | Capa |
+|---|---|---|
+| **Revisión de anuncios** | Revisa el texto y los datos estructurados contra un checklist de cinco puntos normativos (etiqueta energética, fianza, garantías, honorarios, información del precio) y de calidad. Devuelve incidencias con gravedad, sugerencia y base legal, un veredicto y lo que ha costado | CAG |
+| **Consulta de normativa** | Responde preguntas sobre la LAU, la Ley 12/2023, el RD 390/2021, la ley catalana de vivienda y las zonas tensionadas, citando el artículo exacto con su enlace al BOE; si la normativa indexada no lo cubre, lo dice | RAG |
+| **Revisión con agente** | Un agente con herramientas (`check_listing_fields`, `search_regulations`) consulta la normativa antes de afirmar nada, incluida la autonómica; un crítico comprueba cada incidencia contra el anuncio y el artículo citado; y propone el anuncio corregido, sin inventar datos | Agentes |
+| **Una persona decide lo dudoso** | Si el crítico no respalda las conclusiones, la revisión se detiene antes de publicarse y una persona la aprueba, ajusta o descarta, aunque sea días después | Agentes |
+| **Trazabilidad** | Cada revisión del agente muestra sus pasos, sus citas y su coste por paso; cada petición tiene un identificador que la une a sus eventos en los registros | Transversal |
+| **Valoración** | 👍/👎 y un comentario opcional bajo cada revisión y respuesta, guardados con el identificador de la petición | Transversal |
+| **Guardrails** | Tamaño, moderación, inyección de prompt y datos personales antes de llamar a nadie; salida validada contra el esquema; citas comprobadas en código; tope de gasto diario; clave de acceso, token de servicio y límite de peticiones | Transversal |
+| **Evaluación** | 32 preguntas y 18 anuncios anotados, un juez de otro proveedor, una puerta de regresión contra una línea base y casos de regresión en cada pull request | Transversal |
+
 ### **1.3. Diseño y experiencia de usuario:**
 
 > Proporciona imágenes y/o videotutorial mostrando la experiencia del usuario desde que aterriza en la aplicación, pasando por todas las funcionalidades principales.
+
+La interfaz es un cliente Streamlit de tres páginas sobre la API. Al entrar, la portada comprueba que el servicio responde (en el plan gratuito puede estar dormido y lo avisa mientras lo despierta) y el menú lateral lleva a cada funcionalidad. Las capturas son de una ejecución real con el anuncio de Madrid del set de evaluación (dos meses de fianza, honorarios al inquilino y sin calificación energética).
+
+**1. Revisión de anuncios.** Se pega el anuncio y, si se quiere, los datos estructurados. En unos segundos llega el veredicto, un resumen y las incidencias ordenadas por gravedad: las altas abiertas, cada una con su sugerencia y su base legal. Debajo, el modelo que respondió, los tokens, el tiempo y el coste, y la valoración 👍/👎.
+
+![Revisión de anuncios](docs/images/1-revision.png)
+
+**2. Consulta de normativa.** Una pregunta en lenguaje natural, con el ámbito opcional (toda España o Cataluña). La respuesta cita el artículo con un enlace que abre el BOE en ese artículo, y los fragmentos recuperados se pueden desplegar para ver de dónde salió.
+
+![Consulta de normativa](docs/images/2-consulta.png)
+
+**3. Revisión con agente.** El mismo anuncio, revisado por el agente: cada incidencia legal con sus citas al BOE, el **anuncio corregido** editable (con los datos que no puede inventar marcados como huecos: `[indica la calificación energética]`), los pasos que dio, lo que descartó el revisor y el **coste por paso**. Cuando el crítico no respalda las conclusiones, la página muestra en su lugar la revisión propuesta, lo descartado con su motivo y tres botones: aprobar, ajustar (marcando qué incidencias quedan) o descartar.
+
+![Revisión con agente](docs/images/3-agente.png)
 
 ### **1.4. Instrucciones de instalación:**
 > Documenta de manera precisa las instrucciones para instalar y poner en marcha el proyecto en local (librerías, backend, frontend, servidor, base de datos, migraciones y semillas de datos, etc.)
@@ -143,12 +178,77 @@ migraciones, que hacen `downgrade` y borran las tablas, corren contra una base a
 ### **2.1. Diagrama de arquitectura:**
 > Usa el formato que consideres más adecuado para representar los componentes principales de la aplicación y las tecnologías utilizadas. Explica si sigue algún patrón predefinido, justifica por qué se ha elegido esta arquitectura, y destaca los beneficios principales que aportan al proyecto y justifican su uso, así como sacrificios o déficits que implica.
 
+```mermaid
+flowchart TB
+    user([Propietario o agencia]) --> ui[Interfaz Streamlit<br/>3 páginas + 👍/👎]
+    ui -->|HTTP · token de servicio + clave| api
+
+    subgraph api[Servicio de IA · FastAPI]
+        mw[request_id · token de servicio<br/>clave · límite de peticiones]
+        subgraph conductors[domain/ · conductores]
+            review[ListingReviewService]
+            qa[RegulationQAService]
+            agent[AgentReviewService]
+            fb[FeedbackService]
+        end
+        subgraph generation[generation/ · arquitecturas de IA]
+            cag[CAG<br/>checklist en el prompt<br/>+ caché exacta]
+            rag[RAG<br/>recuperación · reranking<br/>verificación de citas]
+            graph[Agente · LangGraph<br/>plan → act → crítico → jefe<br/>→ pausa humana → reescritura]
+        end
+        subgraph foundation[foundation/ · plomería]
+            guard[Guardrails de entrada y salida<br/>tope de gasto]
+            llm[Router LiteLLM + Instructor<br/>un modelo por papel]
+            prompts[Prompts Jinja2 versionados]
+        end
+        mw --> conductors
+        review --> cag
+        qa --> rag
+        agent --> graph
+        graph -->|search_regulations| rag
+        conductors --> guard
+        cag & rag & graph --> llm
+    end
+
+    llm --> anthropic[Anthropic<br/>Claude Haiku 4.5]
+    llm --> openai[OpenAI<br/>GPT-5.4 mini · embeddings]
+    cag --> redis[(Redis<br/>caché · límites · gasto)]
+    rag --> pg[(PostgreSQL + pgvector<br/>corpus · checkpoints · feedback)]
+    graph --> pg
+    fb --> pg
+
+    boe[API de datos abiertos del BOE] -->|ingestion/ · offline| pg
+    evals[evals/ · sets dorados, juez,<br/>puerta de regresión] -.->|workflow manual o semanal| api
+```
+
+**El patrón: capas con un conductor por caso de uso.** El paquete se organiza por responsabilidad (`api/` → `domain/` → `generation/` → `foundation/`), y cada caso de uso tiene un **servicio conductor** en `domain/` que es el único sitio donde se componen las piezas: guardrails, caché, prompts, modelo y comprobaciones. Las arquitecturas de IA de `generation/` (CAG, RAG, agente) no se importan entre sí; el agente usa el RAG a través de un puerto (`RegulationSearch`) que el conductor conecta ([ADR 0001](docs/decisions/0001-stack-and-project-structure.md)). La ingesta del corpus es un proceso aparte que nada del camino de una petición importa.
+
+**Por qué esta arquitectura.** Porque el producto se construyó en el orden del programa (CAG → RAG → agentes) y cada capa tenía que poder medirse contra la anterior sin reescribirla: el pipeline CAG sigue vivo al lado del agente, y la comparación de los dos con los mismos anuncios es la que decide ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)). Y porque la interfaz y el servicio de IA separados por HTTP permiten probar, desplegar y ofrecer la IA a otro cliente (el backend de un marketplace) sin tocar la interfaz.
+
+**Beneficios.** Cada pieza se prueba sin red (el modelo es un protocolo que los tests simulan: 570 tests sin una sola llamada real); cambiar de modelo o de proveedor es configuración, no código (y se probó sin querer: con Anthropic en su límite, todo siguió funcionando con OpenAI); y cada decisión de IA tiene un sitio donde medirse.
+
+**Sacrificios.** Más ficheros y más indirección que un script que llama al modelo; dos orquestadores del agente que mantener en paralelo (el bucle escrito a mano, como referencia, y el grafo); y una dependencia de dos proveedores externos, mitigada con el fallback y el tope de gasto pero no eliminada.
+
 
 ### **2.2. Descripción de componentes principales:**
 
 > Describe los componentes más importantes, incluyendo la tecnología utilizada
 
 > 🆕 Incluir cada capa de IA: CAG, pipeline RAG, capa de agentes, evaluación y despliegue.
+
+| Componente | Tecnología | Qué hace |
+|---|---|---|
+| **Interfaz** | Streamlit | Tres páginas (revisión, consulta, agente) y la valoración; habla con la API solo por HTTP, con el token de servicio y la clave ([`ui_api.py`](ui_api.py)) |
+| **API** | FastAPI, Pydantic | Routers finos: validan, llaman al conductor y responden. Middleware de `request_id`, token de servicio, clave de acceso y límite de peticiones por router |
+| **Conductores** | Python | `ListingReviewService`, `RegulationQAService`, `AgentReviewService` y `FeedbackService`: el orden de las piezas de cada caso de uso, en un solo sitio |
+| **CAG** | Prompts Jinja2 versionados, Redis | El checklist normativo vive en el prompt de sistema (versión `v3`, elegida midiendo); una caché exacta por anuncio, versión de prompt y modelo evita pagar dos veces la misma revisión. La caché semántica se midió y **no se construyó** ([ADR 0019](docs/decisions/0019-no-semantic-cache.md)) |
+| **RAG** | PostgreSQL + pgvector (HNSW), `text-embedding-3-large` | Corpus del BOE troceado por artículo; recuperación por similitud con umbral, reranking de un conjunto de 20 con un modelo, contexto numerado, citas construidas desde los metadatos (el modelo solo devuelve números) y verificación de que el artículo sostiene la respuesta |
+| **Agentes** | LangGraph, checkpointer de Postgres, function calling | Grafo `plan → act → crítico → jefe`, con herramientas `check_listing_fields` (código) y `search_regulations` (el RAG); pausa humana con `interrupt`; reescritura del anuncio; permisos por papel y auditoría de cada llamada |
+| **LLM** | LiteLLM Router + Instructor | Un modelo lógico por papel (generador Claude Haiku 4.5, juez y crítico GPT-5.4 mini, cada uno con fallback al otro proveedor), salida validada contra el esquema con reintento, tiempo máximo, presupuesto de tokens y coste calculado por llamada |
+| **Guardrails** | Regex, moderación de OpenAI, código | Tamaño, moderación, inyección y datos personales antes de llamar a nadie; guardrail de salida sobre las bases legales; comprobación en código de citas y de las frases que la incidencia dice citar; tope de gasto diario en Redis |
+| **Ingesta** | httpx, lxml, Alembic | Descarga el XML consolidado del BOE, valida, trocea por artículo y escribe de forma idempotente; `corpus.lock.json` fija las versiones y un workflow semanal detecta cuándo el BOE cambia |
+| **Evaluación** | Scripts propios, GitHub Actions | Recuperación (recall@k, MRR), respuestas (al estilo RAGAS con juez de otro proveedor), revisiones de anuncios (precisión y recall por artículo), agente contra pipeline, puerta de regresión y casos de regresión simulados en cada PR ([`docs/evals.md`](docs/evals.md)) |
+| **Despliegue** | Docker, Render Blueprint, GitHub Actions | Una imagen para la API y la interfaz; despliegue en cada merge a `main`; CI con lint, tipos, tests contra Postgres real y escaneo de secretos ([`docs/deployment.md`](docs/deployment.md)) |
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
@@ -165,19 +265,26 @@ migraciones, que hacen `downgrade` y borran las tablas, corren contra una base a
 │   ├── ingestion/            # Corpus del BOE: descarga, validación, troceo y escritura
 │   └── api/                  # Routers finos (transporte)
 ├── streamlit_app.py          # Cliente Streamlit: portada y estado de la API
-├── pages/                    # Páginas del cliente (revisión de anuncios, consulta de normativa)
-├── migrations/               # Migraciones Alembic: el esquema del corpus, revisado como código
+├── pages/                    # Páginas del cliente: revisión, consulta de normativa y revisión con agente
+├── ui_api.py, ui_feedback.py # Cómo habla la interfaz con la API, y la valoración 👍/👎
+├── migrations/               # Migraciones Alembic: corpus, embeddings y valoraciones, revisadas como código
 ├── alembic.ini               # Configuración de Alembic (la URL sale de DATABASE_URL, no de aquí)
 ├── tests/                    # Tests, con la misma estructura que el paquete
+├── evals/                    # Evaluación: runners, datasets anotados, juez, puerta de regresión y línea base
 ├── docs/
 │   ├── data-sources/         # Guías y ejemplos ejecutables de las fuentes de datos públicas
-│   └── decisions/            # Registro de decisiones de arquitectura (ADR)
+│   ├── decisions/            # Registro de decisiones de arquitectura (ADR 0001-0033)
+│   ├── evals.md              # Qué se mide, los resultados y cada iteración que decidieron
+│   ├── deployment.md         # Despliegue en Render, paso a paso
+│   └── scope.md              # Alcance: qué cubre el sistema, qué no y por qué
 ├── Dockerfile                # Imagen única para la API y la interfaz
 ├── docker-compose.yml        # Servicios api (:8000), ui (:8501), cache (Redis) y db (pgvector)
-├── benchmarks/retrieval/     # Set dorado de preguntas y métricas de recuperación
+├── docker/entrypoint.sh      # Arranque de la API: migraciones, corpus si hace falta, servidor
+├── render.yaml               # Despliegue en Render como código (Blueprint)
+├── benchmarks/               # Set dorado de preguntas, métricas de recuperación y medida de la caché semántica
 ├── corpus.lock.json          # Versiones del BOE con las que se construyó el corpus
 ├── Makefile                  # Comandos de desarrollo y verificación
-└── .github/workflows/        # CI en cada pull request y detección semanal de deriva del BOE
+└── .github/workflows/        # CI en cada pull request, deriva semanal del BOE y evaluaciones con modelos reales
 ```
 
 La aplicación separa la interfaz (Streamlit) del servicio de IA (FastAPI): la interfaz solo consume la API por HTTP, de modo que la lógica de IA se puede probar, desplegar y reutilizar de forma independiente.
@@ -259,6 +366,17 @@ El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la pe
 ### **2.6. Tests**
 
 > Describe brevemente algunos de los tests realizados
+
+**570 tests, y ninguno llama a un modelo.** El modelo entra en el código como un protocolo (`StructuredLLM`, `ToolCallingLLM`), así que los tests lo sustituyen por respuestas guionizadas y comprueban lo que el código hace con ellas; lo que hace el modelo real lo miden las evaluaciones ([sección 8](#8--evaluación-evals)). `make verify` (ruff, mypy estricto y pytest) pasa antes de cada commit, y el CI lo repite en cada pull request contra un PostgreSQL real.
+
+| Tipo | Dónde | Ejemplos |
+|---|---|---|
+| Dominio, con el modelo guionizado | `tests/domain/`, `tests/generation/` | Una cita a un fragmento que la búsqueda nunca devolvió se descarta; una incidencia cuya cita no está en el anuncio no llega al usuario; el grafo y el bucle devuelven la misma revisión para las mismas respuestas; el desglose de coste suma lo que costó la ejecución |
+| API | `tests/api/` | Sin clave, 401 neutro igual que con una clave errónea; cada respuesta lleva su `request_id` y ese id está en los eventos de su petición; un voto con un comentario de más de 500 caracteres es un 422 |
+| Persistencia, contra Postgres real | `tests/persistence/`, `tests/ingestion/`, `tests/generation/rag/` | Las migraciones suben y bajan en una base de datos propia (nunca la del desarrollador); escribir dos veces el mismo corpus no cambia nada; la búsqueda nunca compara con vectores de otro modelo de embeddings; un voto se guarda y la tabla rechaza un tipo que no conoce |
+| Casos de regresión | `tests/evals/test_regressions.py` | El bug #34 (una primera frase que la conclusión contradice), una cita inventada y las dos inyecciones del set de anuncios, cada uno con el nombre del bug o del riesgo |
+| Lógica de evaluación | `tests/evals/` | La puerta de regresión falla con cualquier empeoramiento en seguridad y nunca con una mejora; un anuncio anotado se valida contra el esquema |
+| Interfaz | `tests/ui/` | Con el `AppTest` de Streamlit: el voto sale con el `request_id` de la revisión y la revisión sigue en pantalla |
 
 ### **2.7. 🆕 Arquitectura de IA: CAG → RAG → agentes**
 
@@ -512,6 +630,8 @@ La medición sistemática de las **respuestas** (fidelidad, exactitud de las cit
 
 ### **2.9. 🆕 Trazabilidad y observabilidad**
 
+Eventos estructurados, la traza del agente devuelta con cada revisión y un identificador por petición, **sin plataforma de trazas**: una traza útil contiene el prompt, y el prompt contiene el anuncio, así que Langfuse o LangSmith serían el sitio donde se guardaría cada anuncio que el servicio no guarda ([ADR 0033](docs/decisions/0033-observability-without-a-tracing-platform.md), con lo que cambiaría la decisión).
+
 Cada revisión deja un evento JSON (`structlog`), pensado para contarse y no solo para leerse:
 
 ```json
@@ -571,6 +691,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0030](docs/decisions/0030-listing-review-evaluation.md) | ⚠️ Revisiones medidas con 18 anuncios anotados: prompt `v3` sin falsos positivos, y el agente peor que el pipeline hasta arreglar su crítico |
 | [0031](docs/decisions/0031-agent-vs-pipeline.md) | ⚠️ Agente contra pipeline, medido: el pipeline revisa, el actor ve más (y la ley catalana), y el crítico en el mismo modelo resta |
 | [0032](docs/decisions/0032-regression-gate.md) | Puerta de regresión contra una línea base promovida a mano: tolerancia cero en seguridad, el ruido medido en calidad; evals reales fuera del despliegue |
+| [0033](docs/decisions/0033-observability-without-a-tracing-platform.md) | Observabilidad con eventos estructurados, la traza del agente y un `request_id`, sin plataforma de trazas: Langfuse recibiría el texto de los anuncios |
 
 ---
 
@@ -732,11 +853,46 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 
 > Documenta 3 de las historias de usuario principales utilizadas durante el desarrollo, teniendo en cuenta las buenas prácticas de producto al respecto.
 
-**Historia de Usuario 1**
+Las tres historias son las épicas del proyecto, una por capa de IA, cada una con su plan de fases en GitHub.
 
-**Historia de Usuario 2**
+**Historia de Usuario 1: revisar un anuncio antes de publicarlo** ([#1](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/1), CAG)
 
-**Historia de Usuario 3**
+> Como **propietario o agencia** que publica un anuncio de alquiler en un marketplace,
+> quiero **pegar mi anuncio y recibir una revisión estructurada** de lo que falta, lo que se contradice o lo que es arriesgado,
+> para **publicar un anuncio completo y conforme a la normativa** y evitar rechazos o problemas legales.
+
+Criterios de aceptación:
+- Un anuncio sin calificación energética y con más fianza de la permitida recibe las dos incidencias, con su base legal.
+- Las entradas no válidas (vacías, demasiado largas, un texto que no es un anuncio) se rechazan con un mensaje claro y **sin llamar al modelo**.
+- Si el modelo devuelve una estructura inválida, el servicio reintenta y, si no lo consigue, falla con un mensaje en lugar de romperse.
+- Los prompts viven en ficheros versionados, y cada petición registra modelo, tokens, latencia y coste.
+- La revisión llega en menos de 15 segundos.
+
+**Historia de Usuario 2: preguntar por la normativa y poder comprobar la respuesta** ([#2](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/2), RAG)
+
+> Como **propietario o agencia**,
+> quiero **preguntar sobre la normativa de alquiler** (fianza, actualización de la renta, zonas tensionadas, honorarios, certificado energético...)
+> para **recibir una respuesta fiable con el artículo exacto del que sale**, en lugar de una opinión que no puedo comprobar.
+
+Criterios de aceptación:
+- «¿Cuál es la fianza legal en un alquiler de vivienda?» se responde citando la LAU art. 36.
+- Cada respuesta incluye al menos una cita con la ley, el artículo y el enlace al BOE, construida desde lo recuperado y no desde lo que diga el modelo.
+- Una pregunta fuera del dominio («¿Qué tiempo hará mañana?») se rechaza sin inventar una respuesta.
+- Los fragmentos recuperados y su puntuación se pueden ver, para explicar cada respuesta.
+- Un solo comando construye el corpus, y el coste de la ingesta y de cada consulta está medido.
+
+**Historia de Usuario 3: que la revisión explique la norma y proponga el anuncio corregido** ([#3](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/3), agentes)
+
+> Como **propietario o agencia**,
+> quiero que la revisión de mi anuncio **explique qué norma incumple cada problema y proponga un anuncio corregido**,
+> para **corregirlo y publicarlo con confianza**.
+
+Criterios de aceptación:
+- Ante una cláusula ilegal (honorarios al inquilino, fianza excesiva), el agente consulta la normativa con `search_regulations` y cita el artículo correcto.
+- Una incidencia sin una cita que la respalde la retira o la señala el paso del crítico.
+- El agente se detiene al llegar al límite de pasos y no se rompe ante el error de una herramienta.
+- La traza completa de cada ejecución se ve en la interfaz y en los registros.
+- La persona puede aceptar o editar el anuncio propuesto, y decide cuando el agente no puede sostener sus conclusiones.
 
 ---
 
@@ -744,11 +900,49 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 
 > Documenta 3 de los tickets de trabajo principales del desarrollo, uno de backend, uno de frontend, y uno de bases de datos. Da todo el detalle requerido para desarrollar la tarea de inicio a fin teniendo en cuenta las buenas prácticas al respecto. 
 
-**Ticket 1**
+Los tickets son las fases de los planes, cada una con sus contratos públicos, sus tests y su lista de tareas, y todas se implementaron así. Estos tres, uno de cada tipo, resumidos (el detalle completo, en cada issue).
 
-**Ticket 2**
+**Ticket 1 (backend): la revisión de un anuncio de principio a fin** ([#8](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/8))
 
-**Ticket 3**
+*Descripción.* Primera revisión completa a través de todas las capas: una petición tipada llega a un router fino, el servicio conductor renderiza **prompts Jinja2 versionados** y llama al **wrapper del LLM** (LiteLLM + Instructor), y una revisión validada con Pydantic vuelve al cliente Streamlit. El conocimiento (el checklist de información obligatoria, cada punto respaldado por un artículo del BOE) vive en el prompt de sistema.
+
+*Contratos.*
+- Dominio (`app/domain/schemas/listing_review.py`): `Listing` (texto y campos opcionales: precio, superficie, habitaciones, municipio, calificación), `ListingReview` (`verdict`, `summary`, `findings`), `Finding` (`category`, `severity`, `message`, `suggestion`, `legal_basis`) y sus enumerados.
+- Conductor: `ListingReviewService.review(listing) -> ListingReview`, el único sitio donde se compone el flujo.
+- Wrapper: `LLMWrapper.complete_structured(system, user, schema)`, que vuelve a pedir al modelo si la respuesta no encaja en el esquema; `litellm` e `instructor` con versión exacta (por el incidente de cadena de suministro de LiteLLM 1.82.7/1.82.8).
+- Prompts: `render_listing_review_prompt(listing, version)` con `StrictUndefined`; el checklist solo con puntos verificados en el BOE (RD 390/2021 art. 15.2; LAU arts. 36.1, 36.5 y 20.1; Ley 12/2023 art. 31).
+- HTTP: `POST /api/v1/listings/review` con la petición y la respuesta documentadas en la [sección 4](#4-especificación-de-la-api).
+
+*Tests (el modelo siempre simulado).* El conductor devuelve la revisión del modelo; el checklist va en el prompt de sistema y el anuncio en el de usuario; los prompts de `v1` se renderizan; el router responde 200 con la revisión y 422 con un cuerpo inválido.
+
+*Hecho cuando.* `make verify` pasa, el README documenta el endpoint y un anuncio real devuelve sus incidencias. Implementado en [PR #16](https://github.com/alexgraupera/AI4Devs-finalproject-AG/pull/16).
+
+**Ticket 2 (frontend): una revisión en pausa que espera a una persona** ([#42](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/42))
+
+*Descripción.* Cuando el jefe escala una revisión, el grafo se detiene antes de publicar y la API responde `202`. La página del agente tiene que mostrar esa pausa y recoger la decisión de la persona, sin perderla si la página se recarga.
+
+*Contratos que consume.* `POST /api/v1/listings/agent-review` (`202` con `pending_review`: motivo, revisión propuesta e incidencias descartadas por el crítico con su motivo); `GET /api/v1/listings/agent-review/{run_id}` (la revisión en pausa tal como está); `POST /api/v1/listings/agent-review/{run_id}/resume` con `{action: approve | adjust | reject, keep, note}`.
+
+*Interfaz (`pages/3_Revisión_con_agente.py`).*
+- El `run_id` se guarda en `st.session_state`: una recarga vuelve a pedir la revisión pendiente en lugar de perderla.
+- Banner «El agente ha parado antes de publicar y espera tu decisión.» y el motivo.
+- Las incidencias propuestas como casillas marcadas; las descartadas por el revisor, desplegables con su motivo.
+- Tres acciones: aprobar, ajustar (con las casillas que queden marcadas) y descartar, con una nota opcional para el registro.
+- Tras decidir, la revisión final (y el anuncio corregido si procede) sustituye a la pausa.
+
+*Tests.* El grafo se interrumpe antes de publicar cuando el jefe escala; `approve`, `adjust` y `reject` publican lo que deben; reanudar una ejecución que no existe o que no espera es un error de cliente (404/409), no una espera infinita. Comprobado a mano entre dos procesos contra Postgres ([ADR 0027](docs/decisions/0027-human-in-the-loop.md)).
+
+**Ticket 3 (base de datos): el almacén vectorial y las migraciones** ([#20](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/20))
+
+*Descripción.* La capa RAG necesita dónde guardar el corpus antes de que exista. Esta fase levanta **PostgreSQL + pgvector** como servicio, pone el esquema del corpus bajo **migraciones de Alembic** y hace que la API informe de si el almacén responde. La columna de embeddings y su índice se dejan a propósito para la fase en la que se elige el modelo, con la medida que los justifica.
+
+*Contratos.*
+- Infraestructura: servicio `db` (`pgvector/pgvector:pg17`) en `docker-compose.yml` con volumen y healthcheck; `DATABASE_URL` en la configuración (vacío desactiva el almacén y la revisión sigue funcionando); `make migrate`, que el contenedor de la API ejecuta al arrancar.
+- Esquema (revisión `0001_corpus_schema`): extensión `vector`; `documents` (`source_id` único del BOE, título, jurisdicción, tipo, URL, fecha de actualización del BOE, versión del corpus) y `chunks` (documento con borrado en cascada, bloque, título del artículo, ordinal, texto, metadatos JSONB, hash del contenido), con unicidad `(document_id, block_id, ordinal)` para que reingerir no duplique.
+- Persistencia: `create_engine`, `session_factory` y `check_connection`, que devuelve `False` en vez de lanzar.
+- HTTP: `GET /health` informa `database: ok | unavailable | disabled` sin dejar de responder 200.
+
+*Tests.* `check_connection` no lanza con una conexión rechazada; `/health` informa los tres estados; las migraciones suben y bajan en una base de datos desechable, creada al vuelo para no destruir el corpus del desarrollador. Decisión en [ADR 0008](docs/decisions/0008-vector-store-and-migrations.md): pgvector frente a una base vectorial dedicada, por qué Alembic es dueño del esquema y por qué la columna de embeddings aún no existe.
 
 ---
 
@@ -756,11 +950,19 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 
 > Documenta 3 de las Pull Requests realizadas durante la ejecución del proyecto
 
-**Pull Request 1**
+Cada fase se entregó en su propia pull request, con CI verde (lint, tipos, tests contra Postgres y escaneo de secretos), la medida que la justificaba y el cierre de su issue. Tres de ellas:
 
-**Pull Request 2**
+**Pull Request 1: la primera revisión de principio a fin** ([#16](https://github.com/alexgraupera/AI4Devs-finalproject-AG/pull/16), cierra #8, +1.949 −10 en 28 ficheros)
 
-**Pull Request 3**
+Contrato de dominio, prompts Jinja2 versionados, wrapper de LiteLLM + Instructor, conductor y router fino. Dos decisiones que la PR explica: **el orden de los campos es parte del prompt** (las incidencias antes que el veredicto, para que el modelo se comprometa con la evidencia antes que con la conclusión) y **el checklist exige copiar la cita literal**, de modo que el conjunto de normas citables queda cerrado por construcción, lo que después permitió el guardrail de salida. El dominio depende de un protocolo, así que los tests simulan el modelo sin red.
+
+**Pull Request 2: respuestas sobre la normativa con citas verificables** ([#32](https://github.com/alexgraupera/AI4Devs-finalproject-AG/pull/32), fase 4 del plan RAG, +1.261 −139 en 21 ficheros)
+
+La decisión sobre la que descansa toda la fase: **el modelo nunca escribe una cita**. Recibe fragmentos numerados y devuelve los **números** que usó; el servicio los resuelve contra lo recuperado y construye la cita desde los metadatos. Un número que no se recuperó se descarta y se registra (`regulations_qa.invented_citation`), y una respuesta que se queda sin ninguna cita válida **se convierte en un rechazo**. Medido de extremo a extremo con el corpus real: la fianza cita LAU art. 36, los honorarios LAU art. 20 y la oferta catalana Ley 18/2007 art. 61, a unos 0,006 $ por respuesta.
+
+**Pull Request 3: tres técnicas de recuperación medidas, dos eliminadas** ([#36](https://github.com/alexgraupera/AI4Devs-finalproject-AG/pull/36), fase 6 del plan RAG, +610 −69 en 18 ficheros)
+
+Búsqueda híbrida, reformulación de la consulta y reranking, cada una con su hipótesis y pasada por el mismo banco de 29 preguntas. **Dos de las tres hipótesis eran falsas**: la híbrida bajó el recall@1 del 82% al 77% y la reformulación hundió los rechazos correctos fuera de dominio del 86% al 57%, así que se eliminaron. El reranking de un conjunto de 20 subió el recall@1 del 82% al **91%** con los rechazos intactos, y se quedó ([ADR 0013](docs/decisions/0013-advanced-retrieval-measured.md)).
 
 ---
 
@@ -806,13 +1008,46 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 
 **El crítico del agente resta mientras comparta modelo con el actor.** Con Anthropic en su límite, actor y crítico son GPT-5.4 mini, justo lo que el diseño de un modelo por papel quería evitar, y medido baja el recall del 94% al 75%. Se vuelve a medir con el actor en Claude Haiku 4.5 a partir del 1 de octubre; si aun así resta, el crítico pasará de filtrar a solo avisar a una persona ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)). Y el actor del agente convierte confirmaciones en incidencias legales, que es su siguiente arreglo.
 
-**El juez que verifica es el mismo modelo barato que escribe.** Se equivoca a veces en ambos sentidos: midiendo sobre 22 preguntas marcó como no sostenida una afirmación que sí estaba en el artículo. Un juez más capaz costaría más por pregunta; ese trade no está medido.
+**El juez es un modelo pequeño.** La verificación de citas, el crítico y el juez de las evaluaciones son GPT-5.4 mini, en el otro proveedor del que escribe ([ADR 0023](docs/decisions/0023-a-model-per-role.md)), y aun así se equivocan en ambos sentidos: la verificación marcó como no sostenida una afirmación que sí estaba en el artículo, y el crítico rechaza incidencias correctas ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)). Un juez más capaz costaría más por llamada; se mide cuando el presupuesto lo permita, con los mismos sets.
 
-**El set dorado son 29 preguntas.** Suficiente para decidir entre técnicas cuyas diferencias son grandes, insuficiente para afinar. Una pregunta que se mueve cambia el recall tres puntos.
+**Los sets de evaluación son pequeños.** 32 preguntas y 18 anuncios: suficientes para decidir entre técnicas cuyas diferencias son grandes, insuficientes para afinar. Una pregunta que cambia mueve cuatro puntos, y un anuncio seis; la puerta de regresión usa ese ruido como tolerancia ([ADR 0032](docs/decisions/0032-regression-gate.md)), y las valoraciones de los usuarios son de donde deben salir los casos siguientes.
 
 **Los datos personales se detectan a medias.** Emails, teléfonos e IBAN se rechazan antes de llamar a nadie; nombres, DNI/NIE y direcciones no se detectan. El siguiente paso es Presidio con reconocedores españoles, enmascarando lo que el anuncio no necesita ([ADR 0018](docs/decisions/0018-data-privacy-and-providers.md)).
 
 **Una API, todavía no un agente para otros agentes.** El servicio se consume por HTTP. Ofrecerlo por MCP para uso interno o por A2A a los agentes de otros portales sería un adaptador sobre la misma API, con sus propias credenciales ([ADR 0017](docs/decisions/0017-api-not-mcp.md)).
 
 **La clave de acceso es un secreto compartido.** Detrás de la interfaz, todos los visitantes comparten la clave de la interfaz, así que el límite de peticiones es global en la demo pública (el tope de gasto es el límite real). Límites por visitante exigirían que la interfaz reenviara una identidad del visitante en la que la API confiara porque el token avala a la interfaz; claves por llamante con rotación y cuotas son el siguiente paso con más de un cliente.
+
+**Las revisiones en pausa no caducan.** Si nadie decide, su checkpoint (con el texto del anuncio) se queda en la base de datos. Un trabajo programado que descarte las pausas de más de N días es el siguiente paso ([ADR 0027](docs/decisions/0027-human-in-the-loop.md)).
+
+### Próximos pasos, y la condición que los justificaría
+
+Lo que no se ha construido no se ha olvidado: cada punto tiene la señal que diría que merece la pena.
+
+| Paso | Se construye cuando | Por qué no ahora |
+|---|---|---|
+| **Enrutar al agente solo los anuncios de comunidades con ley propia** | El agente sostenga su precisión en esos anuncios (hoy 55-58%) con el crítico en el otro proveedor | Es donde el agente aporta lo que el checklist no ve; hoy también añade incidencias que no lo son ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)) |
+| **Caché semántica** | Aparezca un umbral que separe un anuncio reescrito de uno con una cláusula ilegal cambiada | Medido: el mismo piso con un mes más de fianza se parece más al original (0,996) que el mismo piso redactado de otra forma (0,912) ([ADR 0019](docs/decisions/0019-no-semantic-cache.md)) |
+| **Catastro y rango de mercado (SERPAVI) como herramientas** | El marketplace quiera contrastar la superficie declarada o señalar un precio fuera de rango | Validadas como fuentes (en [`docs/data-sources/`](docs/data-sources/README.md)), pero el rango de SERPAVI es un indicador, nunca un tope legal, y fuera de las zonas tensionadas no obliga a nada |
+| **Un supervisor multiagente** | El sistema revise varios tipos de anuncio con flujos distintos (venta, temporada, habitaciones) | Con un flujo y tres herramientas, un modelo que decide qué se ejecuta añade coste y modos de fallo sin una decisión real que tomar |
+| **Un panel sobre los eventos** | Haya tráfico real que mirar | Los eventos ya existen, con `request_id`, coste y modelo; un panel sin tráfico sería decoración ([ADR 0033](docs/decisions/0033-observability-without-a-tracing-platform.md)) |
+| **Un juez más capaz** | Un desacuerdo del juez decida algo importante (hoy el crítico del agente) | Cuesta más por llamada, y el crítico se mide primero en el otro proveedor |
+| **Más comunidades autónomas** | Haya anuncios de esas comunidades | Es añadir fuentes a la ingesta; el agente ya decide la comunidad antes de buscar |
+
+### Cómo se integraría en un marketplace real
+
+- **Detrás del backend del portal, no del navegador.** El backend del marketplace llama a `POST /api/v1/listings/review` con el anuncio antes de publicarlo, con su propia clave (hoy la API ya exige token de servicio y clave, y cada petición devuelve su `request_id` para cruzarla con sus registros).
+- **El veredicto decide el flujo, no la publicación.** `approve` publica; `request_changes` devuelve las incidencias a quien publica, con la sugerencia y el artículo; una revisión escalada por el agente va a la cola del equipo de calidad, que decide con la misma API de pausa.
+- **El texto del anuncio no se guarda.** El servicio no conserva anuncios ([ADR 0018](docs/decisions/0018-data-privacy-and-providers.md)); lo que queda son los eventos (sin el texto) y las valoraciones (sin el texto).
+- **El gasto tiene tope.** Un límite diario corta las llamadas al alcanzarlo, y la caché exacta sirve gratis el anuncio que se reenvía sin cambios.
+
+**Proyección de coste** (costes medidos por revisión; volúmenes supuestos, sin contar aciertos de caché):
+
+| Anuncios revisados al día | Pipeline con GPT-5.4 mini (0,0016 $) | Pipeline con Claude Haiku 4.5 (0,0057 $) | Agente sin crítico (0,013 $) | Agente con crítico y reescritura (0,023 $) |
+|---:|---:|---:|---:|---:|
+| 1.000 | 1,6 $/día · 48 $/mes | 5,7 $/día · 171 $/mes | 13 $/día · 390 $/mes | 23 $/día · 690 $/mes |
+| 10.000 | 16 $/día · 480 $/mes | 57 $/día · 1.710 $/mes | 130 $/día · 3.900 $/mes | 230 $/día · 6.900 $/mes |
+| 50.000 | 80 $/día · 2.400 $/mes | 285 $/día · 8.550 $/mes | 650 $/día · 19.500 $/mes | 1.150 $/día · 34.500 $/mes |
+
+Con el enrutado de la primera fila de la tabla anterior (el pipeline para todos y el agente para el ~20% de anuncios de comunidades con ley propia, un supuesto), 10.000 anuncios al día costarían unos 16 + 46 = **62 $/día**, frente a 230 $ si todo pasara por el agente. El coste del agente es sobre todo el del actor releyendo su conversación (el 86%), que es lo primero que abaratar.
 
