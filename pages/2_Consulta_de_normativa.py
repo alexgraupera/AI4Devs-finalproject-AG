@@ -11,6 +11,7 @@ from typing import Any
 import streamlit as st
 
 from ui_api import WAKING_UP, is_api_available, post
+from ui_feedback import render_feedback
 
 JURISDICTIONS = {
     "Toda España": None,
@@ -116,6 +117,12 @@ if submitted:
         body, error = post("/api/v1/regulations/ask", {"question": question, "jurisdictions": JURISDICTIONS[scope]})
 
     if error is not None:
+        st.session_state.pop("answer_result", None)
         st.error(error)
     elif body is not None:
-        render_answer(body)
+        st.session_state["answer_result"] = body
+
+# Rendered from the session, not from the submit: a click on the feedback buttons reruns the page.
+if "answer_result" in st.session_state:
+    render_answer(st.session_state["answer_result"])
+    render_feedback("regulation_answer", st.session_state["answer_result"].get("request_id"))

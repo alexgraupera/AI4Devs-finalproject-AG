@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel
 
+from app.api.request_id import request_id_of
 from app.api.security import enforce_rate_limit
 from app.dependencies import get_agent_review_service, get_listing_review_service
 from app.domain.agent_review_service import AgentReviewService
@@ -47,6 +48,8 @@ class StepCostResponse(BaseModel):
 
 
 class ListingReviewResponse(BaseModel):
+    # The id of this request: what a thumbs down is sent with, and what its log events carry (#51).
+    request_id: str | None = None
     findings: list[Finding]
     verdict: Verdict
     summary: str
@@ -54,8 +57,9 @@ class ListingReviewResponse(BaseModel):
     cached: bool
 
     @classmethod
-    def of(cls, reviewed: ReviewedListing) -> "ListingReviewResponse":
+    def of(cls, reviewed: ReviewedListing, request_id: str | None = None) -> "ListingReviewResponse":
         return cls(
+            request_id=request_id,
             findings=reviewed.review.findings,
             verdict=reviewed.review.verdict,
             summary=reviewed.review.summary,
@@ -68,11 +72,13 @@ class ListingReviewResponse(BaseModel):
 async def review_listing(
     listing: Listing,
     service: Annotated[ListingReviewService, Depends(get_listing_review_service)],
+    request_id: Annotated[str | None, Depends(request_id_of)],
 ) -> ListingReviewResponse:
-    return ListingReviewResponse.of(await service.review(listing))
+    return ListingReviewResponse.of(await service.review(listing), request_id)
 
 
 class AgentReviewResponse(BaseModel):
+    request_id: str | None = None
     # completed, waiting_human (a person has to decide before it is published) or discarded.
     status: str
     run_id: str | None
@@ -95,7 +101,7 @@ class AgentReviewResponse(BaseModel):
     cost_breakdown: list[StepCostResponse]
 
     @classmethod
-    def of(cls, reviewed: AgentReviewedListing) -> "AgentReviewResponse":
+    def of(cls, reviewed: AgentReviewedListing, request_id: str | None = None) -> "AgentReviewResponse":
         if reviewed.pending_review is not None:
             status = "waiting_human"
         elif reviewed.human_decision is not None and reviewed.human_decision.action == HumanAction.REJECT:
@@ -103,6 +109,7 @@ class AgentReviewResponse(BaseModel):
         else:
             status = "completed"
         return cls(
+            request_id=request_id,
             status=status,
             run_id=reviewed.run_id,
             findings=reviewed.review.findings,
@@ -125,6 +132,7 @@ async def agent_review_listing(
     listing: Listing,
     response: Response,
     service: Annotated[AgentReviewService, Depends(get_agent_review_service)],
+    request_id: Annotated[str | None, Depends(request_id_of)],
 ) -> AgentReviewResponse:
     """The same listing, reviewed by an agent that consults the regulations before deciding.
 
@@ -134,16 +142,17 @@ async def agent_review_listing(
     reviewed = await service.review(listing)
     if reviewed.pending_review is not None:
         response.status_code = 202
-    return AgentReviewResponse.of(reviewed)
+    return AgentReviewResponse.of(reviewed, request_id)
 
 
 @router.get("/agent-review/{run_id}", response_model=AgentReviewResponse)
 async def pending_agent_review(
     run_id: str,
     service: Annotated[AgentReviewService, Depends(get_agent_review_service)],
+    request_id: Annotated[str | None, Depends(request_id_of)],
 ) -> AgentReviewResponse:
     """A paused review as it stands, so the page can be reloaded without losing the decision to make."""
-    return AgentReviewResponse.of(await service.pending(run_id))
+    return AgentReviewResponse.of(await service.pending(run_id), request_id)
 
 
 @router.post("/agent-review/{run_id}/resume", response_model=AgentReviewResponse)
@@ -151,6 +160,7 @@ async def resume_agent_review(
     run_id: str,
     decision: HumanDecision,
     service: Annotated[AgentReviewService, Depends(get_agent_review_service)],
+    request_id: Annotated[str | None, Depends(request_id_of)],
 ) -> AgentReviewResponse:
     """A person's decision on a paused review: approve it, keep only some findings, or discard it."""
-    return AgentReviewResponse.of(await service.resume(run_id, decision))
+    return AgentReviewResponse.of(await service.resume(run_id, decision), request_id)

@@ -7,8 +7,9 @@ nothing else. Business logic lives in `app/domain/`, the AI architectures in
 
 from fastapi import FastAPI
 
-from app.api import health, listings, regulations
+from app.api import feedback, health, listings, regulations
 from app.api.errors import register_error_handlers
+from app.api.request_id import RequestIdMiddleware
 from app.api.security import ServiceTokenMiddleware
 from app.config import Settings, get_settings
 from app.foundation.observability.logging import configure_logging
@@ -30,9 +31,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Rental Assistant API", version="0.1.0")
     if settings.service_token:
         app.add_middleware(ServiceTokenMiddleware, token=settings.service_token)
+    # Added last, so it runs first: a request the token rejects still gets an id to be found by.
+    app.add_middleware(RequestIdMiddleware)
     app.include_router(health.router)
     app.include_router(listings.router)
     app.include_router(regulations.router)
+    app.include_router(feedback.router)
     register_error_handlers(app)
     return app
 

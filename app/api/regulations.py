@@ -10,6 +10,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app.api.request_id import request_id_of
 from app.api.security import enforce_rate_limit
 from app.dependencies import get_regulation_qa_service, get_retriever
 from app.domain.regulation_qa_service import RegulationQAService
@@ -99,6 +100,8 @@ class UsageResponse(BaseModel):
 
 
 class AskResponse(BaseModel):
+    # The id of this request: what a thumbs down is sent with, and what its log events carry (#51).
+    request_id: str | None = None
     answer: str
     citations: list[Citation]
     has_answer: bool
@@ -106,8 +109,9 @@ class AskResponse(BaseModel):
     retrieved: list[RetrievedSummary]
 
     @classmethod
-    def of(cls, answered: AnsweredQuestion) -> "AskResponse":
+    def of(cls, answered: AnsweredQuestion, request_id: str | None = None) -> "AskResponse":
         return cls(
+            request_id=request_id,
             answer=answered.answer.answer,
             citations=answered.answer.citations,
             has_answer=answered.answer.has_answer,
@@ -128,6 +132,7 @@ class AskResponse(BaseModel):
 async def ask_regulations(
     request: AskRequest,
     service: Annotated[RegulationQAService, Depends(get_regulation_qa_service)],
+    request_id: Annotated[str | None, Depends(request_id_of)],
 ) -> AskResponse:
     answered = await service.ask(RegulationQuestion(question=request.question, jurisdictions=request.jurisdictions))
-    return AskResponse.of(answered)
+    return AskResponse.of(answered, request_id)

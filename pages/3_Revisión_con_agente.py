@@ -10,6 +10,7 @@ from typing import Any
 import streamlit as st
 
 from ui_api import WAKING_UP, get, is_api_available, post
+from ui_feedback import render_feedback
 
 SEVERITY_LABELS = {"high": "Alta", "medium": "Media", "low": "Baja"}
 SEVERITY_ICONS = {"high": "🔴", "medium": "🟠", "low": "🟡"}
@@ -254,3 +255,5 @@ if "agent_run_id" in st.session_state:
         render_pending(body)
 elif "agent_result" in st.session_state:
     render_review(st.session_state["agent_result"])
+    if st.session_state["agent_result"].get("status") != "discarded":
+        render_feedback("agent_review", st.session_state["agent_result"].get("request_id"))

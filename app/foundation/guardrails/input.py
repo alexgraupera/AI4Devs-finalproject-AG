@@ -118,6 +118,16 @@ def _check_pii(text: str) -> None:
             raise InputGuardrailViolation(f"The text contains personal data ({kind})", reason="pii")
 
 
+PII_MASK = "[dato personal]"
+
+
+def mask_pii(text: str) -> str:
+    """The same patterns, masked instead of refused: for text kept by the service, like a feedback comment."""
+    for _, pattern in _PII_PATTERNS:
+        text = re.sub(pattern, PII_MASK, text)
+    return text
+
+
 async def check_input(text: str, moderation: ModerationClient | None = None, *, limits: SizeLimits = LISTING) -> None:
     """Run every layer over the text. Raises `InputGuardrailViolation` on the first hit.
 
