@@ -28,7 +28,7 @@ from app.generation.rag.embeddings import EmbeddingClient
 log = structlog.get_logger()
 
 DEFAULT_TOP_K = 5
-DEFAULT_MIN_SCORE = 0.5
+DEFAULT_MIN_SCORE = 0.40
 
 # How many candidates the reranker is given to reorder.
 CANDIDATE_POOL = 20

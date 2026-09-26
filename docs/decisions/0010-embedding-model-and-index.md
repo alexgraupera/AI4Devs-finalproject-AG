@@ -1,6 +1,6 @@
 # 0010. Embedding model, vector index and retrieval threshold
 
-- **Status**: Accepted
+- **Status**: Accepted. The model and the threshold are superseded by [ADR 0015](0015-embedding-model-measured.md), which measured the comparison this record deferred; the index and the per-row model still hold.
 - **Date**: 2026-09-20
 - **Issue**: #22 (part of #2)
 

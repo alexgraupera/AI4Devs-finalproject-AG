@@ -1,0 +1,170 @@
+# Pairs of listings for deciding whether a semantic cache fits the listing review.
+#
+# A semantic cache returns a stored review when a new listing is "close enough" to one already
+# reviewed. That only works if a threshold can tell apart the two kinds of "close":
+#
+#   - `reworded`: the same flat and the same conditions, written differently. The review would
+#     be the same, so a hit is correct and saves a model call.
+#   - `clause-changed`: the same flat, with one condition changed that changes the review (a
+#     second month of deposit, agency fees moved to the tenant, the energy rating dropped). A
+#     hit here serves a clean review to a listing that breaks the law.
+#
+# `different-flat` pairs are the easy negatives, kept to show the scale.
+#
+# The structured fields (price, surface, rooms, municipality, energy rating) would be part of the
+# cache bucket, compared exactly, as in the session on semantic caching. So every change here is
+# in the text, where the embedding is the only thing that can see it.
+
+pairs:
+  # ── Reworded: same review, a hit is right ─────────────────────────────────────────────────
+  - id: chamberi-reordered
+    kind: reworded
+    a: >-
+      Piso exterior de 2 habitaciones en Chamberí, 65 m² útiles, totalmente reformado. Cocina
+      equipada, calefacción individual de gas y ascensor. Fianza de una mensualidad. Los gastos de
+      gestión los asume la propiedad. Certificado energético: E.
+    b: >-
+      Alquilamos en Chamberí un piso reformado de 65 m² útiles con dos dormitorios, exterior. Tiene
+      ascensor, cocina equipada y calefacción individual de gas. Certificado energético E. Se pide
+      una mensualidad de fianza y la propiedad asume los gastos de gestión.
+
+  - id: gracia-synonyms
+    kind: reworded
+    a: >-
+      Estudio luminoso en Gràcia, 38 m² útiles, amueblado. Precio 950 €/mes con comunidad
+      incluida. Fianza de un mes. Calificación energética D. Disponible desde octubre.
+    b: >-
+      Estudio con mucha luz en el barrio de Gràcia, amueblado y de 38 m² útiles. Alquiler de 950 €
+      al mes, gastos de comunidad incluidos. Un mes de fianza. Etiqueta energética D. Libre a
+      partir de octubre.
+
+  - id: valencia-typos
+    kind: reworded
+    a: >-
+      Piso de 3 habitaciones y 2 baños en Ruzafa, 90 m² útiles. Balcón, aire acondicionado y
+      armarios empotrados. Fianza de una mensualidad. Honorarios de agencia a cargo del
+      propietario. Certificado energético C.
+    b: >-
+      Piso de 3 habitaciones y 2 baños en Ruzafa, 90 m2 utiles. Balcon, aire acondicionado y
+      armarios empotrados. Fianza de 1 mensualidad. Honorarios de agencia a cargo del propietario.
+      Certificado energetico C.
+
+  - id: sevilla-shortened
+    kind: reworded
+    a: >-
+      Casa adosada de 4 dormitorios en Nervión con patio y garaje. 120 m² útiles. Se exige una
+      mensualidad de fianza y los gastos de formalización del contrato corren a cargo del
+      arrendador. Certificado energético F.
+    b: >-
+      Adosado en Nervión: 4 dormitorios, 120 m² útiles, patio y garaje. Fianza: una mensualidad.
+      Gastos de formalización a cargo del arrendador. Certificado energético F.
+
+  - id: bilbao-register
+    kind: reworded
+    a: >-
+      Apartamento de 1 habitación en Indautxu, 50 m² útiles, recién pintado, con calefacción
+      central. Fianza equivalente a un mes de renta. Certificado energético E. No se cobran
+      honorarios al inquilino.
+    b: >-
+      Os presentamos un apartamento de un dormitorio en Indautxu, de 50 m² útiles, recién pintado
+      y con calefacción central. Pedimos un mes de fianza, el inquilino no paga honorarios y tiene
+      certificado energético E.
+
+  # ── Clause changed: different review, a hit is a wrong answer ─────────────────────────────
+  - id: chamberi-second-month-deposit
+    kind: clause-changed
+    a: >-
+      Piso exterior de 2 habitaciones en Chamberí, 65 m² útiles, totalmente reformado. Cocina
+      equipada, calefacción individual de gas y ascensor. Fianza de una mensualidad. Los gastos de
+      gestión los asume la propiedad. Certificado energético: E.
+    b: >-
+      Piso exterior de 2 habitaciones en Chamberí, 65 m² útiles, totalmente reformado. Cocina
+      equipada, calefacción individual de gas y ascensor. Fianza de dos mensualidades. Los gastos
+      de gestión los asume la propiedad. Certificado energético: E.
+
+  - id: gracia-fees-to-tenant
+    kind: clause-changed
+    a: >-
+      Estudio luminoso en Gràcia, 38 m² útiles, amueblado. Precio 950 €/mes con comunidad
+      incluida. Fianza de un mes. Honorarios de agencia a cargo del propietario. Calificación
+      energética D.
+    b: >-
+      Estudio luminoso en Gràcia, 38 m² útiles, amueblado. Precio 950 €/mes con comunidad
+      incluida. Fianza de un mes. Honorarios de agencia a cargo del inquilino. Calificación
+      energética D.
+
+  - id: valencia-energy-rating-dropped
+    kind: clause-changed
+    a: >-
+      Piso de 3 habitaciones y 2 baños en Ruzafa, 90 m² útiles. Balcón, aire acondicionado y
+      armarios empotrados. Fianza de una mensualidad. Honorarios de agencia a cargo del
+      propietario. Certificado energético C.
+    b: >-
+      Piso de 3 habitaciones y 2 baños en Ruzafa, 90 m² útiles. Balcón, aire acondicionado y
+      armarios empotrados. Fianza de una mensualidad. Honorarios de agencia a cargo del
+      propietario. Certificado energético en trámite.
+
+  - id: sevilla-extra-guarantee
+    kind: clause-changed
+    a: >-
+      Casa adosada de 4 dormitorios en Nervión con patio y garaje. 120 m² útiles. Se exige una
+      mensualidad de fianza y los gastos de formalización del contrato corren a cargo del
+      arrendador. Certificado energético F.
+    b: >-
+      Casa adosada de 4 dormitorios en Nervión con patio y garaje. 120 m² útiles. Se exige una
+      mensualidad de fianza y un aval bancario de cuatro mensualidades, y los gastos de
+      formalización del contrato corren a cargo del arrendador. Certificado energético F.
+
+  - id: bilbao-surface-dropped
+    kind: clause-changed
+    a: >-
+      Apartamento de 1 habitación en Indautxu, 50 m² útiles, recién pintado, con calefacción
+      central. Fianza equivalente a un mes de renta. Certificado energético E. No se cobran
+      honorarios al inquilino.
+    b: >-
+      Apartamento de 1 habitación en Indautxu, recién pintado, con calefacción central. Fianza
+      equivalente a un mes de renta. Certificado energético E. No se cobran honorarios al
+      inquilino.
+
+  - id: chamberi-fees-to-tenant
+    kind: clause-changed
+    a: >-
+      Piso exterior de 2 habitaciones en Chamberí, 65 m² útiles, totalmente reformado. Cocina
+      equipada, calefacción individual de gas y ascensor. Fianza de una mensualidad. Los gastos de
+      gestión los asume la propiedad. Certificado energético: E.
+    b: >-
+      Piso exterior de 2 habitaciones en Chamberí, 65 m² útiles, totalmente reformado. Cocina
+      equipada, calefacción individual de gas y ascensor. Fianza de una mensualidad. Los gastos de
+      gestión los asume el inquilino. Certificado energético: E.
+
+  # ── Different flats: the easy negatives ───────────────────────────────────────────────────
+  - id: chamberi-vs-ruzafa
+    kind: different-flat
+    a: >-
+      Piso exterior de 2 habitaciones en Chamberí, 65 m² útiles, totalmente reformado. Cocina
+      equipada, calefacción individual de gas y ascensor. Fianza de una mensualidad. Los gastos de
+      gestión los asume la propiedad. Certificado energético: E.
+    b: >-
+      Piso de 3 habitaciones y 2 baños en Ruzafa, 90 m² útiles. Balcón, aire acondicionado y
+      armarios empotrados. Fianza de una mensualidad. Honorarios de agencia a cargo del
+      propietario. Certificado energético C.
+
+  - id: gracia-vs-nervion
+    kind: different-flat
+    a: >-
+      Estudio luminoso en Gràcia, 38 m² útiles, amueblado. Precio 950 €/mes con comunidad
+      incluida. Fianza de un mes. Calificación energética D. Disponible desde octubre.
+    b: >-
+      Casa adosada de 4 dormitorios en Nervión con patio y garaje. 120 m² útiles. Se exige una
+      mensualidad de fianza y los gastos de formalización del contrato corren a cargo del
+      arrendador. Certificado energético F.
+
+  - id: indautxu-vs-gracia
+    kind: different-flat
+    a: >-
+      Apartamento de 1 habitación en Indautxu, 50 m² útiles, recién pintado, con calefacción
+      central. Fianza equivalente a un mes de renta. Certificado energético E. No se cobran
+      honorarios al inquilino.
+    b: >-
+      Estudio luminoso en Gràcia, 38 m² útiles, amueblado. Precio 950 €/mes con comunidad
+      incluida. Fianza de un mes. Calificación energética D. Disponible desde octubre.

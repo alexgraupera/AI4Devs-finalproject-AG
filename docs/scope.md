@@ -16,7 +16,7 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 |---|---|
 | Regulatory checklist in the versioned system prompt, with a closed set of citable articles | ✅ #8 |
 | Exact-match cache (SHA-256 over the full prompts and generation parameters, with TTL) | ✅ #12 |
-| Semantic cache over the review embeddings, with a justified similarity threshold | 🔜 #14 |
+| Semantic cache: measured and **not built**, because no threshold separates a reworded listing from one with an illegal clause changed | ✅ #56 |
 
 ### Generation and quality
 
@@ -36,6 +36,8 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 | Chunking by article, compared against a fixed-size baseline | ✅ #28 |
 | Embeddings in PostgreSQL + pgvector, schema and indexes in migrations, with model and corpus version stored per chunk | ✅ #20, #22 |
 | Top-k with a measured threshold and metadata filters (law, jurisdiction) | ✅ #22 |
+| Embedding model compared on the golden set (`text-embedding-3-large` at 1,536 dimensions: answered 82% → 91%), threshold swept per model | ✅ #56 |
+| Why RAG and not the whole corpus in the prompt or fine-tuning, with numbers (187,883 tokens, 94% of the window) | ✅ #56 |
 | Query reformulation: built, measured, **deleted** (it halved the refusal rate) | ✅ #25 |
 | Reranking with a model that reads the candidates (recall@1 82% → 91%) | ✅ #25 |
 | Hybrid search: built, measured, **deleted** (it made retrieval worse) | ✅ #25 |
@@ -77,6 +79,8 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 | Public deployment (or a recorded walkthrough) and spend limits on the providers | 🔜 #5 |
 
 ## Out of scope, and why
+
+- **Semantic cache for listing reviews**: measured in ADR 0019. The same flat with a second month of deposit is more similar to the original (0.996) than the same flat reworded (0.912), so any threshold that saves calls serves a clean review to an illegal listing.
 
 - **Streaming responses**: the output is a validated JSON review rendered as a form result, not a conversation. Streaming a schema adds machinery without changing what the user sees.
 - **Conversational memory and per-profile prompt tiers**: reviewing a listing is a single-turn operation. Sessions, history and history compression would be infrastructure without a use case behind them.
