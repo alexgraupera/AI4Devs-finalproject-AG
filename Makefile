@@ -1,4 +1,4 @@
-.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache eval-answers eval-listings verify
+.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache eval-answers eval-listings eval-gate eval-promote verify
 
 install:
 	uv sync
@@ -44,6 +44,12 @@ eval-answers:
 
 eval-listings:
 	uv run python -m evals.listings.run
+
+eval-gate:
+	uv run python -m evals.gate check
+
+eval-promote:
+	uv run python -m evals.gate promote
 
 verify:
 	uv run ruff check .

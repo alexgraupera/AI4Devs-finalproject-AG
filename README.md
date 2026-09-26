@@ -568,6 +568,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0029](docs/decisions/0029-least-privilege-and-audit.md) | Permisos por papel como datos, denegados por defecto y comprobados antes de ejecutar; auditoría de cada llamada |
 | [0030](docs/decisions/0030-listing-review-evaluation.md) | ⚠️ Revisiones medidas con 18 anuncios anotados: prompt `v3` sin falsos positivos, y el agente peor que el pipeline hasta arreglar su crítico |
 | [0031](docs/decisions/0031-agent-vs-pipeline.md) | ⚠️ Agente contra pipeline, medido: el pipeline revisa, el actor ve más (y la ley catalana), y el crítico en el mismo modelo resta |
+| [0032](docs/decisions/0032-regression-gate.md) | Puerta de regresión contra una línea base promovida a mano: tolerancia cero en seguridad, el ruido medido en calidad; evals reales fuera del despliegue |
 
 ---
 
@@ -787,6 +788,8 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 | Agente sin crítico | 58% | **94%** | 0,71 | 50% | 80% | 100% | 0,0132 $ |
 
 **Casi todos los falsos positivos eran el mismo artículo** (Ley 12/2023 art. 31, pidiendo más desglose a anuncios que ya decían qué incluye el precio), y el `v3` los elimina. **El agente sale peor que el pipeline y cuesta unas 19 veces más**, y la traza dice por qué: en Barcelona encuentra las cuatro omisiones del artículo 61 catalán y su crítico las rechaza todas, confundiendo un apartado con un artículo. Arreglado ese error, el crítico sigue restando mientras comparta modelo con el actor: cada fallo queda clasificado por el paso que lo perdió (la búsqueda nunca; el actor inventa confirmaciones; el crítico rechaza lo correcto), y el desglose de coste dice qué optimizar después ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)).
+
+**Y un empeoramiento no pasa desapercibido** ([ADR 0032](docs/decisions/0032-regression-gate.md)). La línea base está promovida a mano en [`evals/baseline.json`](evals/baseline.json) y `make eval-gate` compara cada ejecución nueva con ella: **tolerancia cero** en seguridad (preguntas fuera de dominio respondidas, inyecciones obedecidas, bases legales fuera del checklist, anuncios limpios señalados como ilegales, casos de regresión) y, en calidad, la tolerancia que se midió como ruido entre dos ejecuciones (dos preguntas, un anuncio). Las evaluaciones reales **no van en el pipeline de despliegue**: cuestan ~0,70 $, varían y fallan si un proveedor cae. En cada pull request corren los casos de regresión con el modelo simulado (#34, una cita a un fragmento nunca recuperado y las dos inyecciones del set de anuncios); las reales, en un workflow manual o semanal que construye el corpus, aplica la puerta y guarda los informes.
 
 ---
 

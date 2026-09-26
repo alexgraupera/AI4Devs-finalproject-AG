@@ -69,7 +69,7 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 | Retrieval metrics (recall@k, MRR) over a golden set, per technique | ✅ #24 |
 | Generation metrics (faithfulness, relevance, correctness, citation accuracy) with a judge on the other provider | ✅ #48 |
 | Cost and latency per stage | ✅ #48 |
-| Regression gate against a promoted baseline, with zero tolerance on safety metrics | 🔜 #50 |
+| Regression gate against a promoted baseline, with zero tolerance on safety metrics; mocked regression cases in CI; real evals in a manual or weekly workflow | ✅ #50 |
 | A/B comparison of prompt and retrieval variants | ✅ #48 (named variants per run) |
 | Dashboard built from the events the service already logs | Out of scope until the production measurement session (see #4) |
 
@@ -103,7 +103,7 @@ Each of these is listed in the README as a next step, with the condition that wo
 | AI service in FastAPI | `app/` | ✅ #7 |
 | RAG pipeline over real data | `app/ingestion/`, `app/generation/rag/` | ✅ #2 |
 | Agent layer with function calling and orchestration | `app/generation/agentic/`, `app/domain/graph/` | 🔜 #3 |
-| Documented evals: metrics, test set and at least one regression case | `evals/` | 🔜 #4 |
+| Documented evals: metrics, test set and at least one regression case | `evals/`, [`docs/evals.md`](evals.md) | ✅ #48, #49, #50, #52 |
 | Deployment: public URL or a 2-3 min video | `docs/deployment.md` | 🔜 #5 |
 | Frontend (recommended) | `streamlit_app.py` | ✅ #7 |
 | Basic CI/CD (recommended) | `.github/workflows/` | ✅ #7, 🔜 #5 |

@@ -51,6 +51,8 @@ class ListingOutcome:
     # Cost by step (plan, tools, critic, rewrite) for the agent; one `review` step for the pipeline.
     step_costs: dict[str, float] = field(default_factory=dict)
     repeat: int = 1
+    # The model that answered, which is not the configured one when the fallback did.
+    model: str | None = None
 
     @property
     def must_refuse(self) -> bool:

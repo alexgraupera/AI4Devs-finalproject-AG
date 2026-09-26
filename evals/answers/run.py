@@ -198,7 +198,13 @@ def _findings(outcomes: list[AnswerOutcome]) -> list[str]:
     return findings
 
 
-def save(results: list[tuple[AnswerVariant, AnswerMetrics, list[AnswerOutcome]]], *, run_cost: float) -> pathlib.Path:
+def save(
+    results: list[tuple[AnswerVariant, AnswerMetrics, list[AnswerOutcome]]],
+    *,
+    run_cost: float,
+    judged: bool = True,
+    tags: list[str] | None = None,
+) -> pathlib.Path:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     settings = get_settings()
@@ -210,6 +216,10 @@ def save(results: list[tuple[AnswerVariant, AnswerMetrics, list[AnswerOutcome]]]
         "judge_model": JUDGE_MODEL,
         "grounding_judge_model": settings.llm_judge_model,
         "run_cost_usd": run_cost,
+        # The regression gate (#50) compares only whole, judged runs: without the judge, its metrics are
+        # zeros, not drops; a subset is a quick check, not a measurement.
+        "judged": judged,
+        "tags": tags or [],
         "results": [
             {"variant": asdict(variant), "metrics": asdict(metrics), "outcomes": [asdict(o) for o in outcomes]}
             for variant, metrics, outcomes in results
@@ -324,7 +334,7 @@ def main() -> int:
     )
     print(render(results))
     print(f"\nCost of the run: ${run_cost:.4f}")
-    print(f"Saved to {save(results, run_cost=run_cost)}")
+    print(f"Saved to {save(results, run_cost=run_cost, judged=not arguments.no_judge, tags=arguments.tag)}")
     return 0
 
 

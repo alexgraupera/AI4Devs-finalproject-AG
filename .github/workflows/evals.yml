@@ -1,0 +1,97 @@
+name: Evals
+
+# The real-model evaluation: the corpus built from the BOE, the golden questions and the annotated
+# listings through the real services, the regression gate against evals/baseline.json, and the
+# reports as an artifact. Outside the deploy pipeline on purpose (ADR 0032): it costs money, it
+# varies between runs, and a provider outage is not a reason to block a deploy. What CI runs on
+# every pull request is the mocked half: tests/evals/test_regressions.py and the gate's logic.
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Also review the listings with the agent (~$0.45 more)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 5 * * 1" # Mondays, 05:00 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals
+  cancel-in-progress: false
+
+jobs:
+  evals:
+    # A run spends from the provider accounts (~$0.65 without the agent), so the weekly one runs
+    # only once the repository opts in: Settings → Variables → EVALS_SCHEDULE_ENABLED = true.
+    # A manual run always runs.
+    if: github.event_name == 'workflow_dispatch' || vars.EVALS_SCHEDULE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        # Explicit bash adds pipefail: a runner that fails behind `| tee` must fail the step.
+        shell: bash
+
+    services:
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: rental
+          POSTGRES_PASSWORD: rental
+          POSTGRES_DB: rental
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rental -d rental"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://rental:rental@localhost:5432/rental
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+
+      # Without keys every answer is a refusal and the gate fails on it: say why instead.
+      - name: Check the provider keys
+        run: |
+          if [ -z "$OPENAI_API_KEY" ] || [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Add the OPENAI_API_KEY and ANTHROPIC_API_KEY repository secrets to run the evals."
+            exit 1
+          fi
+
+      # The corpus from the BOE, and its embeddings (~$0.01).
+      - run: make migrate ingest
+      - run: mkdir -p evals/results
+
+      - name: Answers (golden questions, judged)
+        run: uv run python -m evals.answers.run --variant baseline | tee evals/results/answers.md
+
+      - name: Listing reviews
+        run: uv run python -m evals.listings.run --path ${{ inputs.agent && 'both' || 'cag' }} | tee evals/results/listings.md
+
+      - name: Regression gate
+        run: uv run python -m evals.gate check --report evals/results/gate.md
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ -f evals/results/gate.md ]; then cat evals/results/gate.md >> "$GITHUB_STEP_SUMMARY"; fi
+          grep -h "Cost of the run" evals/results/*.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evals-${{ github.run_number }}
+          path: evals/results/
+          retention-days: 30
