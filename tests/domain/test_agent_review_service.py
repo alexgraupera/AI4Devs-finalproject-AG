@@ -11,6 +11,7 @@ from app.domain.schemas.listing_review import Listing, Verdict
 from app.foundation.guardrails.input import InputGuardrailViolation
 from app.foundation.guardrails.spend import BudgetExhausted
 from app.foundation.llm.usage import LLMUsage, StructuredCompletion
+from app.generation.agentic.boss import CriticMode
 from app.generation.agentic.critic import CriticVerdict, FindingJudgement, Problem
 from app.generation.agentic.loop import SUBMIT
 from tests.generation.agentic.test_critic import judged
@@ -204,6 +205,62 @@ async def test_the_verdict_is_recomputed_when_the_critic_drops_the_only_high_fin
 
     assert reviewed.review.verdict == Verdict.APPROVE
     assert reviewed.escalated
+
+
+# ── Flag mode (ADR 0035): what the critic doubts is kept, with its reason, for a person ───────
+
+
+async def test_in_flag_mode_a_finding_the_critic_doubts_reaches_the_user_with_its_reason() -> None:
+    four = review_with(*[{**finding(legal_basis="LAU art. 36.1", sources=[36]), "message": m} for m in "ABCD"])
+    service = AgentReviewService(
+        two_passes(four), FakeSearch(), critic=critic_of([True, True, True, False]), critic_mode=CriticMode.FLAG
+    )
+
+    reviewed = await service.review(A_LISTING)
+
+    assert [f.message for f in reviewed.review.findings] == ["A", "B", "C", "D"]
+    assert [(d.message, d.problem) for d in reviewed.disputed] == [("D", Problem.RULE_NOT_IN_SOURCES)]
+    assert reviewed.dropped_findings == 0
+    assert reviewed.escalated
+
+
+async def test_in_flag_mode_the_actor_is_never_sent_back() -> None:
+    model = two_passes(TWO_FINDINGS)
+    service = AgentReviewService(model, FakeSearch(), critic=critic_of([True, False]), critic_mode=CriticMode.FLAG)
+
+    reviewed = await service.review(A_LISTING)
+
+    assert len(model.requests) == 2
+    assert [f.message for f in reviewed.review.findings] == ["La fianza supera una mensualidad", "Inventada"]
+
+
+async def test_in_flag_mode_a_doubted_high_finding_still_counts_for_the_verdict() -> None:
+    service = AgentReviewService(
+        two_passes(A_REVIEW), FakeSearch(), critic=critic_of([False]), critic_mode=CriticMode.FLAG
+    )
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.review.verdict == Verdict.REQUEST_CHANGES
+    assert reviewed.escalated
+
+
+async def test_in_flag_mode_a_review_the_critic_backs_has_no_doubts() -> None:
+    service = AgentReviewService(
+        two_passes(A_REVIEW), FakeSearch(), critic=critic_of([True]), critic_mode=CriticMode.FLAG
+    )
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.disputed == [] and not reviewed.escalated
+
+
+async def test_in_filter_mode_nothing_is_reported_as_disputed() -> None:
+    service = AgentReviewService(two_passes(A_REVIEW), FakeSearch(), critic=critic_of([False]))
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.review.findings == [] and reviewed.disputed == []
 
 
 async def test_the_critic_and_the_boss_appear_in_the_trace_and_the_critic_in_the_cost() -> None:

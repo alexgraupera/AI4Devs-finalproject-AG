@@ -7,6 +7,7 @@ import pytest
 from app.domain.agent_review_service import AgentReviewService
 from app.domain.errors import RunNotFound, RunNotWaiting
 from app.domain.schemas.listing_agent_review import HumanAction, HumanDecision
+from app.generation.agentic.boss import CriticMode
 from app.generation.agentic.loop import SUBMIT
 from tests.domain.graph.test_listing_review_graph import Checkpoints, searches_then_submits
 from tests.domain.test_agent_review_service import A_LISTING, critic_of, finding, review_with
@@ -39,6 +40,35 @@ async def test_an_escalated_review_pauses_before_publishing() -> None:
     assert reviewed.pending_review.run_id == reviewed.run_id
     assert [f.message for f in reviewed.pending_review.proposed.findings] == ["La fianza supera una mensualidad"]
     assert [r.message for r in reviewed.pending_review.rejected] == ["Inventada"]
+
+
+async def test_in_flag_mode_the_person_sees_the_doubted_finding_among_the_proposed_ones() -> None:
+    model = ScriptedModel(*searches_then_submits(TWO))
+    service = AgentReviewService(
+        model, FakeSearch(), critic=critic_of([True, False]), checkpoints=Checkpoints(), critic_mode=CriticMode.FLAG
+    )
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.pending_review is not None
+    proposed = [f.message for f in reviewed.pending_review.proposed.findings]
+    assert proposed == ["La fianza supera una mensualidad", "Inventada"]
+    assert [r.message for r in reviewed.pending_review.rejected] == ["Inventada"]
+
+
+async def test_in_flag_mode_a_person_can_drop_the_doubted_finding() -> None:
+    checkpoints = Checkpoints()
+    model = ScriptedModel(*searches_then_submits(TWO))
+    service = AgentReviewService(
+        model, FakeSearch(), critic=critic_of([True, False]), checkpoints=checkpoints, critic_mode=CriticMode.FLAG
+    )
+    reviewed = await service.review(A_LISTING)
+    assert reviewed.run_id is not None
+
+    done = await service.resume(reviewed.run_id, HumanDecision(action=HumanAction.ADJUST, keep=[0]))
+
+    assert [f.message for f in done.review.findings] == ["La fianza supera una mensualidad"]
+    assert done.disputed == []
 
 
 async def test_a_paused_run_stays_in_the_checkpoint() -> None:

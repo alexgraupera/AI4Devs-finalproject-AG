@@ -1,6 +1,6 @@
 # 0031. Agent vs pipeline, measured: the pipeline reviews, the agent's actor sees more, and its critic subtracts for now
 
-- **Status**: Accepted
+- **Status**: Accepted; the critic part superseded by [ADR 0035](0035-the-critic-flags-it-does-not-filter.md)
 - **Date**: 2026-09-25
 - **Issue**: #52 (part of #4)
 
@@ -68,3 +68,11 @@ The two Catalan listings, three more runs of the agent with its critic: Barcelon
 - The issue asked for five repeats of every listing. The budget of the account ($4 left, $1.5 of it reserved for the public demo) paid for one run of each configuration and three repeats of the listings the decision depends on (Catalonia). The runner does any number (`--repeat`).
 - All the measurements of this phase cost **$0.82**.
 - [ADR 0024](0024-agent-loop-and-tools.md) predicted that the agent's extra calls buy regional law; measured, they do, and they also buy invented findings the pipeline does not make.
+
+## Update, 2026-09-26: measured on the other provider
+
+The Anthropic account came back and the agent ran as designed: Claude Haiku 4.5 acting, GPT-5.4 mini criticising. The critic still subtracts (recall 94% → 75%, the two Catalan omissions of article 61 among the findings it removed), so the rule written above applies: **the critic now flags instead of filtering** ([ADR 0035](0035-the-critic-flags-it-does-not-filter.md)). The same run moved the rest of this ADR:
+
+- **The actor's confirmations were the model's.** With Haiku acting, the agent invented no finding (10 with GPT-5.4 mini), and its precision is 100%.
+- **The agent now reviews better than the pipeline**: F1 0.97 against 0.86 with the same model, verdict 93% against 87%, the Catalan law included, at about 7 times the cost and 4 times the latency. "The pipeline reviews listings" still holds for the main page on cost and latency; whether Catalan listings (or all of them) should go to the agent is now a cost decision, not a quality one.
+

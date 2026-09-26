@@ -90,6 +90,10 @@ class Settings(BaseSettings):
     agent_critic_enabled: bool = True
     agent_critic_min_confidence: float = 0.7
     agent_critic_escalate_below: float = 0.4
+    # What a finding the critic does not back becomes (ADR 0035): `flag` keeps it with the critic's
+    # reason and sends the review to a person; `filter` removes it (ADR 0025). Measured on the other
+    # provider, the critic still rejected correct findings, so the default is to ask, not to remove.
+    agent_critic_mode: Literal["filter", "flag"] = "flag"
     agent_max_review_attempts: int = 2
     # An escalated review pauses for a person before it is published (ADR 0027). Off, it only
     # carries the flag. Needs the graph orchestrator: the loop cannot pause.

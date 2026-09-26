@@ -18,6 +18,7 @@ from app.domain.schemas.listing_agent_review import (
     HumanDecision,
     HumanReviewRequest,
     ListingRewrite,
+    RejectedFinding,
     StopReason,
     TraceStep,
 )
@@ -92,6 +93,8 @@ class AgentReviewResponse(BaseModel):
     escalated: bool
     # Findings the critic removed because the listing or the cited articles did not hold them.
     dropped_findings: int
+    # Findings the critic did not back, kept with its reason for the person publishing (ADR 0035).
+    disputed_findings: list[RejectedFinding]
     pending_review: HumanReviewRequest | None
     human_decision: HumanDecision | None
     # The listing corrected for its final findings, for the person publishing to accept or edit.
@@ -119,6 +122,7 @@ class AgentReviewResponse(BaseModel):
             stop_reason=reviewed.stop_reason,
             escalated=reviewed.escalated,
             dropped_findings=reviewed.dropped_findings,
+            disputed_findings=reviewed.disputed,
             pending_review=reviewed.pending_review,
             human_decision=reviewed.human_decision,
             rewrite=reviewed.review.rewrite,

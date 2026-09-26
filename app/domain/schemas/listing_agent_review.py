@@ -223,6 +223,8 @@ class AgentReviewedListing:
     escalated: bool = False
     # How many findings the critic removed because the listing or the sources did not hold them.
     dropped_findings: int = 0
+    # Findings the critic did not back and that were kept, with its reason (flag mode, ADR 0035).
+    disputed: list[RejectedFinding] = field(default_factory=list)
     # The graph's thread id when the review ran as a graph (#41): the handle a pause is resumed by.
     run_id: str | None = None
     # Set exactly when the run is paused, waiting for a person (#42).

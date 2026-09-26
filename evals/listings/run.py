@@ -6,7 +6,8 @@ both paths is the comparison of #52: what the agent's extra calls buy.
 
     python -m evals.listings.run --path cag      # the pipeline of #1, one model call per review
     python -m evals.listings.run --path cag --cag-prompt v3   # a prompt version against the current one
-    python -m evals.listings.run --path agent    # the agent of #3, with its critic
+    python -m evals.listings.run --path agent    # the agent of #3, with its critic (mode from the settings)
+    python -m evals.listings.run --path agent --critic-mode filter   # the critic removing what it rejects
     python -m evals.listings.run                 # both
     python -m evals.listings.run --path agent --only barcelona-offer-incomplete   # one case, cents
     python -m evals.listings.run --path agent --repeat 3 --only a,b,c             # the variance of a few cases
@@ -40,6 +41,7 @@ from app.foundation.guardrails.moderation import LiteLLMModeration
 from app.foundation.guardrails.output import check_review
 from app.foundation.persistence.checkpoints import MemoryCheckpoints
 from app.foundation.persistence.database import create_engine, session_factory
+from app.generation.agentic.boss import CriticMode
 from app.generation.agentic.tools import SearchRegulations
 from app.generation.rag.embeddings import LiteLLMEmbeddings
 from app.generation.rag.retriever import Retriever
@@ -320,11 +322,13 @@ async def measure(
     cag_prompt: str = PROMPT_VERSION,
     repeat: int = 1,
     critic: bool = True,
+    critic_mode: str | None = None,
 ) -> tuple[dict[str, tuple[ListingMetrics, list[ListingOutcome]]], float]:
     settings = get_settings()
     cases = [case for case in load_listings() if not only or case.id in only]
     moderation: ModerationClient | None = LiteLLMModeration() if settings.openai_api_key else None
     generator = wrapper_for(settings.llm_model, settings.llm_fallback_model)
+    mode = CriticMode(critic_mode or settings.agent_critic_mode)
     results: dict[str, tuple[ListingMetrics, list[ListingOutcome]]] = {}
 
     if "cag" in paths:
@@ -364,6 +368,7 @@ async def measure(
                 critic=wrapper_for(settings.llm_judge_model, settings.llm_judge_fallback_model) if critic else None,
                 critic_min_confidence=settings.agent_critic_min_confidence,
                 critic_escalate_below=settings.agent_critic_escalate_below,
+                critic_mode=mode,
                 max_review_attempts=settings.agent_max_review_attempts,
                 checkpoints=MemoryCheckpoints(),
                 human_review=False,
@@ -373,7 +378,11 @@ async def measure(
                 for case in cases:
                     outcomes.append(outcome := await review_with_agent(case, agent))
                     outcome.repeat = r
-            results["agent" if critic else "agent without critic"] = (summarise(outcomes), outcomes)
+            # The critic's mode is part of the name: "agent" alone meant filtering until ADR 0035.
+            results[f"agent, critic {mode.value}s" if critic else "agent without critic"] = (
+                summarise(outcomes),
+                outcomes,
+            )
         finally:
             await engine.dispose()
 
@@ -390,12 +399,22 @@ def main() -> int:
     )
     parser.add_argument("--repeat", type=int, default=1, help="Review every listing N times: the variance is a result")
     parser.add_argument("--no-critic", action="store_true", help="The agent without its critic: what the critic adds")
+    parser.add_argument(
+        "--critic-mode", choices=[m.value for m in CriticMode], help="What a rejection does (default: the setting)"
+    )
     arguments = parser.parse_args()
     paths = PATHS if arguments.path == "both" else (arguments.path,)
     only = set(arguments.only.split(",")) if arguments.only else None
 
     results, run_cost = asyncio.run(
-        measure(paths, only, arguments.cag_prompt, arguments.repeat, critic=not arguments.no_critic)
+        measure(
+            paths,
+            only,
+            arguments.cag_prompt,
+            arguments.repeat,
+            critic=not arguments.no_critic,
+            critic_mode=arguments.critic_mode,
+        )
     )
     print(render(results))
     print(f"\nCost of the run: ${run_cost:.4f}")
