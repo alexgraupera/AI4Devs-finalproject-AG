@@ -113,9 +113,12 @@ make up                 # equivale a: docker compose up --build
 - API (FastAPI): http://localhost:8000 · documentación OpenAPI en http://localhost:8000/docs
 - Base de datos (PostgreSQL + pgvector): `localhost:5432`, usuario/contraseña/base `rental`
 
-`make up` levanta también la base de datos del corpus y **aplica las migraciones al arrancar el
-contenedor de la API**: no hay ningún paso manual, un contenedor que arranca es un contenedor
-cuyo esquema corresponde al código que ejecuta. Puedes comprobarlo en `GET /ready`, que
+`make up` levanta también la base de datos del corpus, **aplica las migraciones al arrancar el
+contenedor de la API y construye el corpus normativo desde el BOE**, como en producción: no hay
+ningún paso manual, un contenedor que arranca es un contenedor cuyo esquema corresponde al código
+que ejecuta. La primera vez descarga las normas y embebe 380 fragmentos (unos 10 s y ~0,02 $ con
+tu clave de OpenAI); después solo vuelve a descargar lo que el BOE haya cambiado.
+`BOOTSTRAP_CORPUS=false` en `.env` lo desactiva. Puedes comprobarlo en `GET /ready`, que
 informa del estado del almacén, de la caché y del presupuesto del día (`GET /health` solo dice si
 el proceso está vivo, a propósito). Todos los puertos se publican solo en `127.0.0.1`.
 
