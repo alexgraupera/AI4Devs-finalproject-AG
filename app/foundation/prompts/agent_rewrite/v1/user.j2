@@ -1,0 +1,9 @@
+<anuncio>
+{{ listing.text }}
+</anuncio>
+
+Incidencias a corregir:
+{% for finding in findings %}
+- {{ finding.message }} → {{ finding.suggestion }}{% if finding.legal_basis %} ({{ finding.legal_basis }}){% endif %}
+
+{% endfor %}

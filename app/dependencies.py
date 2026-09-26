@@ -205,6 +205,7 @@ def get_agent_review_service() -> AgentReviewService:
         max_review_attempts=settings.agent_max_review_attempts,
         checkpoints=get_checkpoints(),
         human_review=settings.agent_human_review_enabled,
+        rewriter=get_llm_wrapper() if settings.agent_rewrite_enabled else None,
     )
 
 

@@ -130,3 +130,34 @@ async def test_a_run_that_is_not_waiting_cannot_be_resumed() -> None:
 def test_adjusting_must_say_which_findings_stand() -> None:
     with pytest.raises(ValueError, match="keep"):
         HumanDecision(action=HumanAction.ADJUST)
+
+
+async def test_a_paused_review_is_rewritten_only_after_the_decision_and_never_when_discarded() -> None:
+    from tests.generation.agentic.test_rewrite import ScriptedWriter
+
+    writer = ScriptedWriter("Piso en Chamberí. Fianza de una mensualidad.")
+    model = ScriptedModel(*searches_then_submits(TWO), calls(call(SUBMIT, TWO)))
+    service = AgentReviewService(
+        model, FakeSearch(), critic=critic_of([True, False], [True, False]), checkpoints=Checkpoints(), rewriter=writer
+    )
+
+    reviewed = await service.review(A_LISTING)
+    assert reviewed.review.rewrite is None and writer.calls == 0
+
+    done = await service.resume(reviewed.run_id or "", HumanDecision(action=HumanAction.APPROVE))
+    assert done.review.rewrite is not None and writer.calls == 1
+
+
+async def test_a_discarded_review_is_not_rewritten() -> None:
+    from tests.generation.agentic.test_rewrite import ScriptedWriter
+
+    writer = ScriptedWriter("")
+    model = ScriptedModel(*searches_then_submits(TWO), calls(call(SUBMIT, TWO)))
+    service = AgentReviewService(
+        model, FakeSearch(), critic=critic_of([True, False], [True, False]), checkpoints=Checkpoints(), rewriter=writer
+    )
+    reviewed = await service.review(A_LISTING)
+
+    done = await service.resume(reviewed.run_id or "", HumanDecision(action=HumanAction.REJECT))
+
+    assert done.review.rewrite is None and writer.calls == 0

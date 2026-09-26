@@ -242,3 +242,32 @@ async def test_a_quote_of_a_structured_field_counts_as_the_listing() -> None:
     reviewed = await service_for(review_with(quoted, verdict="approve")).review(A_LISTING)
 
     assert len(reviewed.review.findings) == 1
+
+
+# ── The corrected listing ────────────────────────────────────────────────────────────────────
+
+
+async def test_the_rewrite_reaches_the_review_with_its_cost_and_its_step() -> None:
+    from tests.generation.agentic.test_rewrite import ScriptedWriter
+
+    writer = ScriptedWriter("Piso de dos habitaciones en Chamberí. Fianza de una mensualidad.")
+    service = AgentReviewService(two_passes(A_REVIEW), FakeSearch(), critic=critic_of([True]), rewriter=writer)
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.review.rewrite is not None
+    assert reviewed.review.rewrite.changes == ["Fianza ajustada a una mensualidad"]
+    assert reviewed.trace[-1].tool == "rewrite"
+    assert reviewed.usage.estimated_cost_usd == Decimal("0.0080")
+
+
+async def test_a_review_without_findings_is_not_rewritten() -> None:
+    from tests.generation.agentic.test_rewrite import ScriptedWriter
+
+    writer = ScriptedWriter("")
+    service = AgentReviewService(two_passes(review_with(verdict="approve")), FakeSearch(), rewriter=writer)
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.review.rewrite is None
+    assert writer.calls == 0

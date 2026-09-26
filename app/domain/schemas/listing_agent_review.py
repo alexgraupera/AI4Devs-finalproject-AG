@@ -54,10 +54,22 @@ class CitedFinding(Finding):
     citations: list[Citation] = Field(default_factory=list)
 
 
+class ListingRewrite(BaseModel):
+    """The listing corrected for its findings, for the person publishing to accept or edit."""
+
+    text: str
+    changes: list[str]
+    # Data the listing must give and the agent may not invent, left as gaps in square brackets.
+    placeholders: list[str] = Field(default_factory=list)
+    # Figures in the rewrite that the original does not state: to check before publishing.
+    new_figures: list[str] = Field(default_factory=list)
+
+
 class AgentReview(BaseModel):
     findings: list[CitedFinding]
     verdict: Verdict
     summary: str
+    rewrite: ListingRewrite | None = None
 
 
 class HumanAction(StrEnum):

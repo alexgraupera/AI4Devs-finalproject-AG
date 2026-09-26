@@ -94,6 +94,8 @@ class Settings(BaseSettings):
     # An escalated review pauses for a person before it is published (ADR 0027). Off, it only
     # carries the flag. Needs the graph orchestrator: the loop cannot pause.
     agent_human_review_enabled: bool = True
+    # Propose the listing corrected for its final findings (ADR 0028).
+    agent_rewrite_enabled: bool = True
 
     # Business endpoints (reviews and regulations). Empty leaves them open, which is right for
     # local development and logged as a warning on every request; production refuses to start.

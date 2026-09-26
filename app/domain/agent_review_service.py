@@ -19,7 +19,7 @@ What this class adds around the loop is what must not be left to the model:
 
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 from uuid import uuid4
 
@@ -41,6 +41,7 @@ from app.domain.schemas.listing_agent_review import (
     HumanAction,
     HumanDecision,
     HumanReviewRequest,
+    ListingRewrite,
     RejectedFinding,
     StopReason,
     TraceStep,
@@ -65,6 +66,7 @@ from app.generation.agentic.boss import (
 from app.generation.agentic.critic import boss_step, critic_step, criticise, feedback_for
 from app.generation.agentic.loop import DEFAULT_MAX_ITERATIONS, DEFAULT_TIMEOUT_SECONDS, AgentLoop
 from app.generation.agentic.ports import RegulationFragment, RegulationSearch
+from app.generation.agentic.rewrite import rewrite_listing
 from app.generation.agentic.tools import CheckListingFields, SearchRegulations
 from app.generation.rag.retriever import Retriever
 
@@ -149,6 +151,7 @@ class AgentReviewService:
         max_review_attempts: int = DEFAULT_MAX_ATTEMPTS,
         checkpoints: Checkpoints | None = None,
         human_review: bool = True,
+        rewriter: StructuredLLM | None = None,
     ) -> None:
         self._llm = llm
         self._search = search
@@ -165,6 +168,8 @@ class AgentReviewService:
         self._max_review_attempts = max_review_attempts
         # With a checkpoint store the review runs as a graph; without one, as the hand-written loop.
         self._checkpoints = checkpoints
+        # Writes the corrected listing once the findings are final (ADR 0028). None: no rewrite.
+        self._rewriter = rewriter
         self._graph: CompiledStateGraph[Any, Any, Any, Any] | None = None
         self._graph_config = GraphConfig(
             max_iterations=max_iterations,
@@ -187,7 +192,9 @@ class AgentReviewService:
 
         if not run.candidate.is_rental_listing:
             raise NotAListing(run.candidate.summary)
-        return self._reviewed(run, listing)
+        reviewed = self._reviewed(run, listing)
+        # A paused review is rewritten once a person has decided which findings stand.
+        return reviewed if reviewed.pending_review is not None else await self._with_rewrite(reviewed, listing)
 
     async def resume(self, run_id: str, decision: HumanDecision) -> AgentReviewedListing:
         """A person decides on a paused review; the graph resumes where it stopped, on any process."""
@@ -211,7 +218,42 @@ class AgentReviewService:
         await checkpointer.adelete_thread(run_id)
 
         run = self._graph_run(final, run_id)
-        return self._reviewed(run, Listing.model_validate(final["listing"]), decision=decision)
+        listing = Listing.model_validate(final["listing"])
+        reviewed = self._reviewed(run, listing, decision=decision)
+        if decision.action == HumanAction.REJECT:
+            return reviewed
+        return await self._with_rewrite(reviewed, listing)
+
+    async def _with_rewrite(self, reviewed: AgentReviewedListing, listing: Listing) -> AgentReviewedListing:
+        """The corrected listing, from the findings that survived every check and every decision."""
+        if self._rewriter is None:
+            return reviewed
+        rewrite = await rewrite_listing(listing, list(reviewed.review.findings), self._rewriter)
+        if rewrite is None:
+            return reviewed
+        if self._spend is not None and rewrite.usage is not None:
+            await self._spend.record(rewrite.usage.estimated_cost_usd)
+        if rewrite.new_figures:
+            log.warning("agent_review.rewrite_new_figures", figures=rewrite.new_figures)
+        step = TraceStep(
+            step=len(reviewed.trace) + 1,
+            tool="rewrite",
+            result=f"{len(rewrite.changes)} cambios, {len(rewrite.placeholders)} datos por completar",
+            ok=not rewrite.new_figures,
+            latency_ms=rewrite.usage.latency_ms if rewrite.usage else 0,
+        )
+        corrected = ListingRewrite(
+            text=rewrite.text,
+            changes=rewrite.changes,
+            placeholders=rewrite.placeholders,
+            new_figures=rewrite.new_figures,
+        )
+        return replace(
+            reviewed,
+            review=reviewed.review.model_copy(update={"rewrite": corrected}),
+            trace=[*reviewed.trace, step],
+            usage=combined(reviewed.usage, rewrite.usage),
+        )
 
     async def pending(self, run_id: str) -> AgentReviewedListing:
         """A paused review as it stands, so a page can be reloaded without losing the decision to make."""

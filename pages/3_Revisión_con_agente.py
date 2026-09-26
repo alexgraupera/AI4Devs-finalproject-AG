@@ -20,6 +20,7 @@ TOOL_LABELS = {
     "submit_review": "Entregar la revisión",
     "critic": "Comprobación de las incidencias contra el anuncio y la normativa",
     "boss": "Decisión sobre la revisión",
+    "rewrite": "Corregir el anuncio",
     "(sin herramienta)": "Respuesta sin herramienta",
 }
 
@@ -55,6 +56,29 @@ def render_trace(trace: list[dict[str, Any]]) -> None:
                 st.caption("Esta consulta ha fallado y el agente lo ha reintentado.")
             if step["result"]:
                 st.text(step["result"])
+
+
+def render_rewrite(rewrite: dict[str, Any] | None) -> None:
+    if rewrite is None:
+        st.caption("El agente no ha propuesto una versión corregida.")
+        return
+    st.subheader("Anuncio corregido")
+    if rewrite["placeholders"]:
+        st.warning(
+            "El agente no puede inventar estos datos. Complétalos antes de publicar: "
+            + ", ".join(rewrite["placeholders"])
+        )
+    if rewrite["new_figures"]:
+        st.warning(
+            "Revisa estas cifras: aparecen en la versión corregida y no en tu anuncio: "
+            + ", ".join(rewrite["new_figures"])
+        )
+    # The person publishing has the last word: the text is theirs to edit, and to copy.
+    edited = st.text_area("Puedes editarlo antes de copiarlo", value=rewrite["text"], height=200, key="rewrite-text")
+    st.code(edited, language=None)
+    with st.expander("Cambios aplicados"):
+        for change in rewrite["changes"]:
+            st.markdown(f"- {change}")
 
 
 def render_usage(usage: dict[str, Any]) -> None:
@@ -130,6 +154,7 @@ def render_review(body: dict[str, Any]) -> None:
         st.warning(VERDICT_LABELS["request_changes"])
     st.write(body["summary"])
     render_findings(body["findings"])
+    render_rewrite(body["rewrite"])
     if body["dropped_findings"]:
         st.caption(
             f"Se han descartado {body['dropped_findings']} incidencias que el anuncio o la normativa "
