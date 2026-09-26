@@ -37,7 +37,7 @@ Quien publica un anuncio de alquiler lo pega y recibe una revisión estructurada
 
 **https://ai4devs-rental-ui-ag.onrender.com**
 
-Pública y sin credenciales. Está en el plan gratuito de Render: si nadie la ha usado en los últimos 15 minutos, la primera visita tarda hasta un minuto en despertar el servicio (la interfaz lo avisa mientras espera).
+Protegida con un usuario y una contraseña compartidos, que se envían al evaluador por un enlace de un solo uso ([ADR 0034](docs/decisions/0034-shared-login-for-the-ui.md)). Está en el plan gratuito de Render: si nadie la ha usado en los últimos 15 minutos, la primera visita tarda hasta un minuto en despertar el servicio (la interfaz lo avisa mientras espera).
 
 ### 0.5. URL o archivo comprimido del repositorio
 
@@ -81,7 +81,7 @@ https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `final
 
 > Proporciona imágenes y/o videotutorial mostrando la experiencia del usuario desde que aterriza en la aplicación, pasando por todas las funcionalidades principales.
 
-La interfaz es un cliente Streamlit de tres páginas sobre la API. Al entrar, la portada comprueba que el servicio responde (en el plan gratuito puede estar dormido y lo avisa mientras lo despierta) y el menú lateral lleva a cada funcionalidad. Las capturas son de una ejecución real con el anuncio de Madrid del set de evaluación (dos meses de fianza, honorarios al inquilino y sin calificación energética).
+La interfaz es un cliente Streamlit de tres páginas sobre la API. Al entrar pide el usuario y la contraseña compartidos; después, la portada comprueba que el servicio responde (en el plan gratuito puede estar dormido y lo avisa mientras lo despierta) y el menú lateral lleva a cada funcionalidad. Las capturas son de una ejecución real con el anuncio de Madrid del set de evaluación (dos meses de fianza, honorarios al inquilino y sin calificación energética).
 
 **1. Revisión de anuncios.** Se pega el anuncio y, si se quiere, los datos estructurados. En unos segundos llega el veredicto, un resumen y las incidencias ordenadas por gravedad: las altas abiertas, cada una con su sugerencia y su base legal. Debajo, el modelo que respondió, los tokens, el tiempo y el coste, y la valoración 👍/👎.
 
@@ -342,10 +342,11 @@ Ninguna capa corrige el texto: todas rechazan y explican el motivo, porque quita
 
 **Gestión de secretos.** Las claves solo llegan por variables de entorno. El fichero `.env` está en `.gitignore` y `.env.example` documenta las variables necesarias, sin valores.
 
-**Dos capas de acceso, para que exponer el servicio requiera dos errores y no uno** ([ADR 0014](docs/decisions/0014-grounding-and-retrieval-security.md), [ADR 0020](docs/decisions/0020-access-spend-and-probes.md)):
+**Capas de acceso, para que exponer el servicio requiera varios errores y no uno** ([ADR 0014](docs/decisions/0014-grounding-and-retrieval-security.md), [ADR 0020](docs/decisions/0020-access-spend-and-probes.md)):
 
 | Guarda | Dónde | Qué hace |
 |---|---|---|
+| Usuario y contraseña | La interfaz, en cada página | Nadie sin la contraseña compartida ve la interfaz, la única puerta en la que confía la API. En producción, sin usuario o contraseña configurados, la interfaz no muestra nada ([ADR 0034](docs/decisions/0034-shared-login-for-the-ui.md)) |
 | `X-Service-Token` | Middleware sobre toda la API | ¿Puedes hablar con este servicio? Solo lo tiene la interfaz, como lo tendría el backend de un marketplace |
 | `X-API-Key` | Cada router de negocio, revisión incluida | ¿Qué endpoints puedes usar? Un endpoint nuevo bajo un router protegido queda protegido por estar ahí |
 | Límite de peticiones | Los mismos routers | Ventana fija sobre Redis, 30/minuto por clave, con `Retry-After` en el 429 |
@@ -692,6 +693,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0031](docs/decisions/0031-agent-vs-pipeline.md) | ⚠️ Agente contra pipeline, medido: el pipeline revisa, el actor ve más (y la ley catalana), y el crítico en el mismo modelo resta |
 | [0032](docs/decisions/0032-regression-gate.md) | Puerta de regresión contra una línea base promovida a mano: tolerancia cero en seguridad, el ruido medido en calidad; evals reales fuera del despliegue |
 | [0033](docs/decisions/0033-observability-without-a-tracing-platform.md) | Observabilidad con eventos estructurados, la traza del agente y un `request_id`, sin plataforma de trazas: Langfuse recibiría el texto de los anuncios |
+| [0034](docs/decisions/0034-shared-login-for-the-ui.md) | Un usuario y una contraseña compartidos delante de la interfaz, que en producción no se abre sin ellos |
 
 ---
 

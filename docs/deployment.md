@@ -43,6 +43,8 @@ Names only; values live in Render and nowhere else.
 | `BOOTSTRAP_CORPUS=true` | API | Blueprint. Rebuilds the corpus from the BOE on start-up |
 | `DAILY_SPEND_CAP_USD` | API | Blueprint, `2.0` |
 | `API_URL` | UI | Blueprint, the API's public address |
+| `ENVIRONMENT=production` | UI | Blueprint. Makes the UI show nothing without its login |
+| `UI_USERNAME`, `UI_PASSWORD` | UI | **Typed by the owner** in the dashboard: the shared login ([ADR 0034](decisions/0034-shared-login-for-the-ui.md)) |
 
 ## First deploy
 
@@ -50,7 +52,11 @@ The only manual step, done once by the owner of the repository:
 
 1. Sign in at [dashboard.render.com](https://dashboard.render.com) with GitHub.
 2. **New → Blueprint**, pick `AI4Devs-finalproject-AG`, branch `main`.
-3. Fill `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` when asked, and **Apply**.
+3. Fill `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` when asked, and `UI_USERNAME` and `UI_PASSWORD` if asked too, and **Apply**.
+
+If the Blueprint already exists (it was created before the login existed), set the login by hand: **ai4devs-rental-ui-ag → Environment → Add environment variable**, `UI_USERNAME` and `UI_PASSWORD`, **Save changes**. Render redeploys the UI with them. Until both are set, the UI in production shows an error and nothing else, on purpose.
+
+Use a long password (a passphrase of four or five words, or 20 random characters): the UI locks a session after five wrong attempts, but a new session starts the count again. Send it to the evaluator through a one-time link, never in the repository or in clear in an email.
 
 Render creates the four resources and builds the image. On its first start the API migrates the database, downloads the six BOE sources and embeds them (~1.5 s of ingestion, ~10 s and $0.02 of embeddings); later starts find nothing changed and skip both.
 
@@ -65,7 +71,7 @@ curl $API/ready                        # database, cache and budget
 curl -X POST $API/api/v1/regulations/ask -d '{}'   # 401: no token
 ```
 
-Then, in the UI: a review of a listing with an illegal clause, a question the corpus answers (with its BOE citation), a question it does not cover (refused without a model call), and a text with a phone number (rejected before any call).
+Then, in the UI, after signing in with the shared login: a review of a listing with an illegal clause, a question the corpus answers (with its BOE citation), a question it does not cover (refused without a model call), and a text with a phone number (rejected before any call).
 
 ## Rollback
 
