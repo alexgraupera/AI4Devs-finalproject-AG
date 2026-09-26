@@ -25,6 +25,15 @@ TOOL_LABELS = {
     "(sin herramienta)": "Respuesta sin herramienta",
 }
 
+# What a step marked as not ok means depends on the step: a failed tool call is not a critic that
+# discarded a finding, and saying "failed and retried" of the latter is simply false.
+FAILURE_NOTE = "Esta llamada ha fallado: el agente ha recibido el error y ha seguido."
+FAILURE_NOTES = {
+    "critic": "El revisor ha descartado alguna incidencia; el motivo está debajo.",
+    "rewrite": "El anuncio corregido tiene cifras que el original no tenía: revísalas antes de publicarlo.",
+    "(sin herramienta)": "El agente contestó sin usar ninguna herramienta y se le pidió que entregara la revisión.",
+}
+
 
 def render_findings(findings: list[dict[str, Any]]) -> None:
     if not findings:
@@ -54,7 +63,7 @@ def render_trace(trace: list[dict[str, Any]]) -> None:
             if step["arguments"]:
                 st.json(step["arguments"], expanded=False)
             if not step["ok"]:
-                st.caption("Esta consulta ha fallado y el agente lo ha reintentado.")
+                st.caption(FAILURE_NOTES.get(step["tool"], FAILURE_NOTE))
             if step["result"]:
                 st.text(step["result"])
 
