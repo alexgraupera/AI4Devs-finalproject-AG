@@ -3,6 +3,7 @@ from typing import Any
 import streamlit as st
 
 from ui_api import WAKING_UP, is_api_available, post
+from ui_auth import require_login
 from ui_feedback import render_feedback
 
 SEVERITY_LABELS = {"high": "Alta", "medium": "Media", "low": "Baja"}
@@ -53,6 +54,7 @@ def render_review(review: dict[str, Any]) -> None:
 
 
 st.set_page_config(page_title="Revisión de anuncios de alquiler", page_icon="🏠")
+require_login()
 st.title("Revisión de anuncios de alquiler")
 
 with st.spinner(WAKING_UP):
