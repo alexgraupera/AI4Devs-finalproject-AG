@@ -68,6 +68,7 @@ If Render had to rename a service because the name was taken, set the UI's `API_
 API=https://ai4devs-rental-api-ag.onrender.com
 curl $API/health                       # {"status":"ok"}
 curl $API/ready                        # database, cache and budget
+curl -o /dev/null -w '%{http_code}\n' $API/docs   # 200: Swagger UI, public on purpose
 curl -X POST $API/api/v1/regulations/ask -d '{}'   # 401: no token
 ```
 
