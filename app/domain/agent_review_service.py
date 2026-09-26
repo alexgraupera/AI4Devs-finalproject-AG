@@ -78,7 +78,8 @@ log = structlog.get_logger()
 # listing) and checks a datum is really absent before reporting it missing (ADR 0024).
 # v3: quotes the listing in `evidence` for every finding about what it says (ADR 0025).
 # v4: the checklist v3 of the pipeline and its rule on notes claiming a prior review (#52, ADR 0031).
-PROMPT_VERSION = "v4"
+# v5: the checklist v4 (the additional guarantee is on top of the deposit).
+PROMPT_VERSION = "v5"
 
 # The steps of a trace that are tool executions, for the cost breakdown.
 TOOL_NAMES = frozenset({CheckListingFields.spec.name, SearchRegulations.spec.name})

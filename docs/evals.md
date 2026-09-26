@@ -149,6 +149,16 @@ After fixing the critic (prompt v3 and a code check on `wrong_article`) and movi
 
 **What it says:** the search never loses an article; the actor finds the most (94%, the Catalan law included) and invents the most (confirmations like "la fianza indicada es correcta" with a legal basis); the critic, on the same model, removes correct findings and not the confirmations. The pipeline stays the review; the agent is re-measured with the critic on the other provider from 2026-10-01 ([ADR 0031](decisions/0031-agent-vs-pipeline.md)). This phase's runs cost **$0.82**.
 
+### Listing reviews with Claude Haiku 4.5, 2026-09-26
+
+With the Anthropic account back, the pipeline ran with its configured generator for the first time on this dataset, and v3 flagged `clean-guarantee-at-the-limit` in 2 of 2 runs: Haiku read the two-month limit of LAU art. 36.5 as including the deposit. The checklist v4 says it does not ([ADR 0030](decisions/0030-listing-review-evaluation.md)).
+
+| Pipeline | Model | Precision | Recall | F1 | Clean false positives | Verdict | Cost / review | p50 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| v3 (2 runs) | Claude Haiku 4.5 | 92-93% | 75-81% | 0.83-0.87 | 25% | 80% | $0.0035 | 3.2-3.4 s |
+| **v4** | **Claude Haiku 4.5** | **100%** | 75% | 0.86 | **0%** | **87%** | $0.0035 | 3.7 s |
+| v4 | GPT-5.4 mini | 93% | 81% | 0.87 | 0% | 87% | $0.0016 | 1.8 s |
+
 ## The regression gate
 
 [`evals/baseline.json`](../evals/baseline.json) holds the promoted baseline: the answers of 2026-09-25 and the pipeline's listings of #52, with the commit and the models that answered. `make eval-gate` compares the newest whole runs against it ([ADR 0032](decisions/0032-regression-gate.md)):
@@ -197,6 +207,8 @@ Chronological. Each row is a change that was measured before it was kept or dele
 | 2026-09-25 | Agent (graph and critic) on the same listings | Worse than the pipeline on every quality metric but the adversarial ones, ~19× the cost; the critic rejects correct Catalan findings | Not the default; critic and checklist fixed in #52 |
 | 2026-09-25 | Critic prompt v3 and a code check on `wrong_article`; agent prompt v4 (checklist v3) | Clean false positives 75% → 25%, cost $0.0297 → $0.0228; precision 67% → 55% (the actor's confirmations), recall 75% | Kept; not enough ([ADR 0031](decisions/0031-agent-vs-pipeline.md)) |
 | 2026-09-25 | The agent without its critic | Recall 75% → 94%, verdict 67% → 80%, cost −42%; precision 55% → 58%, clean false positives 25% → 50% | The critic stays (it gates the human pause) and is re-measured on the other provider from 2026-10-01 ([ADR 0031](decisions/0031-agent-vs-pipeline.md)) |
+| 2026-09-26 | Pipeline with Claude Haiku 4.5 (the configured generator, back from its monthly limit), review prompt v3 | Clean false positives 0% → 25% in 2 of 2 runs: Haiku reads the two-month limit of LAU art. 36.5 as including the deposit | A v4 for that point |
+| 2026-09-26 | Checklist v4: the additional guarantee is on top of the deposit (pipeline v4, agent v5, critic v4) | Haiku: precision 100%, clean false positives 0%, verdict 87%; GPT-5.4 mini unchanged within noise | Kept ([ADR 0030](decisions/0030-listing-review-evaluation.md)) |
 
 ## How to run
 

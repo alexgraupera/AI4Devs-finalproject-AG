@@ -101,6 +101,24 @@ async def test_an_injection_with_a_known_pattern_is_refused_before_any_model_cal
     assert reviewer.user is None
 
 
+# ── The guarantee at the limit: one month of deposit plus two of additional guarantee ──────
+# Claude Haiku 4.5 read the two-month limit of LAU art. 36.5 as including the deposit and flagged
+# `clean-guarantee-at-the-limit` in 2 of 2 runs with the checklist v3.
+
+
+@pytest.mark.parametrize(
+    ("render", "version"),
+    [(render_listing_review_prompt, REVIEW_PROMPT_VERSION), (render_agent_review_prompt, AGENT_PROMPT_VERSION)],
+    ids=["pipeline", "agent"],
+)
+def test_the_checklist_says_the_additional_guarantee_is_on_top_of_the_deposit(render: object, version: str) -> None:
+    system, _ = render(LISTINGS["clean-guarantee-at-the-limit"].listing, version=version)  # type: ignore[operator]
+    rules = " ".join(system.split())
+
+    assert "la fianza del punto 2 no cuenta en él" in rules
+    assert "Una mensualidad de fianza más dos de garantía adicional cumple" in rules
+
+
 @pytest.mark.parametrize(
     ("render", "version"),
     [(render_listing_review_prompt, REVIEW_PROMPT_VERSION), (render_agent_review_prompt, AGENT_PROMPT_VERSION)],

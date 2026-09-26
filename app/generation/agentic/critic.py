@@ -33,7 +33,8 @@ log = structlog.get_logger()
 # correct deposit finding as contradicting a listing that said exactly that (ADR 0025).
 # v3: a paragraph is not an article, and the checklist does not limit findings that cite fragments.
 # v2 rejected the four omissions of Catalan article 61 cited as "art. 61.2" (#52, ADR 0031).
-PROMPT_VERSION = "v3"
+# v4: the checklist v4 (the additional guarantee is on top of the deposit).
+PROMPT_VERSION = "v4"
 # The whole article, never a cut: the critic reads only the cited fragments, and a rule cut off at
 # the end of a long article (Catalan article 61 is 1,942 characters) is a rule it would reject for
 # not being there. 6,000 is the longest a chunk can be (CHUNK_MAX_CHARS, ADR 0009).
