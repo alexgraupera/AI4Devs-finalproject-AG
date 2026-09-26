@@ -18,6 +18,7 @@ from enum import StrEnum
 import structlog
 from pydantic import BaseModel, Field
 
+from app.domain.legal_refs import citation_ref, legal_ref
 from app.domain.schemas.listing_agent_review import AgentFinding, TraceStep
 from app.domain.schemas.listing_review import Listing
 from app.foundation.llm.usage import LLMUsage
@@ -30,7 +31,9 @@ log = structlog.get_logger()
 
 # v2: `contradicts_listing` needs a quote of the listing, checked in code, after v1 rejected a
 # correct deposit finding as contradicting a listing that said exactly that (ADR 0025).
-PROMPT_VERSION = "v2"
+# v3: a paragraph is not an article, and the checklist does not limit findings that cite fragments.
+# v2 rejected the four omissions of Catalan article 61 cited as "art. 61.2" (#52, ADR 0031).
+PROMPT_VERSION = "v3"
 # The whole article, never a cut: the critic reads only the cited fragments, and a rule cut off at
 # the end of a long article (Catalan article 61 is 1,942 characters) is a rule it would reject for
 # not being there. 6,000 is the longest a chunk can be (CHUNK_MAX_CHARS, ADR 0009).
@@ -108,6 +111,11 @@ async def criticise(
             # alone does not remove a finding. Code checks the quote, as it checks the actor's.
             log.info("agent.critic_unverified_rejection", finding=finding.message[:80], quote=judgement.quote[:80])
             supported.append(finding)
+        elif judgement.problem == Problem.WRONG_ARTICLE and _cites_only_its_article(finding, fragments):
+            # The critic grants the rule is in the fragments and says the article is wrong, but every
+            # fragment the finding cites is the article it names: code can check that, and it holds.
+            log.info("agent.critic_unverified_rejection", finding=finding.message[:80], problem=judgement.problem)
+            supported.append(finding)
         else:
             rejected.append(Rejection(finding=finding, problem=judgement.problem, reason=judgement.reason))
 
@@ -117,6 +125,12 @@ async def criticise(
         confidence=len(supported) / len(findings),
         usage=completion.usage,
     )
+
+
+def _cites_only_its_article(finding: AgentFinding, fragments: dict[int, RegulationFragment]) -> bool:
+    named = legal_ref(finding.legal_basis)
+    cited = [citation_ref(f.law_id, f.article_title) for i in finding.sources if (f := fragments.get(i)) is not None]
+    return named is not None and bool(cited) and all(ref == named for ref in cited)
 
 
 def _render(findings: list[AgentFinding], fragments: dict[int, RegulationFragment]) -> str:
@@ -156,7 +170,10 @@ def critic_step(step: int, verdict: CriticResult) -> TraceStep:
     elif not verdict.rejected:
         result = "Todas las incidencias están respaldadas por el anuncio y la normativa."
     else:
-        result = "; ".join(f"Rechazada «{r.finding.message[:80]}» ({r.problem})" for r in verdict.rejected)
+        result = "; ".join(
+            f"Rechazada «{r.finding.message[:80]}» [{r.finding.legal_basis or 'sin base legal'}] ({r.problem})"
+            for r in verdict.rejected
+        )
     return TraceStep(step=step, tool="critic", result=result, ok=not verdict.rejected and not verdict.unavailable)
 
 

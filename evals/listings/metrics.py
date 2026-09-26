@@ -17,42 +17,12 @@ Dropped: the pipeline's output guardrail drops a legal basis outside its checkli
 what its critic, evidence and citation checks do not back.
 """
 
-import re
+from collections import Counter
 from dataclasses import dataclass, field
+from enum import StrEnum
 
+from app.domain.legal_refs import LegalRef
 from benchmarks.retrieval.metrics import percentile
-
-LegalRef = tuple[str, str]
-
-_LAWS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"\b(lau|ley\s*29/1994|arrendamientos\s+urbanos)\b", re.IGNORECASE), "LAU"),
-    (re.compile(r"\b(rd|real\s+decreto)\s*390/2021\b", re.IGNORECASE), "RD 390/2021"),
-    (re.compile(r"\bley\s*12/2023\b", re.IGNORECASE), "Ley 12/2023"),
-    (re.compile(r"\bley\s*18/2007\b", re.IGNORECASE), "Ley 18/2007"),
-]
-_ARTICLE = re.compile(r"\bart(?:[íi]culo|\.)?\s*(\d+)", re.IGNORECASE)
-# The BOE ids the corpus uses, for findings that carry citations instead of a readable basis.
-_BOE_LAWS = {
-    "BOE-A-1994-26003": "LAU",
-    "BOE-A-2021-9176": "RD 390/2021",
-    "BOE-A-2023-12203": "Ley 12/2023",
-    "BOE-A-2008-3657": "Ley 18/2007",
-}
-
-
-def legal_ref(basis: str | None) -> LegalRef | None:
-    """("LAU", "36") from "LAU art. 36.1", or None when it names no known law and article."""
-    if not basis:
-        return None
-    article = _ARTICLE.search(basis)
-    law = next((name for pattern, name in _LAWS if pattern.search(basis)), None)
-    return (law, article.group(1)) if law and article else None
-
-
-def citation_ref(law_id: str, article_title: str) -> LegalRef | None:
-    law = _BOE_LAWS.get(law_id)
-    article = _ARTICLE.search(article_title)
-    return (law, article.group(1)) if law and article else None
 
 
 @dataclass
@@ -73,6 +43,14 @@ class ListingOutcome:
     notes: list[tuple[LegalRef, str]] = field(default_factory=list)
     # The agent's steps (tool, arguments, result), to tell a search that missed from a critic that rejected.
     trace: list[dict[str, object]] = field(default_factory=list)
+    # From the agent's trace: the articles it read, and the ones whose findings its critic rejected.
+    read: set[LegalRef] = field(default_factory=set)
+    rejected: list[tuple[LegalRef | None, str]] = field(default_factory=list)
+    stop_reason: str | None = None
+    tool_errors: int = 0
+    # Cost by step (plan, tools, critic, rewrite) for the agent; one `review` step for the pipeline.
+    step_costs: dict[str, float] = field(default_factory=dict)
+    repeat: int = 1
 
     @property
     def must_refuse(self) -> bool:
@@ -135,3 +113,47 @@ def summarise(outcomes: list[ListingOutcome]) -> ListingMetrics:
         p50_latency_ms=percentile(latencies, 50),
         p95_latency_ms=percentile(latencies, 95),
     )
+
+
+class Failure(StrEnum):
+    """Why a listing was reviewed wrong, from the outcome and the agent's trace (#52).
+
+    An expected article the agent missed is placed in the first step that lost it: never read
+    (the search), read but not reported (the actor), reported but rejected (the critic). The
+    pipeline has no trace, so its misses are only missed.
+    """
+
+    NOT_READ = "not_read"
+    READ_NOT_REPORTED = "read_not_reported"
+    REJECTED_BY_CRITIC = "rejected_by_critic"
+    MISSED = "missed"
+    INVENTED = "invented"
+    WRONG_VERDICT = "wrong_verdict"
+    NOT_REFUSED = "not_refused"
+    RUN_FAILED = "run_failed"
+
+
+def classify(outcome: ListingOutcome, *, traced: bool) -> list[Failure]:
+    if outcome.must_refuse:
+        return [] if outcome.error == outcome.expected_error else [Failure.NOT_REFUSED]
+    if outcome.error is not None:
+        return [Failure.RUN_FAILED]
+    rejected = {ref for ref, _ in outcome.rejected if ref is not None}
+    failures = []
+    for ref in sorted(outcome.expected - outcome.found):
+        if not traced:
+            failures.append(Failure.MISSED)
+        elif ref in rejected:
+            failures.append(Failure.REJECTED_BY_CRITIC)
+        elif ref in outcome.read:
+            failures.append(Failure.READ_NOT_REPORTED)
+        else:
+            failures.append(Failure.NOT_READ)
+    failures += [Failure.INVENTED] * len(outcome.found - outcome.expected)
+    if outcome.verdict != outcome.expected_verdict:
+        failures.append(Failure.WRONG_VERDICT)
+    return failures
+
+
+def failure_counts(outcomes: list[ListingOutcome], *, traced: bool) -> Counter[Failure]:
+    return Counter(failure for outcome in outcomes for failure in classify(outcome, traced=traced))

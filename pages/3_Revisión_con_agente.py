@@ -90,6 +90,35 @@ def render_usage(usage: dict[str, Any]) -> None:
     )
 
 
+STEP_LABELS = {
+    "plan": "Razonamiento del agente",
+    "tools": "Herramientas",
+    "critic": "Revisor",
+    "rewrite": "Anuncio corregido",
+}
+
+
+def render_cost_breakdown(steps: list[dict[str, Any]]) -> None:
+    """Where the cost went: which step to make cheaper is read here, not guessed."""
+    if not steps:
+        return
+    with st.expander("Coste por paso"):
+        st.table(
+            [
+                {
+                    "Paso": STEP_LABELS.get(step["step"], step["step"]),
+                    "Llamadas": step["calls"],
+                    "Tokens": step["input_tokens"] + step["output_tokens"],
+                    "Tiempo": f"{step['latency_ms'] / 1000:.1f} s",
+                    "Coste": f"{float(step['estimated_cost_usd']):.4f} USD"
+                    if step["estimated_cost_usd"] is not None
+                    else "no disponible",
+                }
+                for step in steps
+            ]
+        )
+
+
 def render_pending(body: dict[str, Any]) -> None:
     """A review that waits for a person: what the agent proposes, what the critic rejected, and the decision."""
     pending = body["pending_review"]
@@ -162,6 +191,7 @@ def render_review(body: dict[str, Any]) -> None:
         )
     render_trace(body["trace"])
     render_usage(body["usage"])
+    render_cost_breakdown(body.get("cost_breakdown", []))
 
 
 st.set_page_config(page_title="Revisión con agente", page_icon="🕵️")

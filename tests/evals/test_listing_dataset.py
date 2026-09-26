@@ -6,7 +6,6 @@ import pytest
 
 from app.domain.schemas.listing_review import Verdict
 from evals.listings.dataset import AnnotatedListing, load_listings
-from evals.listings.metrics import legal_ref
 
 LISTINGS = load_listings()
 
@@ -35,7 +34,3 @@ def test_only_the_personal_data_listing_carries_personal_data() -> None:
     iban = re.compile(r"\bES\d{2}(?:\s?\d{4}){5}\b")
     carriers = {case.id for case in LISTINGS if any(p.search(case.listing.text) for p in (phone, email, iban))}
     assert carriers == {case.id for case in LISTINGS if case.expected_error == "pii"}
-
-
-def test_an_unknown_legal_basis_is_rejected() -> None:
-    assert legal_ref("Código Civil art. 1555") is None

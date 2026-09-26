@@ -40,7 +40,7 @@ from app.domain.graph.state import (
     step_to_json,
     usage_to_json,
 )
-from app.domain.schemas.listing_agent_review import AgentFinding, AgentReviewCandidate, StopReason, TraceStep
+from app.domain.schemas.listing_agent_review import AgentFinding, AgentReviewCandidate, Step, StopReason, TraceStep
 from app.domain.schemas.listing_review import Listing
 from app.foundation.llm.tools import RequestedToolCall, ToolCallingLLM
 from app.foundation.llm.wrapper import StructuredLLM
@@ -230,7 +230,7 @@ def build_review_graph(
             "trace": [step_to_json(critic_step(len(state.get("trace", [])) + 1, result))],
         }
         if result.usage is not None:
-            update["usage"] = [usage_to_json(result.usage)]
+            update["usage"] = [usage_to_json(result.usage, Step.CRITIC)]
         return update
 
     async def boss_node(state: ReviewState) -> dict[str, Any]:

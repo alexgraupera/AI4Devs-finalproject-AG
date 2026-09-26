@@ -37,6 +37,15 @@ class UsageResponse(BaseModel):
     attempts: int
 
 
+class StepCostResponse(BaseModel):
+    step: str
+    calls: int
+    input_tokens: int
+    output_tokens: int
+    latency_ms: int
+    estimated_cost_usd: Decimal | None
+
+
 class ListingReviewResponse(BaseModel):
     findings: list[Finding]
     verdict: Verdict
@@ -82,6 +91,8 @@ class AgentReviewResponse(BaseModel):
     # The listing corrected for its final findings, for the person publishing to accept or edit.
     rewrite: ListingRewrite | None
     usage: UsageResponse
+    # The same cost, step by step: the actor's turns, the tools, the critic and the rewrite (#52).
+    cost_breakdown: list[StepCostResponse]
 
     @classmethod
     def of(cls, reviewed: AgentReviewedListing) -> "AgentReviewResponse":
@@ -105,6 +116,7 @@ class AgentReviewResponse(BaseModel):
             human_decision=reviewed.human_decision,
             rewrite=reviewed.review.rewrite,
             usage=UsageResponse(**vars(reviewed.usage)),
+            cost_breakdown=[StepCostResponse(**vars(step)) for step in reviewed.cost.steps],
         )
 
 

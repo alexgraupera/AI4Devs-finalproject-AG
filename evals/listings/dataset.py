@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 
 import yaml
 
+from app.domain.legal_refs import LegalRef, legal_ref
 from app.domain.schemas.listing_review import Listing
-from evals.listings.metrics import LegalRef, legal_ref
 
 DATASET = pathlib.Path(__file__).parents[1] / "datasets" / "listings.yaml"
 
