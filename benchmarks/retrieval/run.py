@@ -48,6 +48,8 @@ class RetrievalVariant:
     # How many candidates the reranker reorders. It is the reranker's cost knob: the context it
     # reads is roughly 350 tokens per candidate.
     rerank_pool: int = CANDIDATE_POOL
+    # The model that reranks. None: the configured reranker (`LLM_RERANK_MODEL`, else the generator).
+    rerank_model: str | None = None
 
 
 @dataclass
@@ -83,6 +85,8 @@ VARIANTS: tuple[RetrievalVariant, ...] = (
     RetrievalVariant(name="dense", k=5, min_score=0.40),
     RetrievalVariant(name="dense+rerank-10", rerank=True, rerank_pool=10),
     RetrievalVariant(name="dense+rerank-20", rerank=True, rerank_pool=20),
+    # The cheapest model that might keep the gain: reranking is half the cost of an answer (#48).
+    RetrievalVariant(name="dense+rerank-20-nano", rerank=True, rerank_pool=20, rerank_model="openai/gpt-5.4-nano"),
 )
 
 
@@ -204,16 +208,35 @@ async def measure(variants: tuple[RetrievalVariant, ...]) -> list[BenchmarkResul
     questions = load_questions()
     engine = create_engine(settings.database_url)
     client = LiteLLMEmbeddings(model=settings.embedding_model, dimensions=settings.embedding_dimensions)
-    llm = LLMWrapper(
-        router=build_router(settings.llm_model, settings.llm_fallback_model or None, settings.llm_max_retries),
-        max_retries=settings.llm_max_retries,
+
+    def wrapper(primary: str, fallback: str | None) -> LLMWrapper:
+        return LLMWrapper(
+            router=build_router(
+                primary, fallback, settings.llm_max_retries, timeout_seconds=settings.llm_timeout_seconds
+            ),
+            max_retries=settings.llm_max_retries,
+            max_tokens=settings.llm_max_tokens,
+            temperature=settings.llm_temperature,
+        )
+
+    default_reranker = (
+        wrapper(settings.llm_rerank_model, settings.llm_rerank_fallback_model or None)
+        if settings.llm_rerank_model
+        else wrapper(settings.llm_model, settings.llm_fallback_model or None)
     )
     try:
         results = []
         for variant in variants:
             retriever = Retriever(session_factory(engine), client, top_k=variant.k, min_score=variant.min_score)
             result = await run(
-                variant, questions, retriever, Reranker(llm, top_n=variant.k) if variant.rerank else None
+                variant,
+                questions,
+                retriever,
+                Reranker(
+                    wrapper(variant.rerank_model, None) if variant.rerank_model else default_reranker, top_n=variant.k
+                )
+                if variant.rerank
+                else None,
             )
             # The query cost is the embedding of the question: the same for every variant, so it
             # is attributed per run rather than pretending each variant has its own.

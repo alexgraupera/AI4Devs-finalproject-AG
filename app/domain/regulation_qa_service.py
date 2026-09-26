@@ -79,8 +79,12 @@ class RegulationQAService:
         rerank_pool: int = 20,
         max_context_chars: int = DEFAULT_MAX_CHARS,
         spend: SpendGuard | None = None,
+        judge: StructuredLLM | None = None,
     ) -> None:
         self._llm = llm
+        # The grounding check reads what the generator wrote. On the same model it shares its
+        # blind spots, so it gets its own when there is one (ADR 0023).
+        self._judge = judge or llm
         self._spend = spend
         self._retriever = retriever
         self._moderation = moderation
@@ -160,7 +164,7 @@ class RegulationQAService:
         published = RegulationAnswer(answer=answer, citations=citations, has_answer=True)
 
         if self._check_claims:
-            verdict = await check_grounding(published, context, self._llm, min_confidence=self._min_confidence)
+            verdict = await check_grounding(published, context, self._judge, min_confidence=self._min_confidence)
             usage = combined(usage, verdict.usage)
             if not verdict.supported:
                 log.warning(

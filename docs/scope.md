@@ -27,6 +27,7 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 | Input guardrails: size limits, moderation, prompt-injection and PII heuristics | ✅ #9 |
 | Output guardrails: scope filter and a deterministic check that routes implausible reviews to human review | ✅ #9, 🔜 #5 |
 | Provider fallback (Anthropic primary, OpenAI secondary), cost per call and structured logging | ✅ #10 |
+| A model per role (the judge on the other provider), and every call bounded: timeout, token budget, temperature, named truncation | ✅ #47 |
 
 ### RAG — retrieval over the regulations
 

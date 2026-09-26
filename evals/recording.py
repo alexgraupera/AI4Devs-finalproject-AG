@@ -34,9 +34,15 @@ class RecordedCall:
 
 
 class RecordingLLM:
-    def __init__(self, inner: StructuredLLM) -> None:
+    """Records every call of the model it wraps.
+
+    Several wrappers can share one list (`calls`): the generator and the grounding judge are two
+    models since #47, and one answer's cost is the calls of both.
+    """
+
+    def __init__(self, inner: StructuredLLM, *, calls: list[RecordedCall] | None = None) -> None:
         self._inner = inner
-        self.calls: list[RecordedCall] = []
+        self.calls: list[RecordedCall] = calls if calls is not None else []
 
     async def complete_structured(self, *, system: str, user: str, schema: type[T]) -> StructuredCompletion[T]:
         completion = await self._inner.complete_structured(system=system, user=user, schema=schema)
@@ -45,7 +51,9 @@ class RecordingLLM:
 
     def drain(self) -> list[RecordedCall]:
         """The calls since the last drain: one question's worth, when drained after each one."""
-        calls, self.calls = self.calls, []
+        calls = list(self.calls)
+        # Emptied in place, so every wrapper sharing the list sees it empty.
+        self.calls.clear()
         return calls
 
 
