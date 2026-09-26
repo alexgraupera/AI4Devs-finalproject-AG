@@ -10,7 +10,10 @@ from app.domain.errors import NotAListing
 from app.domain.schemas.listing_review import Listing, Verdict
 from app.foundation.guardrails.input import InputGuardrailViolation
 from app.foundation.guardrails.spend import BudgetExhausted
+from app.foundation.llm.usage import LLMUsage, StructuredCompletion
+from app.generation.agentic.critic import CriticVerdict, FindingJudgement, Problem
 from app.generation.agentic.loop import SUBMIT
+from tests.generation.agentic.test_critic import judged
 from tests.generation.agentic.test_loop import A_REVIEW, ScriptedModel, call, calls
 from tests.generation.agentic.test_tools import FakeSearch
 
@@ -117,3 +120,125 @@ async def test_the_trace_and_the_whole_cost_reach_the_caller() -> None:
 
     assert [step.tool for step in reviewed.trace] == ["search_regulations", SUBMIT]
     assert reviewed.usage.estimated_cost_usd == Decimal("0.004")
+
+
+# ── Actor, critic, boss ─────────────────────────────────────────────────────────────────────
+
+
+def two_passes(first: dict[str, Any], second: dict[str, Any] | None = None) -> ScriptedModel:
+    """An actor that searches and submits, and does it again if the boss sends it back."""
+    script = [calls(call("search_regulations", {"query": "fianza"})), calls(call(SUBMIT, first))]
+    if second is not None:
+        script += [calls(call("search_regulations", {"query": "fianza"})), calls(call(SUBMIT, second))]
+    return ScriptedModel(*script)
+
+
+def critic_of(*verdicts: list[bool]) -> "ScriptedJudge":
+    return ScriptedJudge(
+        *[
+            [judged(i, ok, Problem.NONE if ok else Problem.RULE_NOT_IN_SOURCES) for i, ok in enumerate(v, start=1)]
+            for v in verdicts
+        ]
+    )
+
+
+class ScriptedJudge:
+    """One critic verdict per call, in order."""
+
+    def __init__(self, *verdicts: list[FindingJudgement]) -> None:
+        self.verdicts = list(verdicts)
+        self.calls = 0
+
+    async def complete_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
+        self.calls += 1
+        verdict = CriticVerdict(judgements=self.verdicts.pop(0))
+        return StructuredCompletion(output=verdict, usage=A_CRITIC_USAGE)
+
+
+A_CRITIC_USAGE = LLMUsage("openai", "gpt-5.4-mini", 2_000, 200, 900, Decimal("0.0024"))
+
+TWO_FINDINGS = review_with(
+    finding(legal_basis="LAU art. 36.1", sources=[36]),
+    {**finding(legal_basis="LAU art. 36.1", sources=[36]), "message": "Inventada"},
+)
+
+
+async def test_a_finding_the_critic_rejects_never_reaches_the_user() -> None:
+    # Three of four supported is 0.75, above the 0.7 the boss accepts at.
+    four = review_with(*[{**finding(legal_basis="LAU art. 36.1", sources=[36]), "message": m} for m in "ABCD"])
+    service = AgentReviewService(two_passes(four), FakeSearch(), critic=critic_of([True, True, True, False]))
+
+    reviewed = await service.review(A_LISTING)
+
+    assert [f.message for f in reviewed.review.findings] == ["A", "B", "C"]
+    assert reviewed.dropped_findings == 1
+    assert not reviewed.escalated
+
+
+async def test_a_retry_sends_the_actor_back_with_the_rejections_quoted() -> None:
+    model = two_passes(TWO_FINDINGS, review_with(finding(legal_basis="LAU art. 36.1", sources=[36])))
+    service = AgentReviewService(model, FakeSearch(), critic=critic_of([True, False], [True]))
+
+    reviewed = await service.review(A_LISTING)
+
+    second_pass_prompt = model.requests[2]["messages"][1]["content"]
+    assert "Un revisor ha comprobado tu revisión anterior" in second_pass_prompt
+    assert "«Inventada»" in second_pass_prompt
+    assert len(reviewed.review.findings) == 1 and not reviewed.escalated
+
+
+async def test_support_that_stays_low_after_the_retry_goes_to_a_person() -> None:
+    model = two_passes(TWO_FINDINGS, TWO_FINDINGS)
+    service = AgentReviewService(model, FakeSearch(), critic=critic_of([True, False], [True, False]))
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.escalated
+    assert [f.message for f in reviewed.review.findings] == ["La fianza supera una mensualidad"]
+
+
+async def test_the_verdict_is_recomputed_when_the_critic_drops_the_only_high_finding() -> None:
+    service = AgentReviewService(two_passes(A_REVIEW), FakeSearch(), critic=critic_of([False]))
+
+    reviewed = await service.review(A_LISTING)
+
+    assert reviewed.review.verdict == Verdict.APPROVE
+    assert reviewed.escalated
+
+
+async def test_the_critic_and_the_boss_appear_in_the_trace_and_the_critic_in_the_cost() -> None:
+    service = AgentReviewService(two_passes(A_REVIEW), FakeSearch(), critic=critic_of([True]))
+
+    reviewed = await service.review(A_LISTING)
+
+    assert [step.tool for step in reviewed.trace] == ["search_regulations", SUBMIT, "critic", "boss"]
+    assert reviewed.trace[-1].result == "Decisión: accept"
+    assert reviewed.usage.estimated_cost_usd == Decimal("0.0064")
+
+
+# ── Evidence: a finding about the listing must quote it ──────────────────────────────────────
+
+
+async def test_a_finding_whose_quote_is_not_in_the_listing_never_reaches_the_user() -> None:
+    invented = {**finding(legal_basis="LAU art. 20.1", sources=[36]), "evidence": "honorarios a cargo del inquilino"}
+    listing = Listing(text="Estudio en Gràcia de 38 m², amueblado. Honorarios de agencia a cargo del propietario.")
+
+    reviewed = await service_for(review_with(invented)).review(listing)
+
+    assert reviewed.review.findings == []
+
+
+async def test_a_finding_that_quotes_the_listing_is_kept() -> None:
+    quoted = {**finding(legal_basis="LAU art. 36.1", sources=[36]), "evidence": "Fianza de dos meses"}
+
+    reviewed = await service_for(review_with(quoted)).review(A_LISTING)
+
+    assert len(reviewed.review.findings) == 1
+
+
+async def test_a_quote_of_a_structured_field_counts_as_the_listing() -> None:
+    quoted = {**finding(legal_basis=None, sources=[], severity="low"), "evidence": "Municipio: Madrid"}
+
+    reviewed = await service_for(review_with(quoted, verdict="approve")).review(A_LISTING)
+
+    assert len(reviewed.review.findings) == 1

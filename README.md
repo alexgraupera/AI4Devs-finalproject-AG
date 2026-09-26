@@ -412,7 +412,11 @@ POST /api/v1/listings/agent-review
 
 Cada paso, con lo que el modelo escribió al decidirlo, vuelve en la respuesta y se ve en la página «Revisión con agente». Las dos revisiones siguen vivas una junto a otra para poder compararlas con números (#52).
 
-**Siguen** el crítico que comprueba que cada artículo dice lo que la incidencia afirma (#40), el grafo con estado persistente (#41) y la pausa para una persona (#42).
+**Actor, crítico y jefe** ([ADR 0025](docs/decisions/0025-actor-critic-boss.md)). Tras el agente, un **crítico en el otro proveedor** lee cada incidencia contra el anuncio y contra los artículos que cita, enteros, y dice por qué no se sostiene (contradice el anuncio, la regla no está en la fuente, artículo equivocado). El **jefe** es una función, no un modelo: acepta si se sostiene el 70%, devuelve la revisión al agente una vez con los rechazos citados, o la **escala a una persona**. Una incidencia rechazada no llega al usuario.
+
+Y en los dos lados **el modelo cita y el código comprueba**: una incidencia sobre lo que dice el anuncio lleva la frase del anuncio, y el crítico solo puede decir que el anuncio la contradice citando dónde. Una cita que no está en el anuncio no cuenta. Se llegó ahí probando a mano: la primera versión del crítico tiró la incidencia correcta de la fianza y dejó pasar una infracción inventada.
+
+**Siguen** el grafo con estado persistente (#41) y la pausa para una persona (#42).
 
 ### **2.8. 🆕 Gestión de latencia, coste, calidad y seguridad**
 
@@ -532,6 +536,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0022](docs/decisions/0022-answer-evaluation.md) | Evaluación de respuestas al estilo RAGAS con un juez de otro proveedor: el modelo lee, el código cuenta |
 | [0023](docs/decisions/0023-a-model-per-role.md) | Un modelo por papel (el juez en el otro proveedor) y cada llamada acotada; el reranker barato, medido y descartado |
 | [0024](docs/decisions/0024-agent-loop-and-tools.md) | El agente: bucle escrito a mano, herramientas, salidas forzadas y lo que no se le confía al modelo |
+| [0025](docs/decisions/0025-actor-critic-boss.md) | ⚠️ Actor, crítico y jefe; el modelo cita y el código comprueba. Tres versiones, cada una por un fallo encontrado a mano |
 
 ---
 

@@ -25,6 +25,13 @@ class StopReason(StrEnum):
 
 
 class AgentFinding(Finding):
+    evidence: str = Field(
+        default="",
+        description=(
+            "La frase exacta del anuncio (o el dato estructurado) a la que se refiere la incidencia, "
+            "copiada literalmente. Vacío si la incidencia es que falta algo"
+        ),
+    )
     sources: list[int] = Field(
         default_factory=list,
         description=(
@@ -72,3 +79,7 @@ class AgentReviewedListing:
     trace: list[TraceStep]
     usage: LLMUsage
     stop_reason: StopReason
+    # The critic could not back every conclusion even after a retry: a person has to look.
+    escalated: bool = False
+    # How many findings the critic removed because the listing or the sources did not hold them.
+    dropped_findings: int = 0
