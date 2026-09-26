@@ -162,3 +162,10 @@ def test_every_answerable_question_states_what_it_expects() -> None:
     for question in load_questions():
         if not question.is_out_of_domain:
             assert all(chunk.law_id and chunk.block_id for chunk in question.expected), question.id
+
+
+def test_every_answerable_golden_question_has_a_reference_and_no_refusal_has_one() -> None:
+    # The answer evaluation judges correctness against the reference: a question without one
+    # could only ever be judged against the model's own idea of the answer.
+    for question in load_questions():
+        assert bool(question.reference) == (not question.is_out_of_domain), question.id

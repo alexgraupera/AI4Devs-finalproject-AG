@@ -25,6 +25,9 @@ class Question:
     question: str
     expected: list[ExpectedChunk] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    # What a correct answer says, for judging the generated answer (#48). Out-of-domain
+    # questions have none: the right answer is a refusal.
+    reference: str | None = None
 
     @property
     def is_out_of_domain(self) -> bool:
@@ -40,6 +43,7 @@ def load_questions(path: pathlib.Path = QUESTIONS_FILE) -> list[Question]:
             question=entry["question"],
             expected=[ExpectedChunk(**expected) for expected in entry.get("expected") or []],
             tags=list(entry.get("tags") or []),
+            reference=entry.get("reference"),
         )
         for entry in document["questions"]
     ]

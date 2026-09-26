@@ -7,6 +7,9 @@
 # An empty `expected` means the corpus does not answer the question, and retrieving nothing is
 # the correct outcome.
 #
+# `reference` is what a correct answer says, written from the expected article (quoted from the
+# ingested text, not from memory). The answer evaluation of #48 judges correctness against it.
+#
 # Three families, on purpose:
 #   - `legal-wording`: the question phrased as the law phrases it. The easy case.
 #   - `paraphrase`: the wording a landlord actually uses. The case that pays for reformulation.
@@ -16,54 +19,72 @@ questions:
   # ── Legal wording ────────────────────────────────────────────────────────────────────────
   - id: deposit-legal
     question: ¿Cuál es la fianza legal en un alquiler de vivienda?
+    reference: >-
+      Una mensualidad de renta, en metálico, en el arrendamiento de vivienda (dos en el de uso distinto de vivienda). LAU art. 36.1.
     tags: [legal-wording, deposit]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a36 }
 
   - id: agency-fees-legal
     question: ¿Quién paga los gastos de gestión inmobiliaria y de formalización del contrato?
+    reference: >-
+      El arrendador: los gastos de gestión inmobiliaria y los de formalización del contrato son a su cargo. LAU art. 20.1.
     tags: [legal-wording, fees]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a20 }
 
   - id: minimum-information-legal
     question: ¿Qué información mínima hay que facilitar a los interesados en arrendar una vivienda?
+    reference: >-
+      Quien esté interesado puede pedir, antes de formalizar y de entregar cualquier cantidad a cuenta, la identificación del arrendador y del intermediario, las condiciones económicas (precio total y conceptos incluidos) y las características esenciales de la vivienda y del edificio, como el certificado o cédula de habitabilidad y la superficie útil y construida. Ley 12/2023 art. 31.
     tags: [legal-wording, information]
     expected:
       - { law_id: BOE-A-2023-12203, block_id: a3-3 }
 
   - id: energy-label-legal
     question: ¿Debe incluirse la etiqueta de eficiencia energética en la oferta y publicidad de arrendamiento?
+    reference: >-
+      Sí: la etiqueta de eficiencia energética se incluirá en toda oferta, promoción y publicidad dirigida a la venta o arrendamiento, indicando si se refiere al certificado de proyecto, de obra terminada o de edificio existente. RD 390/2021 art. 15.2.
     tags: [legal-wording, energy]
     expected:
       - { law_id: BOE-A-2021-9176, block_id: a1-7 }
 
   - id: catalan-offer-legal
     question: ¿Qué información debe contener una oferta de arrendamiento de vivienda en Cataluña?
+    reference: >-
+      La descripción y condiciones físicas con la superficie útil, servicios, instalaciones y suministros; el precio total de la renta con el desglose de servicios y demás cantidades a cargo del arrendatario; el plazo; la forma de actualización del precio; la fianza y demás garantías; y la última renta vigente en los últimos cinco años o el precio máximo del sistema de referencia, si procede. Ley 18/2007 de Cataluña art. 61.2.
     tags: [legal-wording, regional]
     expected:
       - { law_id: BOE-A-2008-3657, block_id: a61 }
 
   - id: stressed-area-declaration-legal
     question: ¿Cómo se declara una zona de mercado residencial tensionado?
+    reference: >-
+      La declara la Administración competente en materia de vivienda, tras un procedimiento preparatorio con información sobre precios de alquiler y venta y renta de los hogares, conforme a las reglas y criterios de la ley. Ley 12/2023 art. 18.
     tags: [legal-wording, stressed-areas]
     expected:
       - { law_id: BOE-A-2023-12203, block_id: a1-10 }
 
   - id: minimum-term-legal
     question: ¿Cuál es el plazo mínimo de duración del arrendamiento de vivienda?
+    reference: >-
+      La duración se pacta libremente, pero si es inferior a cinco años (siete si el arrendador es persona jurídica) el contrato se prorroga obligatoriamente por plazos anuales hasta alcanzar ese mínimo, salvo que el inquilino avise con treinta días de antelación de que no quiere renovar. LAU art. 9.1.
     tags: [legal-wording, duration]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a9 }
 
   - id: rent-update-legal
     question: ¿Cómo se actualiza la renta durante la vigencia del contrato?
+    reference: >-
+      Solo en la fecha en que se cumple cada año de contrato y en los términos pactados; sin pacto expreso no hay actualización. Si se pactó sin detallar el índice, se usa el Índice de Garantía de Competitividad, y el incremento nunca puede superar la variación del IPC. LAU art. 18.1.
     tags: [legal-wording, rent-update]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a18 }
 
   - id: habitability-certificate-legal
     question: ¿Qué es la cédula de habitabilidad y para qué sirve?
+    reference: >-
+      Es el documento que acredita que una vivienda cumple las condiciones de calidad y es apta para residencia; hace falta para ocuparla, para venderla o alquilarla y para contratar los suministros. Ley 18/2007 de Cataluña art. 26.
     tags: [legal-wording, regional, habitability]
     expected:
       - { law_id: BOE-A-2008-3657, block_id: a26 }
@@ -73,6 +94,8 @@ questions:
   # them is visible instead of averaging out.
   - id: energy-label-display
     question: ¿Dónde hay que exhibir la etiqueta de eficiencia energética de un edificio?
+    reference: >-
+      En lugar destacado y bien visible por el público, de forma obligatoria en los edificios a los que se refieren los artículos 3.1.c) y 3.1.e); en el resto de casos es voluntario. RD 390/2021 art. 16.
     tags: [legal-wording, energy]
     expected:
       - { law_id: BOE-A-2021-9176, block_id: a1-8 }
@@ -80,60 +103,80 @@ questions:
   # ── Paraphrases: how a landlord asks ─────────────────────────────────────────────────────
   - id: deposit-paraphrase
     question: ¿Me pueden pedir dos meses de fianza por alquilar un piso?
+    reference: >-
+      No como fianza: la fianza legal de una vivienda es una mensualidad (LAU art. 36.1). Sí se pueden pactar garantías adicionales, que en contratos de hasta cinco años (siete si el arrendador es persona jurídica) no pueden superar dos mensualidades (LAU art. 36.5).
     tags: [paraphrase, deposit]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a36 }
 
   - id: agency-fees-paraphrase
     question: ¿Tengo que pagar yo la comisión de la agencia al alquilar mi piso?
+    reference: >-
+      No, si eres el inquilino: los gastos de gestión inmobiliaria y de formalización del contrato son a cargo del arrendador. LAU art. 20.1.
     tags: [paraphrase, fees]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a20 }
 
   - id: minimum-information-paraphrase
     question: ¿Qué me tienen que contar antes de firmar el alquiler de un piso?
+    reference: >-
+      Antes de firmar y de pagar nada a cuenta puedes pedir la identificación del arrendador y del intermediario, el precio total y lo que incluye, y las características de la vivienda y del edificio, como la cédula de habitabilidad y la superficie. Ley 12/2023 art. 31.
     tags: [paraphrase, information]
     expected:
       - { law_id: BOE-A-2023-12203, block_id: a3-3 }
 
   - id: energy-label-paraphrase
     question: ¿Hace falta el certificado energético para poner un anuncio de alquiler?
+    reference: >-
+      Sí: la etiqueta de eficiencia energética debe incluirse en toda oferta y publicidad de alquiler, así que hace falta tener el certificado registrado. RD 390/2021 art. 15.2.
     tags: [paraphrase, energy]
     expected:
       - { law_id: BOE-A-2021-9176, block_id: a1-7 }
 
   - id: catalan-offer-paraphrase
     question: ¿Qué datos tengo que poner en el anuncio si alquilo un piso en Barcelona?
+    reference: >-
+      En Cataluña la oferta debe incluir la descripción con la superficie útil, el precio total con el desglose de lo que paga el inquilino, el plazo, cómo se actualiza el precio, la fianza y garantías, y la última renta de los últimos cinco años o el precio de referencia si procede. Ley 18/2007 art. 61.
     tags: [paraphrase, regional]
     expected:
       - { law_id: BOE-A-2008-3657, block_id: a61 }
 
   - id: minimum-term-paraphrase
     question: ¿Cuánto tiempo dura como mínimo un contrato de alquiler?
+    reference: >-
+      Cinco años (siete si el arrendador es persona jurídica): aunque se pacte menos, el contrato se prorroga cada año hasta ese mínimo, salvo que el inquilino decida no renovar avisando con treinta días. LAU art. 9.1.
     tags: [paraphrase, duration]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a9 }
 
   - id: rent-update-paraphrase
     question: ¿Puedo subirle el alquiler a mi inquilino cada año?
+    reference: >-
+      Solo si el contrato lo pacta expresamente, una vez al año en la fecha de cumplimiento, y sin superar la variación del IPC; sin pacto no hay actualización. LAU art. 18.1.
     tags: [paraphrase, rent-update]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a18 }
 
   - id: non-payment-paraphrase
     question: ¿Qué puedo hacer si el inquilino deja de pagar?
+    reference: >-
+      La falta de pago de la renta o de las cantidades a cargo del inquilino permite al arrendador resolver el contrato de pleno derecho, además de exigir el cumplimiento. LAU art. 27.
     tags: [paraphrase, non-payment]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a27 }
 
   - id: renewal-paraphrase
     question: ¿El contrato se renueva solo cuando llega a su fin?
+    reference: >-
+      Sí: cumplidos los cinco años (siete si el arrendador es persona jurídica), si ninguna parte avisa (el arrendador con cuatro meses, el inquilino con dos) se prorroga por plazos anuales hasta tres años más. LAU art. 10.1.
     tags: [paraphrase, duration]
     expected:
       - { law_id: BOE-A-1994-26003, block_id: a10 }
 
   - id: habitability-paraphrase
     question: ¿Necesito algún papel que diga que el piso es habitable para alquilarlo en Cataluña?
+    reference: >-
+      Sí: en Cataluña, en cualquier alquiler hay que acreditar que la vivienda cumple las condiciones de calidad entregando la cédula de habitabilidad vigente, salvo las exoneraciones previstas. Ley 18/2007 art. 26.2.
     tags: [paraphrase, regional, habitability]
     expected:
       - { law_id: BOE-A-2008-3657, block_id: a26 }
@@ -141,15 +184,58 @@ questions:
   # ── Stressed areas: a proper noun in free text, the hardest thing for a dense vector ──────
   - id: stressed-area-basauri
     question: ¿Está Basauri declarado zona de mercado residencial tensionado?
+    reference: >-
+      Sí: la Orden de 28 de mayo de 2026 del consejero de Vivienda y Agenda Urbana declaró Basauri zona de mercado residencial tensionado (BOPV del 8 de junio de 2026).
     tags: [paraphrase, stressed-areas, proper-noun]
     expected:
       - { law_id: BOE-A-2026-16532, block_id: d6 }
 
   - id: stressed-area-lasarte
     question: ¿Lasarte-Oria es zona tensionada?
+    reference: >-
+      Sí: la Orden de 18 de marzo de 2025 del Consejero de Vivienda y Agenda Urbana declaró Lasarte-Oria zona de mercado residencial tensionado (BOPV del 9 de abril de 2025).
     tags: [paraphrase, stressed-areas, proper-noun]
     expected:
       - { law_id: BOE-A-2025-8636, block_id: d1 }
+
+  # ── Rules that differ by region: the answer must keep them apart ─────────────────────────
+  - id: offer-information-conflict
+    question: ¿Qué información hay que dar en un anuncio de alquiler en Cataluña y en el resto de España?
+    reference: >-
+      Depende del lugar. En Cataluña, la propia oferta debe contener la información mínima del
+      artículo 61 de la Ley 18/2007 (superficie útil, precio total con desglose, plazo,
+      actualización, fianza y garantías, última renta o precio de referencia). En el resto de
+      España, la Ley 12/2023 art. 31 establece la información que el interesado puede pedir antes
+      de formalizar (identificación, precio total y conceptos, características de la vivienda).
+    tags: [paraphrase, conflict, information]
+    expected:
+      - { law_id: BOE-A-2008-3657, block_id: a61 }
+      - { law_id: BOE-A-2023-12203, block_id: a3-3 }
+
+  - id: habitability-conflict
+    question: ¿Hace falta cédula de habitabilidad para alquilar un piso?
+    reference: >-
+      En Cataluña sí: en cualquier alquiler hay que acreditar las condiciones de la vivienda
+      entregando la cédula de habitabilidad vigente (Ley 18/2007 art. 26.2). En la normativa estatal,
+      el certificado o cédula de habitabilidad es parte de la información que el interesado puede
+      pedir antes de formalizar el alquiler (Ley 12/2023 art. 31).
+    tags: [paraphrase, conflict, habitability]
+    expected:
+      - { law_id: BOE-A-2008-3657, block_id: a26 }
+      - { law_id: BOE-A-2023-12203, block_id: a3-3 }
+
+  # ── Regressions: bugs found by hand, kept so they cannot come back ───────────────────────
+  # #34: prompt v1 opened with "No, no puede" and concluded "el máximo total sería tres meses".
+  - id: deposit-three-months-regression
+    question: Mi casero me pide 3 meses de fianza, ¿puede?
+    reference: >-
+      Depende de qué sean esos tres meses. Como fianza solo puede pedir una mensualidad (LAU art.
+      36.1), pero además se pueden pactar garantías adicionales de hasta dos mensualidades en
+      contratos de hasta cinco años, o siete si el arrendador es persona jurídica (LAU art. 36.5):
+      tres meses en total solo son posibles como una de fianza más dos de garantía adicional.
+    tags: [paraphrase, deposit, regression]
+    expected:
+      - { law_id: BOE-A-1994-26003, block_id: a36 }
 
   # ── Out of domain: retrieving nothing is the correct answer ───────────────────────────────
   - id: ood-weather
