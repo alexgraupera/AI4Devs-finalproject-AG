@@ -321,7 +321,7 @@ flowchart LR
 
 **Al arrancar, la API se prepara sola.** Aplica las migraciones y reconstruye el corpus desde el BOE si hace falta: la primera vez descarga las seis fuentes y las embebe (~10 s, 0,02 $); las siguientes ve que nada ha cambiado y no hace nada. Si el BOE no responde, arranca igual con lo que tiene.
 
-**Rollback en un minuto.** Render guarda cada despliegue y vuelve a uno anterior sin reconstruir. Al apagar un contenedor en un despliegue, las revisiones en curso tienen hasta 120 s para terminar en vez de cortarse y pagarse dos veces.
+**Rollback en un minuto.** Render guarda cada despliegue y vuelve a uno anterior sin reconstruir. Al apagar un contenedor en un despliegue, las revisiones en curso tienen para terminar el plazo por defecto de la plataforma: el plan gratuito no permite alargarlo, y una revisión con agente que no llegue a tiempo se corta y hay que repetirla ([ADR 0021](docs/decisions/0021-hosting-on-render.md)).
 
 Lo que cuesta el plan gratuito, dicho y no escondido: la API es pública (los servicios gratuitos no reciben tráfico privado), protegida por el token, la clave, el límite de peticiones y el tope de gasto; los servicios se duermen tras 15 minutos; y la base de datos gratuita caduca a los 30 días, lo que aquí se acepta porque el corpus se reconstruye solo.
 
