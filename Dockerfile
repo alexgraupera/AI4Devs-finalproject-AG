@@ -12,6 +12,8 @@ COPY app ./app
 COPY streamlit_app.py ui_api.py ui_auth.py ui_feedback.py ./
 # Streamlit discovers the pages next to the entry point: without them the UI is a landing page.
 COPY pages ./pages
+# The UI's theme (the accent colour of focused fields and buttons).
+COPY .streamlit ./.streamlit
 # The schema travels with the code that expects it, so the container can migrate itself.
 COPY alembic.ini ./
 COPY migrations ./migrations
