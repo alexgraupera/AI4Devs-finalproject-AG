@@ -767,7 +767,26 @@ nada que reescribir ni que volver a embeber.
 
 ## 4. Especificación de la API
 
-La especificación completa se genera sola y está en `http://localhost:8000/docs` (Swagger) y `http://localhost:8000/openapi.json`.
+La especificación completa se genera sola a partir del código (FastAPI y los modelos de Pydantic) y está publicada:
+
+| | Local | Producción |
+|---|---|---|
+| Swagger UI | http://localhost:8000/docs | https://ai4devs-rental-api-ag.onrender.com/docs |
+| ReDoc | http://localhost:8000/redoc | https://ai4devs-rental-api-ag.onrender.com/redoc |
+| OpenAPI (JSON) | http://localhost:8000/openapi.json | https://ai4devs-rental-api-ag.onrender.com/openapi.json |
+
+La documentación es pública a propósito: es el contrato que lee un cliente y no abre ningún endpoint ([ADR 0020](docs/decisions/0020-access-spend-and-probes.md)).
+
+**Llamar a la API.** Los endpoints de negocio piden dos cabeceras: `X-Service-Token` (el token de servicio) y `X-API-Key` (la clave). En producción los valores los genera Render y están en el servicio `ai4devs-rental-api-ag` → *Environment* (`SERVICE_TOKEN` y `API_KEY`); en local no hacen falta mientras `.env` no los defina.
+
+```bash
+curl -X POST https://ai4devs-rental-api-ag.onrender.com/api/v1/regulations/ask \
+  -H "Content-Type: application/json" \
+  -H "X-Service-Token: $SERVICE_TOKEN" -H "X-API-Key: $API_KEY" \
+  -d '{"question": "¿Cuál es la fianza legal en un alquiler de vivienda?"}'
+```
+
+**Swagger no puede probar la API de producción tal cual.** Su botón *Authorize* solo conoce la clave, porque el token lo comprueba un middleware que la especificación no declara: «Try it out» responde 401 aunque la clave sea correcta. En local, sin token configurado, funciona. Declarar el token en la especificación, para que *Authorize* pida las dos, es un cambio pequeño que queda pendiente (sección 9).
 
 | Endpoint | Qué hace |
 |---|---|
@@ -1019,6 +1038,8 @@ Búsqueda híbrida, reformulación de la consulta y reranking, cada una con su h
 **Una API, todavía no un agente para otros agentes.** El servicio se consume por HTTP. Ofrecerlo por MCP para uso interno o por A2A a los agentes de otros portales sería un adaptador sobre la misma API, con sus propias credenciales ([ADR 0017](docs/decisions/0017-api-not-mcp.md)).
 
 **La clave de acceso es un secreto compartido.** Detrás de la interfaz, todos los visitantes comparten la clave de la interfaz, así que el límite de peticiones es global en la demo pública (el tope de gasto es el límite real). Límites por visitante exigirían que la interfaz reenviara una identidad del visitante en la que la API confiara porque el token avala a la interfaz; claves por llamante con rotación y cuotas son el siguiente paso con más de un cliente.
+
+**Swagger no sirve para probar la API de producción.** La documentación está publicada, pero el botón *Authorize* solo pide la clave y no el token de servicio, así que «Try it out» recibe un 401. Se arregla declarando el token como un segundo esquema de seguridad en la especificación; mientras tanto, `curl` con las dos cabeceras (sección 4).
 
 **Las revisiones en pausa no caducan.** Si nadie decide, su checkpoint (con el texto del anuncio) se queda en la base de datos. Un trabajo programado que descarte las pausas de más de N días es el siguiente paso ([ADR 0027](docs/decisions/0027-human-in-the-loop.md)).
 
