@@ -2,7 +2,7 @@
 
 Final project of the LIDR AI Engineering master: a **rental listing quality and compliance assistant** for a Spanish real estate marketplace. A landlord or agency pastes a rental listing and gets a structured review of missing, inconsistent or non-compliant information, grounded in Spanish regulations (BOE), plus a Q&A over those regulations.
 
-The system stacks the layers of a production AI product: CAG (caches), RAG (retrieval over Spanish regulations), agents, evaluation and deployment. Built only on public data and with a zero infrastructure budget.
+The system stacks the layers of a production AI product: CAG (the regulatory checklist in the prompt, and the caches in front of the model), RAG (retrieval over Spanish regulations), agents, evaluation and deployment. Built only on public data and with a zero infrastructure budget.
 
 ## Planning
 
