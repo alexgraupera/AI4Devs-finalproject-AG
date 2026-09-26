@@ -82,3 +82,19 @@ Measured on the same listings, the agent is **worse than the pipeline on every q
 - **The agent is not the default review, and the numbers say so.** Its value is the regional law the pipeline cannot see, and today its critic removes exactly that. #52 fixes the critic, moves the agent to the v3 checklist and measures again on this dataset.
 - `make eval-listings` costs ~$0.03 for the pipeline and ~$0.55 for the agent; `--only` runs a few cases for cents, which is how the Barcelona trace was read.
 - **18 listings decide between prompts whose differences are large.** One listing is 6 points of verdict accuracy; the two-run ranges above are the noise floor.
+
+## Update, 2026-09-26: checklist v4, because Claude Haiku 4.5 is back
+
+Everything above was measured with GPT-5.4 mini generating, because the Anthropic account was at its monthly limit. When it came back, the same pipeline with Claude Haiku 4.5 (the configured generator, [ADR 0023](0023-a-model-per-role.md)) **flagged a clean listing as illegal in 2 of 2 runs**: `clean-guarantee-at-the-limit` asks for one month of deposit and two of additional guarantee, and Haiku read the two-month limit of LAU art. 36.5 as including the deposit ("no pueden superar dos mensualidades en total (incluyendo la fianza)"). GPT-5.4 mini never made that reading. It is the same confusion as #34, in the other direction.
+
+**Checklist v4** says that the limit is the additional guarantee's alone and that one month of deposit plus two of guarantee complies. It is included by the pipeline (review prompt v4), the agent (prompt v5) and its critic (prompt v4), and a mocked regression case checks both prompts carry it.
+
+| Pipeline | Model | Precision | Recall | F1 | Clean false positives | Verdict | Cost / review | p50 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| v3 (2 runs) | GPT-5.4 mini | 100% | 81% | 0.90 | 0% | 87% | $0.0015 | 2.1-2.4 s |
+| v3 (2 runs) | Claude Haiku 4.5 | 92-93% | 75-81% | 0.83-0.87 | **25%** | 80% | $0.0035 | 3.2-3.4 s |
+| **v4** | **Claude Haiku 4.5** | **100%** | 75% | 0.86 | **0%** | **87%** | $0.0035 | 3.7 s |
+| v4 | GPT-5.4 mini | 93% | 81% | 0.87 | 0% | 87% | $0.0016 | 1.8 s |
+
+v4 removes the false positive without costing GPT-5.4 mini anything beyond its usual noise (its one extra finding is Ley 12/2023 art. 31 on the injection listing, not the guarantee). On this dataset the two models review equally well, and Haiku costs twice as much and takes twice as long: which model serves reviews is the generator comparison of ADR 0023. The four runs cost **$0.22**.
+

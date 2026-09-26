@@ -26,7 +26,9 @@ log = structlog.get_logger()
 
 # v3: Ley 12/2023 art. 31 only when the price says nothing of what it includes or the surface is
 # missing, and no finding for a point the listing meets. Measured on the listings dataset (#49).
-PROMPT_VERSION = "v3"
+# v4: the additional guarantee of LAU art. 36.5 is on top of the deposit. Claude Haiku 4.5 read the
+# two-month limit as including it and flagged a legal listing in 2 of 2 runs (ADR 0030).
+PROMPT_VERSION = "v4"
 
 
 class ListingReviewService:
