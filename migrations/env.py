@@ -21,7 +21,9 @@ from app.config import get_settings
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Without this, running the migrations inside a process (the tests do) silences every logger
+    # that already exists in it, the app's included, and an event nobody hears is an event lost.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = None
 

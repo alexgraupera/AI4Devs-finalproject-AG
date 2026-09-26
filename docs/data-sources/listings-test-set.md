@@ -56,3 +56,11 @@ In this example:
 - No personal data: no owner names, phone numbers or emails.
 - Every expected finding cites its source (BOE block or SERPAVI figure), so the evaluation can also check citation accuracy.
 - Include clean listings (no defects) to measure false positives, and adversarial ones (prompt injection inside the description, non-listing text).
+
+## What was built (#49)
+
+The set lives in [`evals/datasets/listings.yaml`](../../evals/datasets/listings.yaml): 18 listings, measured in [ADR 0030](../decisions/0030-listing-review-evaluation.md). It departs from the plan above in three ways:
+
+- **No Catastro or SERPAVI fields yet.** They arrive with the property data tools of #6; until then the listings carry the fields the `Listing` body accepts.
+- **Expected findings are articles, not categories.** A finding is scored by its law and article (`LAU art. 36`); the category is the annotator's opinion and the paragraph is noise.
+- **Two Catalan listings**, for the Ley 18/2007 obligations a state checklist does not have.

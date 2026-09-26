@@ -24,7 +24,9 @@ from app.generation.cag.exact import ReviewStore, make_key
 
 log = structlog.get_logger()
 
-PROMPT_VERSION = "v2"
+# v3: Ley 12/2023 art. 31 only when the price says nothing of what it includes or the surface is
+# missing, and no finding for a point the listing meets. Measured on the listings dataset (#49).
+PROMPT_VERSION = "v3"
 
 
 class ListingReviewService:

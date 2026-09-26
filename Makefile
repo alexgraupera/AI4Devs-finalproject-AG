@@ -1,4 +1,4 @@
-.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache eval-answers verify
+.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache eval-answers eval-listings verify
 
 install:
 	uv sync
@@ -41,6 +41,9 @@ benchmark-semantic-cache:
 
 eval-answers:
 	uv run python -m evals.answers.run
+
+eval-listings:
+	uv run python -m evals.listings.run
 
 verify:
 	uv run ruff check .
