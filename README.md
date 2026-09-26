@@ -996,12 +996,15 @@ Búsqueda híbrida, reformulación de la consulta y reranking, cada una con su h
 
 **Y están medidas las respuestas** (`make eval-answers`, [ADR 0022](docs/decisions/0022-answer-evaluation.md)): las 32 preguntas pasan por el servicio real y un juez de **otro proveedor** (GPT-5.4 mini) las califica con una rúbrica versionada. Métricas al estilo RAGAS: las de recuperación salen exactas de las etiquetas y las de generación del juez, que lista las afirmaciones mientras el código hace las cuentas.
 
-| Prompt | Respondidas | Rechazos fuera de dominio | Citan el artículo esperado | Fidelidad | Corrección | Caso de regresión #34 |
-|---|---:|---:|---:|---:|---:|---|
-| v1 | 84% | 100% | 76% | 0,95 | 0,68 | ❌ se niega a responder |
-| **v2 (actual)** | **92%** | **100%** | **88%** | 0,90 | **0,76** | ❌ la primera frase aún se contradice |
+| Configuración | Respondidas | Rechazos fuera de dominio | Citan el artículo esperado | Fidelidad | Corrección | Caso de regresión #34 | Coste / pregunta |
+|---|---:|---:|---:|---:|---:|---|---:|
+| Prompt v1, Claude Haiku 4.5 (25-09) | 84% | 100% | 76% | 0,95 | 0,68 | ❌ se niega a responder | 0,0107 $ |
+| Prompt v2, Claude Haiku 4.5 (25-09) | 92% | 100% | 88% | 0,90 | 0,76 | ❌ la primera frase aún se contradice | 0,0164 $ |
+| **Prompt v2 (actual), Claude Haiku 4.5 (26-09)** | **88%** | **100%** | **84%** | **0,93** | **0,74** | ❌ | 0,0144 $ |
+| Prompt v2, verificación en el mismo modelo que genera (26-09) | 88% | 100% | 84% | 0,91 | 0,74 | ✅ | 0,0162 $ |
+| Prompt v2, GPT-5.4 mini genera (26-09) | 88% | 100% | 88% | 0,98 | 0,70 | ✅ | 0,0077 $ |
 
-**La evaluación encontró lo que la prueba a mano no vio:** el arreglo del bug #34 está incompleto. Por eso existe un caso de regresión, y por eso se ha visto fallar antes de darlo por bueno. La mitad del coste de una respuesta es el reranking (0,0077 $ de 0,0164 $).
+**La evaluación encontró lo que la prueba a mano no vio:** el arreglo del bug #34 está incompleto. Por eso existe un caso de regresión, y por eso se ha visto fallar antes de darlo por bueno: hoy pasa o falla según la ejecución. Un prompt v3 que obligaba a decidir la conclusión antes de la primera frase **se probó y se descartó**: la apertura salía bien, pero la respuesta sumaba dos artículos («tres mensualidades en total») y la verificación de citas la retenía, y una negativa es peor que una apertura que duda ([evals](docs/evals.md)). **El juez en el otro proveedor se queda:** con 32 preguntas no se distingue del juez en el mismo modelo y cuesta la mitad. **Y GPT-5.4 mini responde igual de bien a mitad de precio**, lo que apunta a un generador por camino (GPT-5.4 mini para respuestas y revisiones, Claude Haiku 4.5 para el agente), aún no construido ([ADR 0023](docs/decisions/0023-a-model-per-role.md)). La mitad del coste de una respuesta es el reranking (0,0077 $ de 0,0144 $).
 
 **Y están medidas las revisiones de anuncios** (`make eval-listings`, [ADR 0030](docs/decisions/0030-listing-review-evaluation.md)): 18 anuncios anotados (limpios, con una o varias infracciones, dos catalanes y cuatro adversariales) pasan por el pipeline y por el agente. Solo se puntúan las incidencias legales, identificadas por ley y artículo: si una descripción es «demasiado vaga» es una opinión, y puntuarla premia a la revisión que más habla.
 
@@ -1033,6 +1036,10 @@ Búsqueda híbrida, reformulación de la consulta y reranking, cada una con su h
 **Las resoluciones de zonas tensionadas se añaden a mano.** El BOE no publica una lista consolidada legible por máquina, así que cada trimestre alguien tiene que añadir el identificador nuevo. El detector de deriva semanal avisa de las leyes que cambian, no de las resoluciones que aparecen.
 
 **El crítico del agente se equivoca más de lo que acierta.** Medido en el otro proveedor, como está diseñado, quitaba hallazgos correctos, y por eso ahora solo avisa: lo que pone en duda llega a una persona con su motivo en vez de desaparecer. En la última medición sus 5 dudas fueron hallazgos correctos, así que hoy su coste es el tiempo de esa persona (una revisión de cada cinco). Si se mantiene, el siguiente paso es cambiar lo que comprueba o quitarlo ([ADR 0035](docs/decisions/0035-the-critic-flags-it-does-not-filter.md)).
+
+**La respuesta a «¿3 meses de fianza?» todavía duda.** El caso de regresión del bug #34 pasa o falla según la ejecución: a veces la respuesta abre con un «no» que luego matiza. El prompt v3 que lo corregía hacía que la respuesta sumara dos artículos, y la verificación de citas la retenía; se descartó porque una negativa es peor ([evals](docs/evals.md)). El siguiente intento es de estructura, no de prompt: pedir la conclusión en un campo propio antes de la respuesta.
+
+**Un solo modelo genera en todos los caminos.** Medido, GPT-5.4 mini responde y revisa igual de bien que Claude Haiku 4.5 a mitad de coste y latencia, y en el agente es mucho peor. Un generador por camino (una variable por camino en vez de `LLM_MODEL`) abarataría las respuestas y las revisiones sin tocar al agente ([ADR 0023](docs/decisions/0023-a-model-per-role.md)).
 
 **El juez es un modelo pequeño.** La verificación de citas, el crítico y el juez de las evaluaciones son GPT-5.4 mini, en el otro proveedor del que escribe ([ADR 0023](docs/decisions/0023-a-model-per-role.md)), y aun así se equivocan en ambos sentidos: la verificación marcó como no sostenida una afirmación que sí estaba en el artículo, y el crítico rechaza incidencias correctas ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)). Un juez más capaz costaría más por llamada; se mide cuando el presupuesto lo permita, con los mismos sets.
 

@@ -103,6 +103,25 @@ A full run of both variants cost **$1.02**.
 - **Nothing out of domain gets through**, and the context always contains an expected article (context recall 100%): the losses are in generation, not in retrieval.
 - **Reranking is half the cost of an answer.** It is also what took recall@1 from 82% to 91-95%; if cost has to go down, it is the first stage to measure with a cheaper model (#47).
 
+### Answers: the judge, the generator and a second fix for #34, 2026-09-26
+
+With the Anthropic account back, the comparisons [ADR 0023](decisions/0023-a-model-per-role.md) postponed. The golden set, judged by GPT-5.4 mini:
+
+| Configuration | Answered | Refused (out of domain) | Cites expected | Faithfulness | Relevance | Correctness | Opening holds | Regressions | Cost / question | p50 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **Haiku generating, grounding on GPT-5.4 mini (what ships)** | 88% | 100% | 84% | 0.93 | 0.98 | 0.74 | 91% | 0/1 | $0.0144 | 7.8 s |
+| Haiku generating, grounding on Haiku (`grounding-on-generator`) | 88% | 100% | 84% | 0.91 | 1.00 | 0.74 | 95% | 1/1 | $0.0162 | 8.2 s |
+| GPT-5.4 mini generating and grounding | 88% | 100% | 88% | 0.98 | 1.00 | 0.70 | 100% | 1/1 | $0.0077 | 4.2 s |
+
+**What it says:**
+
+- **The judge on the other provider stays**: indistinguishable from the one on the generator on 32 questions, at half the price of the check (#47).
+- **GPT-5.4 mini answers as well as Haiku here, at half the cost and latency**, graded by a judge of its own provider, which leans that row its way. With the reviews it points to a generator per path (GPT-5.4 mini for answers and pipeline, Haiku for the agent), not built yet ([ADR 0023](decisions/0023-a-model-per-role.md)).
+- **The #34 case passes and fails from run to run** (it passed in two of the three configurations): the answer to the deposit question is where the prompt v2 still wobbles.
+- **A prompt v3 for #34 was tried and rejected.** It asked the model to settle the whole conclusion before its first sentence. Three drafts over the four questions it concerns ($0.25): the opening came out right ("Depende…"), but the answer then stated "tres mensualidades en total", a sum of two articles, with a condition the articles do not state, and the grounding check withheld it in every draft, a grounding prompt that accepts totals included. A refusal is worse than a wobbly opening, so v2 stays and #34 stays a known limitation.
+
+The three runs of this section cost **$1.46**.
+
 ### Listing reviews: first run, 2026-09-25
 
 `make eval-listings`, the 18 listings through both paths (GPT-5.4 mini generating: Anthropic is at its monthly limit until 2026-10-01).
@@ -173,7 +192,7 @@ Claude Haiku 4.5 acting and GPT-5.4 mini criticising, as [ADR 0023](decisions/00
 
 ## The regression gate
 
-[`evals/baseline.json`](../evals/baseline.json) holds the promoted baseline: the answers of 2026-09-25 and the pipeline's listings of #52, with the commit and the models that answered. `make eval-gate` compares the newest whole runs against it ([ADR 0032](decisions/0032-regression-gate.md)):
+[`evals/baseline.json`](../evals/baseline.json) holds the promoted baseline: what ships on 2026-09-26 (answers with Claude Haiku 4.5 and the judge on GPT-5.4 mini, the pipeline v4 with Haiku), with the commit and the models that answered. Before promoting it, the gate was run against the previous baseline (GPT-5.4 mini reviewing): it passed everything but the cost per review, which doubles with the model and the report says so; and against the morning's Haiku run with the checklist v3 it failed on the clean listing flagged as illegal, which is the defect the checklist v4 fixed. `make eval-gate` compares the newest whole runs against it ([ADR 0032](decisions/0032-regression-gate.md)):
 
 | Kind | Metrics | Rule |
 |---|---|---|
@@ -223,6 +242,10 @@ Chronological. Each row is a change that was measured before it was kept or dele
 | 2026-09-26 | Checklist v4: the additional guarantee is on top of the deposit (pipeline v4, agent v5, critic v4) | Haiku: precision 100%, clean false positives 0%, verdict 87%; GPT-5.4 mini unchanged within noise | Kept ([ADR 0030](decisions/0030-listing-review-evaluation.md)) |
 | 2026-09-26 | The agent with Claude Haiku 4.5 acting and the critic on GPT-5.4 mini, as designed | Critic filtering: recall 75%, 7 correct findings removed; without it: precision 100%, recall 94%, F1 0.97; no inventions (10 with GPT-5.4 mini acting) | The rule of ADR 0031 applies: the critic flags |
 | 2026-09-26 | The critic flags instead of filtering (`AGENT_CRITIC_MODE=flag`) | Precision 100%, recall 94%, F1 0.97, verdict 93%, 20% escalated; its 5 doubts were all correct findings | Kept ([ADR 0035](decisions/0035-the-critic-flags-it-does-not-filter.md)) |
+| 2026-09-26 | Grounding check on the other provider (GPT-5.4 mini) vs on the generator (#47) | Indistinguishable on 32 questions; half the cost of the check | Kept ([ADR 0023](decisions/0023-a-model-per-role.md)) |
+| 2026-09-26 | GPT-5.4 mini as the generator of answers and reviews | Answers: correctness 0.70 vs 0.74, opening 100% vs 91%; reviews: F1 0.87 vs 0.86; half the cost and latency; the agent's actor much worse | Not switched yet: points to a generator per path ([ADR 0023](decisions/0023-a-model-per-role.md)) |
+| 2026-09-26 | Q&A prompt v3 for #34 (settle the conclusion before the first sentence), three drafts, one with a grounding prompt that accepts totals | Opening right, but "tres mensualidades en total" and an unstated condition; the grounding check withheld the answer in every draft | **Rejected**: v2 stays, #34 a known limitation |
+| 2026-09-26 | Baseline promoted: Claude Haiku 4.5 answering and reviewing with the checklist v4 | The gate against the old one: only the cost per review breaches, and it names the model change | Promoted |
 
 ## How to run
 
