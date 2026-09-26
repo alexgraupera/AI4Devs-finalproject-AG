@@ -11,6 +11,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://rental:rental@db:5432/rental
       API_KEY: ${API_KEY:-}
       SERVICE_TOKEN: ${SERVICE_TOKEN:-}
+      # The corpus is built from the BOE on start-up, as in production: without it, a first
+      # `make up` answers every regulation question with "not found". Idempotent, so a restart
+      # re-downloads only what the BOE changed; the first run embeds 380 fragments for ~$0.02.
+      BOOTSTRAP_CORPUS: ${BOOTSTRAP_CORPUS:-true}
     depends_on:
       cache:
         condition: service_healthy
