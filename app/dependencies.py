@@ -6,6 +6,7 @@ of them. Routers and tests import it; nothing else does.
 
 from functools import lru_cache
 
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.config import get_settings
@@ -15,6 +16,7 @@ from app.domain.regulation_qa_service import RegulationQAService
 from app.foundation.guardrails.input import ModerationClient
 from app.foundation.guardrails.moderation import DisabledModeration, LiteLLMModeration
 from app.foundation.guardrails.rate_limit import NoRateLimit, RateLimiter, RedisRateLimiter
+from app.foundation.guardrails.spend import NoSpendLimit, RedisSpendGuard, SpendGuard
 from app.foundation.llm.wrapper import LLMWrapper, build_router
 from app.foundation.persistence.database import create_engine, session_factory
 from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
@@ -54,11 +56,29 @@ def get_engine() -> AsyncEngine | None:
 
 
 @lru_cache
+def get_redis() -> Redis | None:
+    # One client for the cache, the rate limiter and the spend guard: one connection pool, and
+    # one place that decides that no REDIS_URL means none of the three.
+    url = get_settings().redis_url
+    if not url:
+        return None
+    return Redis.from_url(url, decode_responses=True)
+
+
+@lru_cache
 def get_review_cache() -> ReviewStore:
-    settings = get_settings()
-    if not settings.redis_url:
+    client = get_redis()
+    if client is None:
         return NullCache()
-    return ReviewCache.from_url(settings.redis_url, ttl_seconds=settings.cache_ttl_seconds)
+    return ReviewCache(client, ttl_seconds=get_settings().cache_ttl_seconds)
+
+
+@lru_cache
+def get_spend_guard() -> SpendGuard:
+    client = get_redis()
+    if client is None:
+        return NoSpendLimit()
+    return RedisSpendGuard(client, cap_usd=get_settings().daily_spend_cap_usd)
 
 
 @lru_cache
@@ -69,6 +89,7 @@ def get_listing_review_service() -> ListingReviewService:
         moderation=get_moderation_client(),
         cache=get_review_cache(),
         model=settings.llm_model,
+        spend=get_spend_guard(),
     )
 
 
@@ -99,11 +120,12 @@ def get_retriever() -> Retriever:
 
 @lru_cache
 def get_rate_limiter() -> RateLimiter:
-    settings = get_settings()
-    if not settings.redis_url:
+    client = get_redis()
+    if client is None:
         return NoRateLimit()
-    return RedisRateLimiter.from_url(
-        settings.redis_url,
+    settings = get_settings()
+    return RedisRateLimiter(
+        client,
         requests=settings.rate_limit_requests,
         window_seconds=settings.rate_limit_window_seconds,
     )
@@ -131,4 +153,5 @@ def get_regulation_qa_service() -> RegulationQAService:
         top_k=settings.retrieval_top_k,
         rerank_pool=settings.rerank_pool,
         max_context_chars=settings.max_context_chars,
+        spend=get_spend_guard(),
     )

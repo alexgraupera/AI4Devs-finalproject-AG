@@ -21,6 +21,10 @@ import re
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+import structlog
+
+log = structlog.get_logger()
+
 Reason = Literal["empty_text", "text_too_short", "text_too_long", "moderation", "prompt_injection", "pii"]
 
 
@@ -77,7 +81,9 @@ _INJECTION_PATTERNS = [
 
 _PII_PATTERNS: list[tuple[str, str]] = [
     ("email", r"[\w.+-]+@[\w-]+\.[\w.]+"),
-    ("phone", r"(?<!\d)(?:\+34[\s-]?)?[6-9]\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}(?!\d)"),
+    # Nine digits starting with 6-9, however they are grouped: "612 345 678" (the usual way to
+    # write a mobile), "612 34 56 78", "91 512 34 56", with spaces, dots or dashes.
+    ("phone", r"(?<!\d)(?:\+34[\s.-]?)?[6-9](?:[\s.-]?\d){8}(?!\d)"),
     ("iban", r"\bES\d{2}[\s-]?(?:\d{4}[\s-]?){5}\b"),
 ]
 
@@ -113,9 +119,18 @@ def _check_pii(text: str) -> None:
 
 
 async def check_input(text: str, moderation: ModerationClient | None = None, *, limits: SizeLimits = LISTING) -> None:
-    """Run every layer over the text. Raises `InputGuardrailViolation` on the first hit."""
-    _check_size(text, limits)
-    _check_injection(text)
-    _check_pii(text)
-    if moderation is not None and await moderation.is_flagged(text):
-        raise InputGuardrailViolation("The listing was flagged by moderation", reason="moderation")
+    """Run every layer over the text. Raises `InputGuardrailViolation` on the first hit.
+
+    Every rejection is logged with its reason and the length of the text, never the text: a burst
+    of `prompt_injection` from one caller is a signal worth counting, and the text is exactly what
+    may carry the personal data that got it rejected.
+    """
+    try:
+        _check_size(text, limits)
+        _check_injection(text)
+        _check_pii(text)
+        if moderation is not None and await moderation.is_flagged(text):
+            raise InputGuardrailViolation("The listing was flagged by moderation", reason="moderation")
+    except InputGuardrailViolation as violation:
+        log.info("guardrail.rejected", reason=violation.reason, text_chars=len(text))
+        raise

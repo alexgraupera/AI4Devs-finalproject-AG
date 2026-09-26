@@ -1,5 +1,7 @@
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,6 +9,9 @@ class Settings(BaseSettings):
     """Configuration read from environment variables (and `.env` when running locally)."""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # Production refuses to start with a required secret missing (see `missing_for_production`).
+    environment: Literal["development", "production"] = "development"
 
     api_url: str = "http://localhost:8000"
 
@@ -56,14 +61,52 @@ class Settings(BaseSettings):
     # Share of an answer's claims the cited articles must support. Measured, not assumed: see ADR 0014.
     grounding_min_confidence: float = 0.7
 
-    # Retrieval endpoints. Empty RAG_API_KEY leaves them open, which is right for local
-    # development and logged as a warning so it is never a silent state in production.
+    # Business endpoints (reviews and regulations). Empty leaves them open, which is right for
+    # local development and logged as a warning on every request; production refuses to start.
+    api_key: str = ""
+    # The name the key had while it only guarded the regulations. Still read, so an existing
+    # `.env` keeps working; `api_key` wins when both are set.
     rag_api_key: str = ""
     rate_limit_requests: int = 30
     rate_limit_window_seconds: int = 60
 
-    # Only read to decide whether the moderation layer can run; the providers read their own keys.
+    # Required on every request but the probes and the docs: may you talk to this service at all.
+    # It sits in front of the API key, which says which endpoints you may use (ADR 0020).
+    service_token: str = ""
+
+    # Model spend per UTC day. Reaching it stops model calls until midnight instead of alerting:
+    # nobody may be watching when a loop, or someone else's script, starts spending.
+    daily_spend_cap_usd: float = 2.0
+
+    # Read to decide whether moderation can run and whether production has its providers; the
+    # providers read their own keys from the environment.
     openai_api_key: str = ""
+    anthropic_api_key: str = ""
+
+    @model_validator(mode="after")
+    def _adopt_the_old_key_name(self) -> "Settings":
+        if not self.api_key and self.rag_api_key:
+            self.api_key = self.rag_api_key
+        return self
+
+    def missing_for_production(self) -> list[str]:
+        """The settings production cannot run without. Names only: a value never reaches a log.
+
+        An empty token on both sides of a comparison is equal, so an unset service token does not
+        fail, it opens the door. The same goes for the API key. That is why these are checked at
+        start-up rather than trusted to be there.
+        """
+        if self.environment != "production":
+            return []
+        required = {
+            "API_KEY": self.api_key,
+            "SERVICE_TOKEN": self.service_token,
+            "ANTHROPIC_API_KEY": self.anthropic_api_key,
+            "OPENAI_API_KEY": self.openai_api_key,
+            "DATABASE_URL": self.database_url,
+            "REDIS_URL": self.redis_url,
+        }
+        return [name for name, value in required.items() if not value]
 
 
 @lru_cache

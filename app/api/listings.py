@@ -6,11 +6,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.api.security import enforce_rate_limit
 from app.dependencies import get_listing_review_service
 from app.domain.listing_review_service import ListingReviewService
 from app.domain.schemas.listing_review import Finding, Listing, ReviewedListing, Verdict
 
-router = APIRouter(prefix="/api/v1/listings", tags=["listings"])
+# The same guards as the regulations router: the review is the most-called endpoint and every
+# review is a model call, so it is the one an open door would cost the most.
+router = APIRouter(prefix="/api/v1/listings", tags=["listings"], dependencies=[Depends(enforce_rate_limit)])
 
 
 class UsageResponse(BaseModel):

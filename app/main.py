@@ -9,12 +9,27 @@ from fastapi import FastAPI
 
 from app.api import health, listings, regulations
 from app.api.errors import register_error_handlers
+from app.api.security import ServiceTokenMiddleware
+from app.config import Settings, get_settings
 from app.foundation.observability.logging import configure_logging
 
 
-def create_app() -> FastAPI:
+class MissingProductionSettings(RuntimeError):
+    """Production was asked to start without a secret it cannot run safely without."""
+
+
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+    # Fail fast, before serving a single request: an empty token or key does not fail later, it
+    # silently opens the door. Names only in the message; a value never reaches a log.
+    missing = settings.missing_for_production()
+    if missing:
+        raise MissingProductionSettings(f"production cannot start without: {', '.join(missing)}")
+
     configure_logging()
     app = FastAPI(title="Rental Assistant API", version="0.1.0")
+    if settings.service_token:
+        app.add_middleware(ServiceTokenMiddleware, token=settings.service_token)
     app.include_router(health.router)
     app.include_router(listings.router)
     app.include_router(regulations.router)

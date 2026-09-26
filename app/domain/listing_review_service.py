@@ -16,6 +16,7 @@ from app.domain.errors import NotAListing
 from app.domain.schemas.listing_review import Listing, ListingReview, ReviewCandidate, ReviewedListing
 from app.foundation.guardrails.input import ModerationClient, check_input
 from app.foundation.guardrails.output import check_review
+from app.foundation.guardrails.spend import SpendGuard
 from app.foundation.llm.usage import LLMUsage
 from app.foundation.llm.wrapper import StructuredLLM
 from app.foundation.prompts.loader import render_listing_review_prompt
@@ -34,10 +35,12 @@ class ListingReviewService:
         cache: ReviewStore | None = None,
         model: str = "",
         prompt_version: str = PROMPT_VERSION,
+        spend: SpendGuard | None = None,
     ) -> None:
         self._llm = llm
         self._moderation = moderation
         self._cache = cache
+        self._spend = spend
         self._model = model
         self._prompt_version = prompt_version
 
@@ -50,8 +53,15 @@ class ListingReviewService:
         if cached is not None:
             return cached
 
+        # After the cache on purpose: a stored review costs nothing, so it is served even when
+        # today's budget is spent.
+        if self._spend is not None:
+            await self._spend.check()
+
         completion = await self._llm.complete_structured(system=system, user=user, schema=ReviewCandidate)
         usage = completion.usage
+        if self._spend is not None:
+            await self._spend.record(usage.estimated_cost_usd)
 
         log.info(
             "listing_review.completed",

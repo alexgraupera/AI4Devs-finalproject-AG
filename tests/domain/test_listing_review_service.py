@@ -16,6 +16,7 @@ from app.domain.schemas.listing_review import (
     Verdict,
 )
 from app.foundation.guardrails.input import InputGuardrailViolation
+from app.foundation.guardrails.spend import BudgetExhausted
 from app.foundation.llm.usage import LLMUsage, StructuredCompletion
 
 T = TypeVar("T", bound=BaseModel)
@@ -210,3 +211,46 @@ async def test_does_not_store_a_text_that_is_not_a_listing() -> None:
         await service.review(A_LISTING)
 
     assert cache.saved == {}
+
+
+# ── The daily spend cap ─────────────────────────────────────────────────────────────────────
+
+
+class RecordingSpend:
+    def __init__(self, exhausted: bool = False) -> None:
+        self.exhausted = exhausted
+        self.recorded: list[Decimal | None] = []
+
+    async def check(self) -> None:
+        if self.exhausted:
+            raise BudgetExhausted(retry_after=60)
+
+    async def record(self, cost_usd: Decimal | None) -> None:
+        self.recorded.append(cost_usd)
+
+
+async def test_records_what_the_review_cost() -> None:
+    spend = RecordingSpend()
+
+    await ListingReviewService(llm=FakeLLM(a_candidate()), spend=spend).review(A_LISTING)
+
+    assert spend.recorded == [A_USAGE.estimated_cost_usd]
+
+
+async def test_an_exhausted_budget_stops_the_review_before_the_model_is_called() -> None:
+    llm = FakeLLM(a_candidate())
+
+    with pytest.raises(BudgetExhausted):
+        await ListingReviewService(llm=llm, spend=RecordingSpend(exhausted=True)).review(A_LISTING)
+
+    assert llm.system is None
+
+
+async def test_a_text_that_is_not_a_listing_still_counts_against_the_budget() -> None:
+    # The model was asked and paid for, whatever it answered.
+    spend = RecordingSpend()
+
+    with pytest.raises(NotAListing):
+        await ListingReviewService(llm=FakeLLM(a_candidate(is_rental_listing=False)), spend=spend).review(A_LISTING)
+
+    assert spend.recorded == [A_USAGE.estimated_cost_usd]

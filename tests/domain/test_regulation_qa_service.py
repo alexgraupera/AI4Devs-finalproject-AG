@@ -9,6 +9,7 @@ from app.domain.regulation_qa_service import NO_ANSWER, RegulationQAService
 from app.domain.schemas.regulation_answer import AnswerCandidate, RegulationQuestion
 from app.foundation.guardrails.grounding import CheckedClaim, GroundingReport
 from app.foundation.guardrails.input import InputGuardrailViolation
+from app.foundation.guardrails.spend import BudgetExhausted
 from app.foundation.llm.usage import LLMUsage, StructuredCompletion
 from app.generation.rag.rerank import Reranked
 from app.generation.rag.retriever import RetrievedChunk
@@ -388,3 +389,47 @@ async def test_articles_from_two_jurisdictions_are_labelled_for_the_model() -> N
     _, user = llm.prompts[0]
     assert "normativa estatal" in user
     assert "normativa de Cataluña" in user
+
+
+# ── The daily spend cap ─────────────────────────────────────────────────────────────────────
+
+
+class RecordingSpend:
+    def __init__(self, exhausted: bool = False) -> None:
+        self.exhausted = exhausted
+        self.recorded: list[Decimal | None] = []
+
+    async def check(self) -> None:
+        if self.exhausted:
+            raise BudgetExhausted(retry_after=60)
+
+    async def record(self, cost_usd: Decimal | None) -> None:
+        self.recorded.append(cost_usd)
+
+
+async def test_records_the_whole_answer_cost_generation_and_grounding_together() -> None:
+    spend = RecordingSpend()
+    qa = RegulationQAService(llm=FakeLLM(a_candidate()), retriever=FakeRetriever(), spend=spend)  # type: ignore[arg-type]
+
+    await qa.ask(A_QUESTION)
+
+    assert spend.recorded == [A_USAGE.estimated_cost_usd + A_GROUNDING_USAGE.estimated_cost_usd]  # type: ignore[operator]
+
+
+async def test_an_exhausted_budget_stops_the_answer_before_anything_is_retrieved() -> None:
+    retriever = FakeRetriever()
+    qa = RegulationQAService(llm=FakeLLM(a_candidate()), retriever=retriever, spend=RecordingSpend(exhausted=True))  # type: ignore[arg-type]
+
+    with pytest.raises(BudgetExhausted):
+        await qa.ask(A_QUESTION)
+
+    assert retriever.calls == []
+
+
+async def test_a_refusal_without_a_model_call_records_nothing_spent() -> None:
+    spend = RecordingSpend()
+    qa = RegulationQAService(llm=FakeLLM(a_candidate()), retriever=FakeRetriever(chunks=[]), spend=spend)  # type: ignore[arg-type]
+
+    await qa.ask(A_QUESTION)
+
+    assert spend.recorded == [Decimal(0)]

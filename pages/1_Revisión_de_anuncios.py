@@ -1,37 +1,12 @@
 from typing import Any
 
-import httpx
 import streamlit as st
 
-from app.config import get_settings
+from ui_api import is_api_available, post
 
 SEVERITY_LABELS = {"high": "Alta", "medium": "Media", "low": "Baja"}
 SEVERITY_ICONS = {"high": "🔴", "medium": "🟠", "low": "🟡"}
 VERDICT_LABELS = {"approve": "Listo para publicar", "request_changes": "Requiere cambios"}
-
-
-def is_api_available(api_url: str) -> bool:
-    try:
-        response = httpx.get(f"{api_url}/health", timeout=2)
-    except httpx.HTTPError:
-        return False
-    return response.status_code == 200
-
-
-UNEXPECTED_ERROR = "No se ha podido contactar con el servicio. Inténtalo de nuevo."
-
-
-def review_listing(api_url: str, listing: dict[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
-    """Returns (review, error message). The API already words its errors for the person reading."""
-    try:
-        response = httpx.post(f"{api_url}/api/v1/listings/review", json=listing, timeout=120)
-    except httpx.HTTPError:
-        return None, UNEXPECTED_ERROR
-
-    body = response.json()
-    if response.is_success:
-        return body, None
-    return None, str(body.get("error", {}).get("message", UNEXPECTED_ERROR))
 
 
 def render_usage(usage: dict[str, Any], cached: bool) -> None:
@@ -79,8 +54,7 @@ def render_review(review: dict[str, Any]) -> None:
 st.set_page_config(page_title="Revisión de anuncios de alquiler", page_icon="🏠")
 st.title("Revisión de anuncios de alquiler")
 
-api_url = get_settings().api_url
-if not is_api_available(api_url):
+if not is_api_available():
     st.error("API no disponible")
     st.stop()
 
@@ -113,7 +87,7 @@ if submitted:
         "energy_rating": energy_rating or None,
     }
     with st.spinner("Revisando el anuncio..."):
-        review, error = review_listing(api_url, listing)
+        review, error = post("/api/v1/listings/review", listing)
 
     if error is not None:
         st.error(error)

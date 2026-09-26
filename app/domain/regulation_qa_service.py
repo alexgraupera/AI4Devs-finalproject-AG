@@ -29,6 +29,7 @@ from app.domain.schemas.regulation_answer import (
 )
 from app.foundation.guardrails.grounding import DEFAULT_MIN_CONFIDENCE, check_grounding
 from app.foundation.guardrails.input import QUESTION, ModerationClient, check_input
+from app.foundation.guardrails.spend import SpendGuard
 from app.foundation.llm.usage import LLMUsage, combined
 from app.foundation.llm.wrapper import StructuredLLM
 from app.foundation.prompts.loader import render_regulations_qa_prompt
@@ -77,8 +78,10 @@ class RegulationQAService:
         min_score: float | None = None,
         rerank_pool: int = 20,
         max_context_chars: int = DEFAULT_MAX_CHARS,
+        spend: SpendGuard | None = None,
     ) -> None:
         self._llm = llm
+        self._spend = spend
         self._retriever = retriever
         self._moderation = moderation
         self._reranker = reranker
@@ -92,7 +95,16 @@ class RegulationQAService:
         self._max_context_chars = max_context_chars
 
     async def ask(self, question: RegulationQuestion) -> AnsweredQuestion:
+        answered = await self._answer(question)
+        # Every path reports what it cost, refusals included, so one place records it.
+        if self._spend is not None:
+            await self._spend.record(answered.usage.estimated_cost_usd)
+        return answered
+
+    async def _answer(self, question: RegulationQuestion) -> AnsweredQuestion:
         await check_input(question.question, moderation=self._moderation, limits=QUESTION)
+        if self._spend is not None:
+            await self._spend.check()
 
         started = time.perf_counter()
         # With a reranker, retrieval goes wide and the model picks. That width is what makes it
