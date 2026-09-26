@@ -228,6 +228,7 @@ Chronological. Each row is a change that was measured before it was kept or dele
 
 ```bash
 docker compose up -d db && make migrate ingest      # the corpus, once
+make evals                                           # everything that ships, then the gate: ~$1.10, as evals.yml does
 make benchmark-retrieval                             # ~$0.30 with the reranker
 make eval-answers                                    # both variants, ~$1.20 and ~20 minutes
 make eval-listings                                   # pipeline and agent, ~$0.60 and ~6 minutes

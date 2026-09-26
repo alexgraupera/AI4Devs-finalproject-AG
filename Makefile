@@ -1,4 +1,4 @@
-.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache eval-answers eval-listings eval-gate eval-promote verify
+.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache evals eval-answers eval-listings eval-gate eval-promote verify
 
 install:
 	uv sync
@@ -38,6 +38,12 @@ benchmark-retrieval:
 
 benchmark-semantic-cache:
 	uv run python -m benchmarks.semantic_cache.run
+
+# The whole real-model evaluation of what ships, then the gate: the same steps as evals.yml. ~$1.10.
+evals:
+	uv run python -m evals.answers.run --variant baseline
+	uv run python -m evals.listings.run --path both
+	uv run python -m evals.gate check
 
 eval-answers:
 	uv run python -m evals.answers.run
