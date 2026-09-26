@@ -44,6 +44,11 @@ jobs:
   # the diff, so a key committed and then deleted is still found.
   secrets:
     runs-on: ubuntu-latest
+    # On a pull request the action lists the pull request's commits through the API, which the
+    # default read-only token does not cover; without this it fails before scanning anything.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
