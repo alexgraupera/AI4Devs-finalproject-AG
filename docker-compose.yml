@@ -35,6 +35,8 @@ services:
       API_KEY: ${API_KEY:-}
       RAG_API_KEY: ${RAG_API_KEY:-}
       SERVICE_TOKEN: ${SERVICE_TOKEN:-}
+      UI_USERNAME: ${UI_USERNAME:-}
+      UI_PASSWORD: ${UI_PASSWORD:-}
     ports:
       - "127.0.0.1:8501:8501"
     depends_on:
