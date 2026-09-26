@@ -9,7 +9,7 @@ RUN uv sync --locked --no-install-project
 
 COPY README.md ./
 COPY app ./app
-COPY streamlit_app.py ui_api.py ui_feedback.py ./
+COPY streamlit_app.py ui_api.py ui_auth.py ui_feedback.py ./
 # Streamlit discovers the pages next to the entry point: without them the UI is a landing page.
 COPY pages ./pages
 # The schema travels with the code that expects it, so the container can migrate itself.

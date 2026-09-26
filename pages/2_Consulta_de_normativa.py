@@ -11,6 +11,7 @@ from typing import Any
 import streamlit as st
 
 from ui_api import WAKING_UP, is_api_available, post
+from ui_auth import require_login
 from ui_feedback import render_feedback
 
 JURISDICTIONS = {
@@ -69,6 +70,7 @@ def render_answer(body: dict[str, Any]) -> None:
 
 
 st.set_page_config(page_title="Consulta sobre normativa de alquiler", page_icon="📖")
+require_login()
 st.title("Consulta sobre normativa de alquiler")
 st.caption(
     "Las respuestas salen únicamente de la normativa indexada del BOE y citan el artículo del que "

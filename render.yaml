@@ -63,6 +63,13 @@ services:
       # public address, with the token and the key that make that address useless to anyone else.
       - key: API_URL
         value: https://ai4devs-rental-api-ag.onrender.com
+      # The UI refuses to show anything in production without its shared login (ADR 0034).
+      - key: ENVIRONMENT
+        value: production
+      - key: UI_USERNAME
+        sync: false
+      - key: UI_PASSWORD
+        sync: false
       - key: API_KEY
         fromService:
           type: web

@@ -10,6 +10,7 @@ from typing import Any
 import streamlit as st
 
 from ui_api import WAKING_UP, get, is_api_available, post
+from ui_auth import require_login
 from ui_feedback import render_feedback
 
 SEVERITY_LABELS = {"high": "Alta", "medium": "Media", "low": "Baja"}
@@ -205,6 +206,7 @@ def render_review(body: dict[str, Any]) -> None:
 
 
 st.set_page_config(page_title="Revisión con agente", page_icon="🕵️")
+require_login()
 st.title("Revisión con agente")
 st.caption("El agente consulta la normativa antes de decidir. Puedes ver cada paso que ha dado.")
 
