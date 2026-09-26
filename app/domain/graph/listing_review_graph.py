@@ -44,7 +44,7 @@ from app.domain.schemas.listing_agent_review import AgentFinding, AgentReviewCan
 from app.domain.schemas.listing_review import Listing
 from app.foundation.llm.tools import RequestedToolCall, ToolCallingLLM
 from app.foundation.llm.wrapper import StructuredLLM
-from app.generation.agentic.boss import BossDecision, decide
+from app.generation.agentic.boss import BossDecision, CriticMode, decide
 from app.generation.agentic.critic import (
     CriticResult,
     Problem,
@@ -77,6 +77,8 @@ class GraphConfig:
     max_attempts: int = 2
     min_confidence: float = 0.7
     escalate_below: float = 0.4
+    # What a finding the critic does not back becomes: removed, or kept for a person (ADR 0035).
+    critic_mode: CriticMode = CriticMode.FILTER
     max_fragments: int = 5
     # An escalated review pauses for a person before it is published (#42). Off, it only carries the flag.
     human_review: bool = True
@@ -242,6 +244,7 @@ def build_review_graph(
             max_attempts=config.max_attempts,
             min_confidence=config.min_confidence,
             escalate_below=config.escalate_below,
+            mode=config.critic_mode,
         )
         update: dict[str, Any] = {"trace": [step_to_json(boss_step(len(state.get("trace", [])) + 1, decision))]}
         if decision == BossDecision.RETRY:

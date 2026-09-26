@@ -5,8 +5,10 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import get_agent_review_service
 from app.domain.agent_review_service import AgentReviewService
+from app.generation.agentic.boss import CriticMode
 from app.generation.agentic.loop import SUBMIT
 from app.main import create_app
+from tests.domain.test_agent_review_service import critic_of
 from tests.generation.agentic.test_loop import A_REVIEW, ScriptedModel, call, calls
 from tests.generation.agentic.test_tools import FakeSearch
 
@@ -115,3 +117,18 @@ def test_adjusting_without_saying_what_stays_answers_422(pausing: TestClient) ->
     response = pausing.post(f"/api/v1/listings/agent-review/{run_id}/resume", json={"action": "adjust"})
 
     assert response.status_code == 422
+
+
+def test_a_finding_the_critic_doubts_reaches_the_response_with_its_reason() -> None:
+    model = ScriptedModel(calls(call("search_regulations", {"query": "fianza"})), calls(call(SUBMIT, A_REVIEW)))
+    app = create_app()
+    app.dependency_overrides[get_agent_review_service] = lambda: AgentReviewService(
+        model, FakeSearch(), critic=critic_of([False]), critic_mode=CriticMode.FLAG
+    )
+    with TestClient(app) as client:
+        body = client.post("/api/v1/listings/agent-review", json=A_LISTING).json()
+    app.dependency_overrides.clear()
+
+    assert len(body["findings"]) == 1
+    assert body["disputed_findings"][0]["problem"] == "rule_not_in_sources"
+    assert body["escalated"] is True and body["dropped_findings"] == 0

@@ -23,6 +23,7 @@ from app.foundation.llm.wrapper import LLMWrapper, build_router
 from app.foundation.persistence.checkpoints import MemoryCheckpoints, PostgresCheckpoints
 from app.foundation.persistence.database import create_engine, session_factory
 from app.foundation.persistence.feedback import PostgresFeedbackStore
+from app.generation.agentic.boss import CriticMode
 from app.generation.cag.exact import NullCache, ReviewCache, ReviewStore
 from app.generation.rag.embeddings import EmbeddingClient, LiteLLMEmbeddings
 from app.generation.rag.rerank import Reranker
@@ -204,6 +205,7 @@ def get_agent_review_service() -> AgentReviewService:
         critic=get_judge_wrapper() if settings.agent_critic_enabled else None,
         critic_min_confidence=settings.agent_critic_min_confidence,
         critic_escalate_below=settings.agent_critic_escalate_below,
+        critic_mode=CriticMode(settings.agent_critic_mode),
         max_review_attempts=settings.agent_max_review_attempts,
         checkpoints=get_checkpoints(),
         human_review=settings.agent_human_review_enabled,

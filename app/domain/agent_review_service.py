@@ -13,8 +13,10 @@ What this class adds around the loop is what must not be left to the model:
   agent actually read, or be one of the checklist points whose article travels in the prompt.
   Anything else is a legal claim nobody can check, and it is dropped before the user sees it.
 - **Actor, critic, boss** (ADR 0025). The critic, on the other provider, reads every finding against
-  the listing and its sources; the boss (a function) accepts, sends the actor back once with the
-  rejections quoted, or escalates to a person. A finding the critic rejects never reaches the user.
+  the listing and its sources. In `filter` mode the boss (a function) accepts, sends the actor back
+  once with the rejections quoted, or escalates to a person, and a finding the critic rejects never
+  reaches the user. In `flag` mode, the default since ADR 0035, a rejected finding is kept with the
+  critic's reason and the review goes to a person: measured, the critic doubted correct findings.
 """
 
 import time
@@ -63,9 +65,10 @@ from app.generation.agentic.boss import (
     DEFAULT_MAX_ATTEMPTS,
     DEFAULT_MIN_CONFIDENCE,
     BossDecision,
+    CriticMode,
     decide,
 )
-from app.generation.agentic.critic import boss_step, critic_step, criticise, feedback_for
+from app.generation.agentic.critic import Rejection, boss_step, critic_step, criticise, feedback_for
 from app.generation.agentic.loop import DEFAULT_MAX_ITERATIONS, DEFAULT_TIMEOUT_SECONDS, AgentLoop
 from app.generation.agentic.ports import RegulationFragment, RegulationSearch
 from app.generation.agentic.rewrite import rewrite_listing
@@ -157,6 +160,7 @@ class AgentReviewService:
         critic: StructuredLLM | None = None,
         critic_min_confidence: float = DEFAULT_MIN_CONFIDENCE,
         critic_escalate_below: float = DEFAULT_ESCALATE_BELOW,
+        critic_mode: CriticMode = CriticMode.FILTER,
         max_review_attempts: int = DEFAULT_MAX_ATTEMPTS,
         checkpoints: Checkpoints | None = None,
         human_review: bool = True,
@@ -174,6 +178,7 @@ class AgentReviewService:
         self._critic = critic
         self._critic_min_confidence = critic_min_confidence
         self._critic_escalate_below = critic_escalate_below
+        self._critic_mode = critic_mode
         self._max_review_attempts = max_review_attempts
         # With a checkpoint store the review runs as a graph; without one, as the hand-written loop.
         self._checkpoints = checkpoints
@@ -186,6 +191,7 @@ class AgentReviewService:
             max_attempts=max_review_attempts,
             min_confidence=critic_min_confidence,
             escalate_below=critic_escalate_below,
+            critic_mode=critic_mode,
             max_fragments=max_fragments,
             human_review=human_review,
         )
@@ -313,8 +319,11 @@ class AgentReviewService:
                 proposed=review,
                 rejected=run.rejected,
             )
+        kept = {finding.message for finding in review.findings}
+        disputed = [r for r in run.rejected if r.message in kept] if self._critic_mode == CriticMode.FLAG else []
         return AgentReviewedListing(
             review=review,
+            disputed=disputed,
             trace=run.trace,
             usage=run.usage,
             stop_reason=run.stop_reason,
@@ -339,6 +348,7 @@ class AgentReviewService:
         trace, usage = list(run.trace), run.usage
         calls: list[tuple[Step, LLMUsage]] = [(Step.PLAN, run.usage)]
         findings, escalated, dropped = run.output.findings, False, 0
+        rejected: list[RejectedFinding] = []
 
         if self._critic is not None and run.output.is_rental_listing:
             attempt = 1
@@ -353,6 +363,7 @@ class AgentReviewService:
                     max_attempts=self._max_review_attempts,
                     min_confidence=self._critic_min_confidence,
                     escalate_below=self._critic_escalate_below,
+                    mode=self._critic_mode,
                 )
                 trace += [critic_step(len(trace) + 1, verdict), boss_step(len(trace) + 2, decision)]
                 log.info(
@@ -364,11 +375,13 @@ class AgentReviewService:
                     decision=decision,
                 )
                 if decision != BossDecision.RETRY:
+                    flagging = self._critic_mode == CriticMode.FLAG
                     findings, escalated, dropped = (
-                        verdict.supported,
+                        run.output.findings if flagging else verdict.supported,
                         decision == BossDecision.ESCALATE,
-                        len(verdict.rejected),
+                        0 if flagging else len(verdict.rejected),
                     )
+                    rejected = [rejected_finding(r) for r in verdict.rejected]
                     break
                 attempt += 1
                 run = await loop.run(listing, feedback=feedback_for(verdict.rejected))
@@ -386,6 +399,7 @@ class AgentReviewService:
             stop_reason=run.stop_reason,
             escalated=escalated,
             dropped=dropped,
+            rejected=rejected,
             calls=calls,
         )
 
@@ -445,25 +459,21 @@ class AgentReviewService:
             usage = combined(usage, more)
         critic = critic_from_json(final["critic"]) if final.get("critic") else None
         candidate = AgentReviewCandidate.model_validate(final["candidate"])
+        filtering = critic is not None and self._critic_mode == CriticMode.FILTER
         return _Run(
             orchestrator="graph",
             run_id=run_id,
             candidate=candidate,
-            findings=critic.supported if critic is not None else candidate.findings,
+            findings=critic.supported if filtering and critic is not None else candidate.findings,
             fragments=fragments_from_json(final.get("fragments", {})),
             trace=[TraceStep.model_validate(step) for step in final.get("trace", [])],
             usage=usage,
             stop_reason=StopReason(final.get("stop_reason") or StopReason.COMPLETED),
             escalated=final.get("outcome") == BossDecision.ESCALATE.value,
-            dropped=len(critic.rejected) if critic is not None else 0,
+            dropped=len(critic.rejected) if filtering and critic is not None else 0,
             paused=paused,
             calls=[(step_of(u), usage) for u, usage in zip(recorded, usages, strict=True)],
-            rejected=[
-                RejectedFinding(
-                    message=r.finding.message, legal_basis=r.finding.legal_basis, problem=r.problem, reason=r.reason
-                )
-                for r in (critic.rejected if critic is not None else [])
-            ],
+            rejected=[rejected_finding(r) for r in (critic.rejected if critic is not None else [])],
         )
 
     def _checked(
@@ -524,3 +534,13 @@ def _quotes_the_listing(finding: AgentFinding, stated: str) -> bool:
         return True
     log.warning("guardrail.dropped_finding", reason="evidence_not_in_listing", evidence=finding.evidence[:120])
     return False
+
+
+def rejected_finding(rejection: Rejection) -> RejectedFinding:
+    """A finding the critic did not back, as the person reading the review sees it."""
+    return RejectedFinding(
+        message=rejection.finding.message,
+        legal_basis=rejection.finding.legal_basis,
+        problem=rejection.problem,
+        reason=rejection.reason,
+    )

@@ -21,6 +21,16 @@ class BossDecision(StrEnum):
     ESCALATE = "escalate"
 
 
+class CriticMode(StrEnum):
+    """What a finding the critic does not back becomes (ADR 0035)."""
+
+    # Removed before the user sees it; the actor may be sent back once (ADR 0025).
+    FILTER = "filter"
+    # Kept, with the critic's reason, and the review goes to a person. Measured on the other provider,
+    # the critic still rejected correct findings, so its doubt is a question, not a verdict.
+    FLAG = "flag"
+
+
 def decide(
     result: CriticResult,
     *,
@@ -28,7 +38,11 @@ def decide(
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     min_confidence: float = DEFAULT_MIN_CONFIDENCE,
     escalate_below: float = DEFAULT_ESCALATE_BELOW,
+    mode: CriticMode = CriticMode.FILTER,
 ) -> BossDecision:
+    if mode == CriticMode.FLAG:
+        # Nothing is removed and nobody is sent back: a retry is where correct findings got lost.
+        return BossDecision.ESCALATE if result.rejected else BossDecision.ACCEPT
     if result.confidence >= min_confidence:
         return BossDecision.ACCEPT
     if result.confidence < escalate_below or attempt >= max_attempts:

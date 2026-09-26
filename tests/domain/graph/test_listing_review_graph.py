@@ -14,6 +14,7 @@ from app.domain.schemas.listing_agent_review import StopReason
 from app.domain.schemas.listing_review import Listing, Verdict
 from app.foundation.llm.tools import ToolSpec
 from app.foundation.llm.usage import LLMUsage
+from app.generation.agentic.boss import CriticMode
 from app.generation.agentic.loop import SUBMIT
 from tests.domain.test_agent_review_service import A_LISTING, TWO_FINDINGS, critic_of, finding, review_with
 from tests.generation.agentic.test_loop import A_REVIEW, ScriptedModel, call, calls
@@ -87,6 +88,19 @@ async def test_support_that_stays_low_goes_to_a_person() -> None:
 
     assert reviewed.escalated
     assert reviewed.dropped_findings == 1
+
+
+async def test_in_flag_mode_the_graph_keeps_the_doubted_finding_and_escalates_without_a_retry() -> None:
+    model = ScriptedModel(*searches_then_submits(TWO_FINDINGS))
+
+    reviewed = await graph_service(
+        model, critic=critic_of([True, False]), critic_mode=CriticMode.FLAG, human_review=False
+    ).review(A_LISTING)
+
+    assert len(model.requests) == 2
+    assert [f.message for f in reviewed.review.findings] == ["La fianza supera una mensualidad", "Inventada"]
+    assert [d.message for d in reviewed.disputed] == ["Inventada"]
+    assert reviewed.escalated and reviewed.dropped_findings == 0
 
 
 async def test_the_iteration_limit_forces_a_submission() -> None:

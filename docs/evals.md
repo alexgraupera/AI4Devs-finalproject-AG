@@ -159,6 +159,18 @@ With the Anthropic account back, the pipeline ran with its configured generator 
 | **v4** | **Claude Haiku 4.5** | **100%** | 75% | 0.86 | **0%** | **87%** | $0.0035 | 3.7 s |
 | v4 | GPT-5.4 mini | 93% | 81% | 0.87 | 0% | 87% | $0.0016 | 1.8 s |
 
+### The agent on the other provider, 2026-09-26
+
+Claude Haiku 4.5 acting and GPT-5.4 mini criticising, as [ADR 0023](decisions/0023-a-model-per-role.md) designed and ADR 0031 could not measure.
+
+| Agent | Precision | Recall | F1 | Clean false positives | Verdict | Escalated | Removed | Cost / review | p50 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Critic filters (agent v4, checklist v3) | 100% | 75% | 0.86 | 0% | 80% | 20% | 7 | $0.0275 | 14.9 s |
+| No critic (agent v4, checklist v3) | 100% | 94% | 0.97 | 0% | 93% | 0% | 0 | $0.0239 | 13.2 s |
+| **Critic flags (agent v5, checklist v4)** | **100%** | **94%** | **0.97** | **0%** | **93%** | 20% | **0** | $0.0251 | 15.1 s |
+
+**What it says:** on the other provider the critic still removes correct findings (the Catalan article 61 among them), and in the flag run all five of its doubts were expected findings. It now flags instead of filtering ([ADR 0035](decisions/0035-the-critic-flags-it-does-not-filter.md)): the doubted findings stay, with the critic's reason, and the review waits for a person. With Haiku acting the agent invents nothing (10 inventions with GPT-5.4 mini), so it now beats the pipeline on every quality metric, at about 7 times the cost. The three runs cost **$1.38**.
+
 ## The regression gate
 
 [`evals/baseline.json`](../evals/baseline.json) holds the promoted baseline: the answers of 2026-09-25 and the pipeline's listings of #52, with the commit and the models that answered. `make eval-gate` compares the newest whole runs against it ([ADR 0032](decisions/0032-regression-gate.md)):
@@ -209,6 +221,8 @@ Chronological. Each row is a change that was measured before it was kept or dele
 | 2026-09-25 | The agent without its critic | Recall 75% → 94%, verdict 67% → 80%, cost −42%; precision 55% → 58%, clean false positives 25% → 50% | The critic stays (it gates the human pause) and is re-measured on the other provider from 2026-10-01 ([ADR 0031](decisions/0031-agent-vs-pipeline.md)) |
 | 2026-09-26 | Pipeline with Claude Haiku 4.5 (the configured generator, back from its monthly limit), review prompt v3 | Clean false positives 0% → 25% in 2 of 2 runs: Haiku reads the two-month limit of LAU art. 36.5 as including the deposit | A v4 for that point |
 | 2026-09-26 | Checklist v4: the additional guarantee is on top of the deposit (pipeline v4, agent v5, critic v4) | Haiku: precision 100%, clean false positives 0%, verdict 87%; GPT-5.4 mini unchanged within noise | Kept ([ADR 0030](decisions/0030-listing-review-evaluation.md)) |
+| 2026-09-26 | The agent with Claude Haiku 4.5 acting and the critic on GPT-5.4 mini, as designed | Critic filtering: recall 75%, 7 correct findings removed; without it: precision 100%, recall 94%, F1 0.97; no inventions (10 with GPT-5.4 mini acting) | The rule of ADR 0031 applies: the critic flags |
+| 2026-09-26 | The critic flags instead of filtering (`AGENT_CRITIC_MODE=flag`) | Precision 100%, recall 94%, F1 0.97, verdict 93%, 20% escalated; its 5 doubts were all correct findings | Kept ([ADR 0035](decisions/0035-the-critic-flags-it-does-not-filter.md)) |
 
 ## How to run
 

@@ -30,7 +30,7 @@ TOOL_LABELS = {
 # discarded a finding, and saying "failed and retried" of the latter is simply false.
 FAILURE_NOTE = "Esta llamada ha fallado: el agente ha recibido el error y ha seguido."
 FAILURE_NOTES = {
-    "critic": "El revisor ha descartado alguna incidencia; el motivo está debajo.",
+    "critic": "El revisor no respalda alguna incidencia; el motivo está debajo.",
     "rewrite": "El anuncio corregido tiene cifras que el original no tenía: revísalas antes de publicarlo.",
     "(sin herramienta)": "El agente contestó sin usar ninguna herramienta y se le pidió que entregara la revisión.",
 }
@@ -137,19 +137,28 @@ def render_pending(body: dict[str, Any]) -> None:
     st.caption(f"Motivo: {pending['reason']}")
 
     proposed = pending["proposed"]["findings"]
+    # A finding the critic doubted is either among the proposed ones, kept for you to decide (flag
+    # mode), or already removed (filter mode): the same list says which.
+    doubts = {rejected["message"]: rejected for rejected in pending["rejected"]}
     st.subheader("Incidencias propuestas")
-    keep = [
-        index
-        for index, finding in enumerate(proposed)
+    keep = []
+    for index, finding in enumerate(proposed):
+        doubt = doubts.get(finding["message"])
+        label = f"{SEVERITY_ICONS.get(finding['severity'], '•')} {finding['message']}"
         if st.checkbox(
-            f"{SEVERITY_ICONS.get(finding['severity'], '•')} {finding['message']}",
+            label + (" · el revisor la pone en duda" if doubt else ""),
             value=True,
             key=f"keep-{pending['run_id']}-{index}",
-        )
+        ):
+            keep.append(index)
+        if doubt:
+            st.caption(f"Motivo del revisor: {doubt['reason']}")
+    removed = [
+        rejected for rejected in pending["rejected"] if rejected["message"] not in {f["message"] for f in proposed}
     ]
-    if pending["rejected"]:
-        with st.expander(f"Descartadas por el revisor ({len(pending['rejected'])})"):
-            for rejected in pending["rejected"]:
+    if removed:
+        with st.expander(f"Descartadas por el revisor ({len(removed)})"):
+            for rejected in removed:
                 st.markdown(f"- ~~{rejected['message']}~~")
                 st.caption(f"{rejected['problem']}: {rejected['reason']}")
 
@@ -194,6 +203,11 @@ def render_review(body: dict[str, Any]) -> None:
         st.warning(VERDICT_LABELS["request_changes"])
     st.write(body["summary"])
     render_findings(body["findings"])
+    if body.get("disputed_findings"):
+        with st.expander(f"El revisor pone en duda {len(body['disputed_findings'])} de estas incidencias"):
+            for disputed in body["disputed_findings"]:
+                st.markdown(f"- {disputed['message']}")
+                st.caption(f"Motivo: {disputed['reason']}")
     render_rewrite(body["rewrite"])
     if body["dropped_findings"]:
         st.caption(
