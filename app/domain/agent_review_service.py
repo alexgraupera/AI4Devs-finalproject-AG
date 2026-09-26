@@ -408,6 +408,8 @@ class AgentReviewService:
         }
         config = self._config(run_id)
         paused = False
+        # Every event of the run, the audit of its tool calls included, carries its id.
+        structlog.contextvars.bind_contextvars(run_id=run_id)
         try:
             final = await graph.ainvoke(initial, config)
             paused = bool((await graph.aget_state(config)).next)
@@ -416,6 +418,7 @@ class AgentReviewService:
             # text and the service keeps no listings (ADR 0018). A paused run stays: it must.
             if not paused:
                 await checkpointer.adelete_thread(run_id)
+            structlog.contextvars.unbind_contextvars("run_id")
         return self._graph_run(final, run_id, paused=paused)
 
     def _graph_run(self, final: dict[str, Any], run_id: str, *, paused: bool = False) -> _Run:

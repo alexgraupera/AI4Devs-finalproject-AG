@@ -252,6 +252,8 @@ Las comparaciones son de tiempo constante, y un secreto ausente y uno erróneo r
 
 El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la petición pasa y se registra el fallo. Convertir la caída de una dependencia opcional en la caída del producto tiene las prioridades al revés.
 
+**El agente solo puede usar lo que su papel tiene permitido** ([ADR 0029](docs/decisions/0029-least-privilege-and-audit.md)). Qué papel puede llamar a qué herramienta es una tabla de datos, denegada por defecto, y se comprueba **antes de ejecutar**, no en el prompt: una instrucción inyectada en un anuncio puede convencer a un modelo, no a un `if`. Cada llamada, permitida o denegada, deja un evento de auditoría con los argumentos enmascarados (el texto del anuncio nunca llega al registro).
+
 **Sondas.** `/health` dice si el proceso está vivo y no toca nada: una sonda de vida que consulta la base de datos reinicia un servicio sano cada vez que la base tose. `/ready` dice si puede atender ahora (base de datos, caché y presupuesto) y responde 503 con `Retry-After` cuando no: es motivo para esperar, no para reiniciar.
 
 ### **2.6. Tests**
@@ -559,6 +561,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0026](docs/decisions/0026-langgraph-orchestration.md) | LangGraph con estado JSON en Postgres; el bucle a mano se conserva como referencia; nada guardado al terminar |
 | [0027](docs/decisions/0027-human-in-the-loop.md) | Pausa antes de publicar con `interrupt`, leída del checkpoint y nunca guardada como estado; decisión registrada antes de reanudar |
 | [0028](docs/decisions/0028-listing-rewrite.md) | El anuncio corregido se escribe con las incidencias finales, no a mitad del bucle; el código señala cifras inventadas |
+| [0029](docs/decisions/0029-least-privilege-and-audit.md) | Permisos por papel como datos, denegados por defecto y comprobados antes de ejecutar; auditoría de cada llamada |
 
 ---
 
