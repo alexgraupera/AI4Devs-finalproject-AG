@@ -19,3 +19,11 @@ class CorpusUnavailable(Exception):
 
 class Unauthorized(Exception):
     """The caller did not present a valid API key for the retrieval endpoints."""
+
+
+class RunNotFound(Exception):
+    """No paused review with that id: it never existed, it finished, or it was discarded."""
+
+
+class RunNotWaiting(Exception):
+    """The review exists but is not waiting for a person, so there is nothing to decide."""

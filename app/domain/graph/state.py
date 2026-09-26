@@ -45,6 +45,8 @@ class ReviewState(TypedDict, total=False):
     critic: dict[str, Any] | None
     # accept, escalate, or not_a_listing: where the run ended.
     outcome: str | None
+    # What a person decided on a paused run (#42), as the resume command carried it.
+    human_decision: dict[str, Any] | None
 
 
 # ── Conversions at the edges ────────────────────────────────────────────────────────────────

@@ -43,6 +43,21 @@ def is_api_available(timeout: float = WAKE_TIMEOUT_SECONDS) -> bool:
         return False
 
 
+def get(path: str, *, timeout: float = 30) -> tuple[dict[str, Any] | None, str | None]:
+    """Returns (body, error message), as `post` does."""
+    try:
+        response = httpx.get(f"{api_url()}{path}", headers=auth_headers(), timeout=timeout)
+    except httpx.HTTPError:
+        return None, UNEXPECTED_ERROR
+    try:
+        body = response.json()
+    except ValueError:
+        return None, UNEXPECTED_ERROR
+    if response.is_success:
+        return body, None
+    return None, str(body.get("error", {}).get("message", UNEXPECTED_ERROR))
+
+
 def post(path: str, payload: dict[str, Any], *, timeout: float = 120) -> tuple[dict[str, Any] | None, str | None]:
     """Returns (body, error message). The API already words its errors for the person reading."""
     try:

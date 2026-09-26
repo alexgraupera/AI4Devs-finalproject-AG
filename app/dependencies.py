@@ -204,6 +204,7 @@ def get_agent_review_service() -> AgentReviewService:
         critic_escalate_below=settings.agent_critic_escalate_below,
         max_review_attempts=settings.agent_max_review_attempts,
         checkpoints=get_checkpoints(),
+        human_review=settings.agent_human_review_enabled,
     )
 
 

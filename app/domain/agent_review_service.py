@@ -19,7 +19,7 @@ What this class adds around the loop is what must not be left to the model:
 
 import time
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import uuid4
 
@@ -27,8 +27,9 @@ import structlog
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import Command
 
-from app.domain.errors import NotAListing
+from app.domain.errors import NotAListing, RunNotFound, RunNotWaiting
 from app.domain.graph.listing_review_graph import GraphConfig, build_review_graph, critic_from_json
 from app.domain.graph.state import ReviewState, fragments_from_json, usage_from_json
 from app.domain.schemas.listing_agent_review import (
@@ -37,6 +38,10 @@ from app.domain.schemas.listing_agent_review import (
     AgentReviewCandidate,
     AgentReviewedListing,
     CitedFinding,
+    HumanAction,
+    HumanDecision,
+    HumanReviewRequest,
+    RejectedFinding,
     StopReason,
     TraceStep,
 )
@@ -70,6 +75,9 @@ log = structlog.get_logger()
 # v3: quotes the listing in `evidence` for every finding about what it says (ADR 0025).
 PROMPT_VERSION = "v3"
 
+# Shown to the person a paused review waits for: why it did not go straight to publishing.
+ESCALATION_REASON = "El revisor no ha podido respaldar todas las conclusiones del agente con el anuncio y la normativa."
+
 
 Checkpoints = Callable[[], Awaitable[BaseCheckpointSaver[Any]]]
 
@@ -88,6 +96,8 @@ class _Run:
     escalated: bool = False
     dropped: int = 0
     run_id: str | None = None
+    paused: bool = False
+    rejected: list[RejectedFinding] = field(default_factory=list)
 
 
 class RetrieverSearch:
@@ -138,6 +148,7 @@ class AgentReviewService:
         critic_escalate_below: float = DEFAULT_ESCALATE_BELOW,
         max_review_attempts: int = DEFAULT_MAX_ATTEMPTS,
         checkpoints: Checkpoints | None = None,
+        human_review: bool = True,
     ) -> None:
         self._llm = llm
         self._search = search
@@ -162,6 +173,7 @@ class AgentReviewService:
             min_confidence=critic_min_confidence,
             escalate_below=critic_escalate_below,
             max_fragments=max_fragments,
+            human_review=human_review,
         )
 
     async def review(self, listing: Listing) -> AgentReviewedListing:
@@ -175,9 +187,54 @@ class AgentReviewService:
 
         if not run.candidate.is_rental_listing:
             raise NotAListing(run.candidate.summary)
+        return self._reviewed(run, listing)
+
+    async def resume(self, run_id: str, decision: HumanDecision) -> AgentReviewedListing:
+        """A person decides on a paused review; the graph resumes where it stopped, on any process."""
+        graph, checkpointer = await self._compiled()
+        config = self._config(run_id)
+        snapshot = await graph.aget_state(config)
+        if not snapshot.values:
+            raise RunNotFound(run_id)
+        if not snapshot.next:
+            raise RunNotWaiting(run_id)
+
+        # Logged before resuming, so a crash in between leaves the decision on record, not lost.
+        log.info(
+            "agent_review.human_decision",
+            run_id=run_id,
+            action=decision.action,
+            kept=decision.keep,
+            note=bool(decision.note),
+        )
+        final = await graph.ainvoke(Command(resume=decision.model_dump(mode="json")), config)
+        await checkpointer.adelete_thread(run_id)
+
+        run = self._graph_run(final, run_id)
+        return self._reviewed(run, Listing.model_validate(final["listing"]), decision=decision)
+
+    async def pending(self, run_id: str) -> AgentReviewedListing:
+        """A paused review as it stands, so a page can be reloaded without losing the decision to make."""
+        graph, _ = await self._compiled()
+        snapshot = await graph.aget_state(self._config(run_id))
+        if not snapshot.values:
+            raise RunNotFound(run_id)
+        if not snapshot.next:
+            raise RunNotWaiting(run_id)
+        return self._reviewed(
+            self._graph_run(snapshot.values, run_id, paused=True), Listing.model_validate(snapshot.values["listing"])
+        )
+
+    def _reviewed(self, run: _Run, listing: Listing, *, decision: HumanDecision | None = None) -> AgentReviewedListing:
+        findings = run.findings
+        if decision is not None and decision.action == HumanAction.ADJUST:
+            findings = [finding for index, finding in enumerate(findings) if index in set(decision.keep or [])]
+        if decision is not None and decision.action == HumanAction.REJECT:
+            findings = []
+        review = self._checked(findings, run.candidate, run.fragments, listing)
 
         log.info(
-            "agent_review.completed",
+            "agent_review.completed" if not run.paused else "agent_review.paused",
             orchestrator=run.orchestrator,
             run_id=run.run_id,
             prompt_version=self._prompt_version,
@@ -188,6 +245,7 @@ class AgentReviewService:
             fragments_read=len(run.fragments),
             escalated=run.escalated,
             dropped_findings=run.dropped,
+            human_action=decision.action if decision is not None else None,
             input_tokens=run.usage.input_tokens,
             output_tokens=run.usage.output_tokens,
             latency_ms=run.usage.latency_ms,
@@ -195,14 +253,24 @@ class AgentReviewService:
             if run.usage.estimated_cost_usd is not None
             else None,
         )
+        pending = None
+        if run.paused and run.run_id is not None:
+            pending = HumanReviewRequest(
+                run_id=run.run_id,
+                reason=ESCALATION_REASON,
+                proposed=review,
+                rejected=run.rejected,
+            )
         return AgentReviewedListing(
-            review=self._checked(run.findings, run.candidate, run.fragments, listing),
+            review=review,
             trace=run.trace,
             usage=run.usage,
             stop_reason=run.stop_reason,
             escalated=run.escalated,
             dropped_findings=run.dropped,
             run_id=run.run_id,
+            pending_review=pending,
+            human_decision=decision,
         )
 
     async def _run_loop(self, listing: Listing) -> _Run:
@@ -263,9 +331,9 @@ class AgentReviewService:
             dropped=dropped,
         )
 
-    async def _run_graph(self, listing: Listing) -> _Run:
-        """The same flow as a LangGraph graph, its state checkpointed after every node (#41)."""
-        assert self._checkpoints is not None
+    async def _compiled(self) -> tuple[CompiledStateGraph[Any, Any, Any, Any], BaseCheckpointSaver[Any]]:
+        if self._checkpoints is None:
+            raise RunNotFound("the agent runs without a checkpoint store: nothing can be paused or resumed")
         checkpointer = await self._checkpoints()
         if self._graph is None:
             self._graph = build_review_graph(
@@ -275,7 +343,14 @@ class AgentReviewService:
                 config=self._graph_config,
                 checkpointer=checkpointer,
             )
+        return self._graph, checkpointer
 
+    def _config(self, run_id: str) -> RunnableConfig:
+        return {"configurable": {"thread_id": run_id}, "recursion_limit": self._graph_config.recursion_limit}
+
+    async def _run_graph(self, listing: Listing) -> _Run:
+        """The same flow as a LangGraph graph, its state checkpointed after every node (#41)."""
+        graph, checkpointer = await self._compiled()
         run_id = str(uuid4())
         system, user = render_agent_review_prompt(listing, version=self._prompt_version)
         initial: ReviewState = {
@@ -289,17 +364,19 @@ class AgentReviewService:
             "attempt": 1,
             "deadline": time.time() + self._timeout,
         }
-        config: RunnableConfig = {
-            "configurable": {"thread_id": run_id},
-            "recursion_limit": self._graph_config.recursion_limit,
-        }
+        config = self._config(run_id)
+        paused = False
         try:
-            final = await self._graph.ainvoke(initial, config)
+            final = await graph.ainvoke(initial, config)
+            paused = bool((await graph.aget_state(config)).next)
         finally:
             # Retention: a finished run leaves nothing behind. The checkpoint holds the listing's
-            # text, and the service keeps no listings (ADR 0018); the trace goes back in the response.
-            await checkpointer.adelete_thread(run_id)
+            # text and the service keeps no listings (ADR 0018). A paused run stays: it must.
+            if not paused:
+                await checkpointer.adelete_thread(run_id)
+        return self._graph_run(final, run_id, paused=paused)
 
+    def _graph_run(self, final: dict[str, Any], run_id: str, *, paused: bool = False) -> _Run:
         usages = [usage_from_json(u) for u in final.get("usage", [])]
         usage = usages[0]
         for more in usages[1:]:
@@ -317,6 +394,13 @@ class AgentReviewService:
             stop_reason=StopReason(final.get("stop_reason") or StopReason.COMPLETED),
             escalated=final.get("outcome") == BossDecision.ESCALATE.value,
             dropped=len(critic.rejected) if critic is not None else 0,
+            paused=paused,
+            rejected=[
+                RejectedFinding(
+                    message=r.finding.message, legal_basis=r.finding.legal_basis, problem=r.problem, reason=r.reason
+                )
+                for r in (critic.rejected if critic is not None else [])
+            ],
         )
 
     def _checked(

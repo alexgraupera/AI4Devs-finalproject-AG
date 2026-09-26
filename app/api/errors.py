@@ -7,7 +7,15 @@ on, the message is for the person to read, so it is written in Spanish.
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.domain.errors import CorpusUnavailable, LLMUnavailable, NotAListing, ReviewGenerationError, Unauthorized
+from app.domain.errors import (
+    CorpusUnavailable,
+    LLMUnavailable,
+    NotAListing,
+    ReviewGenerationError,
+    RunNotFound,
+    RunNotWaiting,
+    Unauthorized,
+)
 from app.foundation.guardrails.input import InputGuardrailViolation
 from app.foundation.guardrails.rate_limit import RateLimited
 from app.foundation.guardrails.spend import BudgetExhausted
@@ -27,6 +35,8 @@ MESSAGES: dict[str, str] = {
     "rate_limited": "Demasiadas consultas seguidas. Espera unos segundos y vuelve a intentarlo.",
     "budget_exhausted": "El servicio ha alcanzado su límite de uso diario. Vuelve a intentarlo mañana.",
     "not_ready": "El servicio está arrancando o saturado. Vuelve a intentarlo en unos segundos.",
+    "run_not_found": "Esta revisión ya no está disponible. Vuelve a lanzarla.",
+    "run_not_waiting": "Esta revisión no está esperando ninguna decisión.",
 }
 
 
@@ -69,6 +79,14 @@ def register_error_handlers(app: FastAPI) -> None:
         # Retry-After tells a well-behaved client exactly how long to wait, instead of leaving
         # it to guess and retry into the same wall.
         return error_response("rate_limited", status_code=429, headers={"Retry-After": str(error.retry_after)})
+
+    @app.exception_handler(RunNotFound)
+    async def _run_not_found(_: Request, error: RunNotFound) -> JSONResponse:
+        return error_response("run_not_found", status_code=404)
+
+    @app.exception_handler(RunNotWaiting)
+    async def _run_not_waiting(_: Request, error: RunNotWaiting) -> JSONResponse:
+        return error_response("run_not_waiting", status_code=409)
 
     @app.exception_handler(BudgetExhausted)
     async def _budget(_: Request, error: BudgetExhausted) -> JSONResponse:

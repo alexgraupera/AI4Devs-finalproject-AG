@@ -47,3 +47,69 @@ def test_an_empty_listing_is_rejected_before_the_agent_runs(client: TestClient) 
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "empty_text"
+
+
+# ── The pause, over HTTP ─────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def pausing() -> Iterator[TestClient]:
+    from tests.domain.graph.test_human_gate import escalating
+    from tests.domain.graph.test_listing_review_graph import Checkpoints
+
+    service = escalating(Checkpoints())
+    app = create_app()
+    app.dependency_overrides[get_agent_review_service] = lambda: service
+    yield TestClient(app, raise_server_exceptions=False)
+    app.dependency_overrides.clear()
+
+
+def test_a_paused_review_answers_202_with_what_waits_for_a_person(pausing: TestClient) -> None:
+    response = pausing.post("/api/v1/listings/agent-review", json=A_LISTING)
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "waiting_human"
+    assert body["pending_review"]["rejected"][0]["message"] == "Inventada"
+
+
+def test_resuming_returns_the_finished_review(pausing: TestClient) -> None:
+    run_id = pausing.post("/api/v1/listings/agent-review", json=A_LISTING).json()["run_id"]
+
+    response = pausing.post(f"/api/v1/listings/agent-review/{run_id}/resume", json={"action": "approve"})
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "completed"
+
+
+def test_rejecting_answers_discarded(pausing: TestClient) -> None:
+    run_id = pausing.post("/api/v1/listings/agent-review", json=A_LISTING).json()["run_id"]
+
+    response = pausing.post(f"/api/v1/listings/agent-review/{run_id}/resume", json={"action": "reject"})
+
+    assert response.json()["status"] == "discarded"
+    assert response.json()["findings"] == []
+
+
+def test_a_paused_review_can_be_fetched_again(pausing: TestClient) -> None:
+    run_id = pausing.post("/api/v1/listings/agent-review", json=A_LISTING).json()["run_id"]
+
+    response = pausing.get(f"/api/v1/listings/agent-review/{run_id}")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "waiting_human"
+
+
+def test_resuming_an_unknown_run_answers_404(pausing: TestClient) -> None:
+    response = pausing.post("/api/v1/listings/agent-review/nope/resume", json={"action": "approve"})
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "run_not_found"
+
+
+def test_adjusting_without_saying_what_stays_answers_422(pausing: TestClient) -> None:
+    run_id = pausing.post("/api/v1/listings/agent-review", json=A_LISTING).json()["run_id"]
+
+    response = pausing.post(f"/api/v1/listings/agent-review/{run_id}/resume", json={"action": "adjust"})
+
+    assert response.status_code == 422
