@@ -54,7 +54,9 @@ services:
     region: frankfurt
     branch: main
     autoDeploy: true
-    dockerCommand: sh -c "exec streamlit run streamlit_app.py --server.port ${PORT:-10000} --server.address 0.0.0.0 --server.headless true"
+    # A plain command, with no quotes and no variables: Render ran the quoted `sh -c "..."` form as
+    # one word ("exec streamlit run ...: not found"). 10000 is the port Render gives web services.
+    dockerCommand: streamlit run streamlit_app.py --server.port 10000 --server.address 0.0.0.0 --server.headless true
     healthCheckPath: /_stcore/health
     envVars:
       # Free web services cannot receive private network traffic, so the UI calls the API at its
