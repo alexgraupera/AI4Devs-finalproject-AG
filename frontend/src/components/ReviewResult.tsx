@@ -24,13 +24,19 @@ export function VerdictBadge({ verdict }: { verdict: Verdict }) {
   );
 }
 
+export function SeverityChip({ severity }: { severity: Severity }) {
+  return (
+    <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${SEVERITY_STYLES[severity]}`}>
+      {SEVERITY_LABELS[severity]}
+    </span>
+  );
+}
+
 export function FindingItem({ finding, children }: { finding: Finding; children?: ReactNode }) {
   return (
     <li className="space-y-2 rounded-xl border border-line bg-canvas p-4">
       <p className="flex items-start gap-2">
-        <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold ${SEVERITY_STYLES[finding.severity]}`}>
-          {SEVERITY_LABELS[finding.severity]}
-        </span>
+        <SeverityChip severity={finding.severity} />
         <span className="font-medium">{finding.message}</span>
       </p>
       <p className="text-sm text-ink-soft">

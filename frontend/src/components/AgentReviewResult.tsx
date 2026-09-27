@@ -9,6 +9,8 @@ export const PLACEHOLDERS_WARNING = "El agente no puede inventar estos datos. Co
 export const NEW_FIGURES_WARNING = "Revisa estas cifras: aparecen en la versión corregida y no en tu anuncio: ";
 export const USE_REWRITE = "Usar esta versión";
 
+const DECISION_LABELS = { approve: "aprobada", adjust: "ajustada", reject: "descartada" } as const;
+
 const COST = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 // A search result is a page of articles: its first lines say what was found, the rest is one click away.
 const RESULT_PREVIEW_CHARS = 400;
@@ -23,7 +25,7 @@ function StatusBadge({ review }: { review: AgentReview }) {
   return <VerdictBadge verdict={review.verdict} />;
 }
 
-function Citations({ finding }: { finding: CitedFinding }) {
+export function Citations({ finding }: { finding: CitedFinding }) {
   if (finding.citations.length === 0) return null;
   return (
     <ul className="space-y-1 text-xs">
@@ -38,7 +40,7 @@ function Citations({ finding }: { finding: CitedFinding }) {
   );
 }
 
-function Doubt({ doubt }: { doubt: RejectedFinding }) {
+export function Doubt({ doubt }: { doubt: RejectedFinding }) {
   return (
     <p className="rounded-lg bg-warn-soft px-3 py-2 text-xs text-warn">
       <span className="font-semibold">El revisor la pone en duda:</span> {doubt.reason}
@@ -156,6 +158,17 @@ export function AgentReviewResult({ review, onUseRewrite }: AgentReviewResultPro
         <StatusBadge review={review} />
         <p className="text-ink-soft">{review.summary}</p>
         {review.pending_review && <p className="text-sm text-muted">Motivo: {review.pending_review.reason}</p>}
+        {review.human_decision && (
+          <p className="rounded-lg bg-canvas-sunken px-3 py-2 text-sm text-ink-soft">
+            Revisión {DECISION_LABELS[review.human_decision.action]} por el equipo de moderación.
+            {review.human_decision.note && (
+              <>
+                {" "}
+                <span className="font-semibold text-ink">Nota:</span> {review.human_decision.note}
+              </>
+            )}
+          </p>
+        )}
       </div>
 
       {findings.length === 0 ? (

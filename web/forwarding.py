@@ -18,12 +18,18 @@ from app.config import Settings
 
 log = structlog.get_logger()
 
-# (method, path pattern), matched against the whole path.
+# A paused run's id (a UUID). Letters, digits and hyphens only: an id is one path segment, and an
+# encoded "../" in it must never turn the forwarded path into another endpoint.
+RUN_ID = r"[A-Za-z0-9-]{1,64}"
+
+# (method, path pattern), matched against the whole path, as the server decoded it.
 ALLOWED: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("POST", re.compile(r"/api/v1/regulations/ask")),
     ("POST", re.compile(r"/api/v1/feedback")),
     ("POST", re.compile(r"/api/v1/listings/review")),
     ("POST", re.compile(r"/api/v1/listings/agent-review")),
+    ("GET", re.compile(rf"/api/v1/listings/agent-review/{RUN_ID}")),
+    ("POST", re.compile(rf"/api/v1/listings/agent-review/{RUN_ID}/resume")),
 )
 
 # An agent review runs for up to 90 s in the API, and a sleeping free-tier API takes up to a

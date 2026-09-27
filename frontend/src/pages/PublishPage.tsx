@@ -22,6 +22,8 @@ export const CHANGED_SINCE_CHECK = "Has cambiado el anuncio desde la última rev
 export const AGENT_REVIEWING = "El agente está revisando tu anuncio: consulta la normativa y tarda unos 15 segundos.";
 export const PUBLISHED = "Tu anuncio está publicado.";
 export const CHANGES_REQUESTED = "El agente pide cambios antes de publicarlo: corrige las incidencias, o usa la versión corregida, y vuelve a enviarlo.";
+export const DISCARDED =
+  "El equipo de moderación ha descartado la revisión del agente: tu anuncio vuelve a borrador. Revísalo y envíalo de nuevo.";
 export const PENDING_MODERATION =
   "Tu anuncio espera moderación: el agente no puede respaldar todas sus conclusiones y una persona del equipo lo revisará.";
 
@@ -80,7 +82,8 @@ function Outcome({ listing }: { listing: MyListing }) {
       </p>
     );
   }
-  const message = { changes_requested: CHANGES_REQUESTED, pending_moderation: PENDING_MODERATION, draft: null }[
+  const discarded = listing.agentReview?.status === "discarded" ? DISCARDED : null;
+  const message = { changes_requested: CHANGES_REQUESTED, pending_moderation: PENDING_MODERATION, draft: discarded }[
     listing.status
   ];
   return message ? (

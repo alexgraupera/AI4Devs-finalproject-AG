@@ -130,6 +130,16 @@ export type HumanReviewRequest = {
   rejected: RejectedFinding[];
 };
 
+/**
+ * What a person decides on a paused review: approve its findings, keep only some (their positions in
+ * the proposed list, from 0), or reject it. The note is for the landlord.
+ */
+export type HumanDecision = {
+  action: "approve" | "adjust" | "reject";
+  keep?: number[];
+  note?: string;
+};
+
 // completed; waiting_human: paused before publishing, for a person to decide; discarded: a person rejected it.
 export type AgentReviewStatus = "completed" | "waiting_human" | "discarded";
 
@@ -146,7 +156,7 @@ export type AgentReview = {
   dropped_findings: number;
   disputed_findings: RejectedFinding[];
   pending_review: HumanReviewRequest | null;
-  human_decision: { action: "approve" | "adjust" | "reject"; keep: number[] | null; note: string | null } | null;
+  human_decision: { action: HumanDecision["action"]; keep: number[] | null; note: string | null } | null;
   rewrite: ListingRewrite | null;
   usage: Usage;
   cost_breakdown: StepCost[];
