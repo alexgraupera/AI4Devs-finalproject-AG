@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/*
+ * The design tokens of Umbral. Tailwind's default palette is switched off (`--color-*: initial`), so a
+ * component can only use a colour this list names: a new colour is added here, never in a class.
+ *
+ * The visual language follows the reference landing (a light canvas, near-black primary buttons, one
+ * warm accent, dark panels previewing the product); the palette itself is our own.
+ */
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+
+  /* Text and primary actions. */
+  --color-ink: #09090b;
+  --color-ink-soft: #3f3f46;
+  --color-muted: #71717a;
+
+  /* Surfaces and borders. */
+  --color-canvas: #ffffff;
+  --color-canvas-soft: #fafafa;
+  --color-canvas-sunken: #f4f4f5;
+  --color-line: #e4e4e7;
+
+  /* The accent: fills and large text only; small text uses the strong variant for contrast. */
+  --color-accent: #f97316;
+  --color-accent-strong: #c2410c;
+  --color-accent-soft: #fff7ed;
+  --color-accent-line: #fed7aa;
+
+  /* Dark panels that preview each tool. */
+  --color-panel: #18181b;
+  --color-panel-raised: #27272a;
+  --color-panel-line: #3f3f46;
+  --color-panel-text: #f4f4f5;
+  --color-panel-muted: #a1a1aa;
+
+  /* States. */
+  --color-ok: #15803d;
+  --color-ok-soft: #f0fdf4;
+  --color-warn: #b45309;
+  --color-warn-soft: #fffbeb;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fef2f2;
+
+  /* The EU energy label scale, from A to G. */
+  --color-energy-a: #00a651;
+  --color-energy-b: #50b848;
+  --color-energy-c: #bed630;
+  --color-energy-d: #fff200;
+  --color-energy-e: #fdb913;
+  --color-energy-f: #f37021;
+  --color-energy-g: #ed1c24;
+
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color: var(--color-ink);
+    background-color: var(--color-canvas);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}

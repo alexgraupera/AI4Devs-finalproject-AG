@@ -1,0 +1,34 @@
+import { useEffect } from "react";
+import { Route, Routes, useLocation } from "react-router";
+import { Layout } from "./components/Layout";
+import { HomePage } from "./pages/HomePage";
+import { ListingPage } from "./pages/ListingPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
+import { SearchPage } from "./pages/SearchPage";
+
+/** A new page starts at the top, as on a site served page by page, and a link to a section scrolls to it. */
+function ScrollOnNavigation() {
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    const section = hash ? document.getElementById(hash.slice(1)) : null;
+    if (section) section.scrollIntoView({ behavior: "smooth" });
+    else window.scrollTo(0, 0);
+  }, [pathname, hash]);
+  return null;
+}
+
+export function App() {
+  return (
+    <>
+      <ScrollOnNavigation />
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="alquiler" element={<SearchPage />} />
+          <Route path="alquiler/:id" element={<ListingPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </>
+  );
+}

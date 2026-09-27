@@ -98,7 +98,7 @@ La interfaz es un cliente Streamlit de tres páginas sobre la API. Al entrar pid
 ### **1.4. Instrucciones de instalación:**
 > Documenta de manera precisa las instrucciones para instalar y poner en marcha el proyecto en local (librerías, backend, frontend, servidor, base de datos, migraciones y semillas de datos, etc.)
 
-**Requisitos:** [Docker](https://docs.docker.com/get-docker/) con Docker Compose. Para desarrollar sin Docker: [uv](https://docs.astral.sh/uv/) (instala Python 3.12 automáticamente) y `make`.
+**Requisitos:** [Docker](https://docs.docker.com/get-docker/) con Docker Compose. Para desarrollar sin Docker: [uv](https://docs.astral.sh/uv/) (instala Python 3.12 automáticamente), [Node.js 22](https://nodejs.org/) para el marketplace y `make`.
 
 **Con Docker (recomendado):**
 
@@ -128,12 +128,15 @@ y la interfaz los envía. Vacíos, la API queda abierta y avisa en cada petició
 **Sin Docker (desarrollo):**
 
 ```bash
-make install   # uv sync
+make install   # uv sync y las dependencias del frontend (npm ci)
 make api       # API con recarga automática en :8000
 make ui        # en otra terminal: interfaz en :8501
+make frontend  # en otra terminal: el marketplace de demostración en :5173
 make migrate   # aplica las migraciones (necesita DATABASE_URL)
-make verify    # lint, formato, tipos y tests
+make verify    # lint, formato, tipos y tests, del backend y del frontend
 ```
+
+El marketplace de demostración (Umbral) se está construyendo en [#83](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/83) para sustituir a la interfaz Streamlit: anuncios, agencias y fotos ficticios, herramientas reales. De momento se navega por los anuncios (portada, búsqueda y ficha) sin llamar a la API; cada fase siguiente le conecta una herramienta.
 
 **Construir el corpus normativo:**
 
@@ -267,6 +270,7 @@ flowchart TB
 │   ├── generation/           # Arquitecturas de IA: cag/ (cachés), rag/, agentic/
 │   ├── ingestion/            # Corpus del BOE: descarga, validación, troceo y escritura
 │   └── api/                  # Routers finos (transporte)
+├── frontend/                 # Marketplace de demostración (Vite + React + TypeScript): anuncios ficticios, herramientas reales (#83)
 ├── streamlit_app.py          # Cliente Streamlit: portada y estado de la API
 ├── pages/                    # Páginas del cliente: revisión, consulta de normativa y revisión con agente
 ├── ui_api.py, ui_feedback.py # Cómo habla la interfaz con la API, y la valoración 👍/👎
@@ -276,7 +280,7 @@ flowchart TB
 ├── evals/                    # Evaluación: runners, datasets anotados, juez, puerta de regresión y línea base
 ├── docs/
 │   ├── data-sources/         # Guías y ejemplos ejecutables de las fuentes de datos públicas
-│   ├── decisions/            # Registro de decisiones de arquitectura (ADR 0001-0033)
+│   ├── decisions/            # Registro de decisiones de arquitectura (ADR 0001-0035)
 │   ├── evals.md              # Qué se mide, los resultados y cada iteración que decidieron
 │   ├── deployment.md         # Despliegue en Render, paso a paso
 │   └── scope.md              # Alcance: qué cubre el sistema, qué no y por qué
@@ -371,7 +375,7 @@ El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la pe
 
 > Describe brevemente algunos de los tests realizados
 
-**Casi 600 tests, y ninguno llama a un modelo.** El modelo entra en el código como un protocolo (`StructuredLLM`, `ToolCallingLLM`), así que los tests lo sustituyen por respuestas guionizadas y comprueban lo que el código hace con ellas; lo que hace el modelo real lo miden las evaluaciones ([sección 8](#8--evaluación-evals)). `make verify` (ruff, mypy estricto y pytest) pasa antes de cada commit, y el CI lo repite en cada pull request contra un PostgreSQL real.
+**Casi 600 tests, y ninguno llama a un modelo.** El modelo entra en el código como un protocolo (`StructuredLLM`, `ToolCallingLLM`), así que los tests lo sustituyen por respuestas guionizadas y comprueban lo que el código hace con ellas; lo que hace el modelo real lo miden las evaluaciones ([sección 8](#8--evaluación-evals)). `make verify` (ruff, mypy estricto y pytest; y para el frontend, TypeScript, ESLint, Vitest y el build) pasa antes de cada commit, y el CI lo repite en cada pull request contra un PostgreSQL real.
 
 | Tipo | Dónde | Ejemplos |
 |---|---|---|
@@ -381,6 +385,7 @@ El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la pe
 | Casos de regresión | `tests/evals/test_regressions.py` | El bug #34 (una primera frase que la conclusión contradice), una cita inventada y las dos inyecciones del set de anuncios, cada uno con el nombre del bug o del riesgo |
 | Lógica de evaluación | `tests/evals/` | La puerta de regresión falla con cualquier empeoramiento en seguridad y nunca con una mejora; un anuncio anotado se valida contra el esquema |
 | Interfaz | `tests/ui/` | Con el `AppTest` de Streamlit: el voto sale con el `request_id` de la revisión y la revisión sigue en pantalla |
+| Marketplace | `frontend/src/**/*.test.ts(x)` | Con Vitest y Testing Library, la aplicación entera en una URL: los filtros de la URL deciden los resultados y su número; "malaga" encuentra "Málaga"; ordenar por precio reordena; un anuncio que no existe lo dice |
 
 ### **2.7. 🆕 Arquitectura de IA: CAG → RAG → agentes**
 

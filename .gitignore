@@ -32,3 +32,6 @@ evals/runs/
 # measurement is the table in its decision record, not every run that produced it.
 benchmarks/retrieval/results/*.json
 evals/results/*.json
+
+# Frontend
+node_modules/
