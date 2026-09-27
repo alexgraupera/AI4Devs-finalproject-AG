@@ -71,6 +71,13 @@ function Hero() {
             </Link>
           ))}
         </p>
+
+        <p className="mt-6 text-sm text-muted">
+          ¿Tienes un piso para alquilar?{" "}
+          <Link to="/publicar" className="font-medium text-accent-strong underline-offset-2 hover:underline">
+            Publicar anuncio
+          </Link>
+        </p>
       </div>
     </section>
   );
@@ -278,6 +285,7 @@ function Tools() {
           title="Comprueba tu anuncio antes de publicarlo"
           facts={["Unos 3 segundos", "Menos de medio céntimo por revisión"]}
           preview={<CheckPreview />}
+          action={{ to: "/publicar", label: "Comprueba tu anuncio" }}
           reversed
         >
           <p>

@@ -35,6 +35,19 @@ def test_the_feedback_is_forwarded_too(client: TestClient, api: FakeApi) -> None
     assert [str(request.url) for request in api.received] == [f"{API_URL}/api/v1/feedback"]
 
 
+def test_forwards_the_listing_review(client: TestClient, api: FakeApi) -> None:
+    api.answer = lambda request: httpx.Response(200, json={"verdict": "approve", "findings": []})
+    listing = {"text": "Piso de 2 habitaciones en Ruzafa, 1.100 €/mes, fianza de un mes.", "price_eur_month": 1100}
+
+    response = client.post("/api/v1/listings/review", json=listing)
+
+    assert response.status_code == 200
+    [sent] = api.received
+    assert str(sent.url) == f"{API_URL}/api/v1/listings/review"
+    assert sent.headers["X-API-Key"] == API_KEY
+    assert json.loads(sent.content) == listing
+
+
 def test_passes_the_api_status_code_and_error_body_through(client: TestClient, api: FakeApi) -> None:
     body = {"error": {"code": "rate_limited", "message": "Demasiadas consultas seguidas."}}
     api.answer = lambda request: httpx.Response(429, json=body, headers={"Retry-After": "42"})

@@ -3,7 +3,7 @@
  * which adds the credentials. The browser never sees them, so it never sends them either.
  */
 
-import type { FeedbackVote, Jurisdiction, RegulationAnswer } from "./types";
+import type { FeedbackVote, Jurisdiction, ListingInput, ListingReview, RegulationAnswer } from "./types";
 
 export const UNEXPECTED_ERROR = "No se ha podido contactar con el servicio. Inténtalo de nuevo.";
 
@@ -42,6 +42,11 @@ const post = <T>(path: string, payload: unknown) =>
 /** `jurisdictions` null searches every law in the corpus. */
 export function askRegulations(question: string, jurisdictions: Jurisdiction[] | null): Promise<RegulationAnswer> {
   return post<RegulationAnswer>("/api/v1/regulations/ask", { question, jurisdictions });
+}
+
+/** The quick review: the CAG pipeline, a few seconds and a fraction of a cent, to run as often as needed. */
+export function reviewListing(listing: ListingInput): Promise<ListingReview> {
+  return post<ListingReview>("/api/v1/listings/review", listing);
 }
 
 export async function sendFeedback(vote: FeedbackVote): Promise<void> {
