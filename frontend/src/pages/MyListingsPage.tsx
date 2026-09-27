@@ -1,18 +1,13 @@
 import { Link } from "react-router";
 import { formatNumber } from "../components/format";
 import { VerdictBadge } from "../components/ReviewResult";
-import { STATUS_LABELS } from "../landlord/labels";
+import { StatusBadge } from "../components/StatusBadge";
+import { listingTitle } from "../landlord/describe";
 import { useMyListings, type MyListing } from "../landlord/myListingsStore";
 
 export const NO_LISTINGS = "Aún no tienes anuncios. Publica el primero.";
 
 const DATE_TIME = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-
-/** A listing has no title of its own: its first sentence is what the landlord recognises it by. */
-function titleOf(listing: MyListing): string {
-  const firstSentence = listing.input.text.split(/(?<=\.)\s/)[0];
-  return firstSentence.length > 90 ? `${firstSentence.slice(0, 87)}…` : firstSentence;
-}
 
 function factsOf(listing: MyListing): string {
   const { municipality, price_eur_month, usable_surface_m2, rooms } = listing.input;
@@ -27,24 +22,28 @@ function factsOf(listing: MyListing): string {
 }
 
 function MyListingCard({ listing }: { listing: MyListing }) {
+  const agentReview = listing.lastReview === "agent" ? listing.agentReview : undefined;
   const review = listing.quickReview;
   return (
     <article className="flex flex-col gap-4 rounded-2xl border border-line bg-canvas p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 space-y-2">
         <p className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-canvas-sunken px-2.5 py-1 text-xs font-medium text-ink-soft">
-            {STATUS_LABELS[listing.status]}
-          </span>
+          <StatusBadge status={listing.status} />
           <span className="text-xs text-muted">Actualizado el {DATE_TIME.format(new Date(listing.updatedAt))}</span>
         </p>
         <h2 className="font-semibold leading-snug">
           <Link to={`/publicar/${listing.id}`} className="hover:text-accent-strong">
-            {titleOf(listing)}
+            {listingTitle(listing.input)}
           </Link>
         </h2>
         {factsOf(listing) && <p className="text-sm text-muted">{factsOf(listing)}</p>}
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          {review ? (
+          {agentReview ? (
+            <span className="text-muted">
+              Revisado por el agente
+              {agentReview.findings.length > 0 && ` · ${agentReview.findings.length} incidencias`}
+            </span>
+          ) : review ? (
             <>
               Última comprobación: <VerdictBadge verdict={review.verdict} />
               {review.findings.length > 0 && <span className="text-muted">{review.findings.length} incidencias</span>}
@@ -54,12 +53,19 @@ function MyListingCard({ listing }: { listing: MyListing }) {
           )}
         </div>
       </div>
-      <Link
-        to={`/publicar/${listing.id}`}
-        className="shrink-0 rounded-lg border border-line px-4 py-2 text-center text-sm font-medium hover:border-ink-soft"
-      >
-        Editar
-      </Link>
+      <div className="flex shrink-0 flex-col gap-2">
+        <Link
+          to={`/publicar/${listing.id}`}
+          className="rounded-lg border border-line px-4 py-2 text-center text-sm font-medium hover:border-ink-soft"
+        >
+          Editar
+        </Link>
+        {listing.status === "published" && (
+          <Link to={`/alquiler/${listing.id}`} className="text-center text-sm font-medium text-accent-strong hover:underline">
+            Ver en la búsqueda
+          </Link>
+        )}
+      </div>
     </article>
   );
 }

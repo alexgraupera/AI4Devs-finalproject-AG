@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Finding, ListingReview, Severity, Verdict } from "../api/types";
 import { Feedback } from "./Feedback";
+import { bySeverity } from "../landlord/describe";
 import { SEVERITY_LABELS, VERDICT_LABELS } from "../landlord/labels";
 import { formatUsage } from "./format";
 
@@ -12,9 +13,6 @@ const SEVERITY_STYLES: Record<Severity, string> = {
   medium: "bg-warn-soft text-warn",
   low: "bg-canvas-sunken text-ink-soft",
 };
-
-// The most serious first: what blocks publication is read before what polishes it.
-const SEVERITY_ORDER: Severity[] = ["high", "medium", "low"];
 
 export function VerdictBadge({ verdict }: { verdict: Verdict }) {
   return (
@@ -44,10 +42,6 @@ export function FindingItem({ finding, children }: { finding: Finding; children?
   );
 }
 
-function sortedFindings<T extends Finding>(findings: T[]): T[] {
-  return [...findings].sort((a, b) => SEVERITY_ORDER.indexOf(a.severity) - SEVERITY_ORDER.indexOf(b.severity));
-}
-
 /** The quick review of a listing: the verdict first, then each finding with what to do and the norm behind it. */
 export function ReviewResult({ review }: { review: ListingReview }) {
   return (
@@ -62,7 +56,7 @@ export function ReviewResult({ review }: { review: ListingReview }) {
         <div className="space-y-2">
           <h3 className="text-sm font-semibold">Incidencias ({review.findings.length})</h3>
           <ul className="space-y-2">
-            {sortedFindings(review.findings).map((finding, position) => (
+            {bySeverity(review.findings).map((finding, position) => (
               <FindingItem key={`${position}-${finding.message}`} finding={finding} />
             ))}
           </ul>

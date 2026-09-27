@@ -4,10 +4,12 @@ import { EXAMPLES } from "../landlord/examples";
 import { myListings, recordQuickReview, saveDraft } from "../landlord/myListingsStore";
 import { renderAt } from "../renderAt";
 import { never, stubApi } from "../testing/stubApi";
+import { AGENT_APPROVED, AGENT_CHANGES, AGENT_PAUSED } from "../testing/agentReviews";
 import { APPROVED, CHANGES_REQUESTED } from "../testing/reviews";
-import { CHANGED_SINCE_CHECK, DRAFT_SAVED, EMPTY_LISTING } from "./PublishPage";
+import { AGENT_REVIEWING, CHANGED_SINCE_CHECK, DRAFT_SAVED, EMPTY_LISTING, PENDING_MODERATION, PUBLISHED } from "./PublishPage";
 
 const REVIEW = "POST /api/v1/listings/review";
+const AGENT = "POST /api/v1/listings/agent-review";
 const MADRID = EXAMPLES.find((example) => example.id === "deposit-two-months")!;
 
 const reviewPanel = () => screen.getByRole("complementary", { name: "Revisión" });
@@ -143,6 +145,73 @@ describe("publish page", () => {
 
     expect(screen.getByRole("textbox", { name: "Pega o escribe tu anuncio" })).toHaveValue("");
     expect(within(reviewPanel()).queryByText("Requiere cambios")).not.toBeInTheDocument();
+  });
+
+  it("an approved agent review publishes the listing", async () => {
+    const calls = stubApi({ [AGENT]: () => ({ body: AGENT_APPROVED }) });
+    const user = userEvent.setup();
+    renderAt("/publicar");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Rellenar con un ejemplo" }), "Dos meses de fianza (Madrid)");
+
+    await user.click(screen.getByRole("button", { name: "Enviar a publicar" }));
+
+    expect(await within(reviewPanel()).findByText(PUBLISHED, { exact: false })).toBeInTheDocument();
+    expect(calls.filter((call) => call.path === "/api/v1/listings/agent-review").map((call) => call.payload)).toEqual([
+      MADRID.input,
+    ]);
+    const [listing] = myListings();
+    expect(listing.status).toBe("published");
+    // Nothing to send again until the listing changes.
+    expect(screen.getByRole("button", { name: "Enviar a publicar" })).toBeDisabled();
+
+    await user.click(within(reviewPanel()).getByRole("link", { name: "Verlo en la búsqueda" }));
+    expect(screen.getByRole("heading", { level: 1, name: "Piso exterior de 2 habitaciones en Arganzuela (Madrid), 68 m² útiles, con ascensor" })).toBeInTheDocument();
+    expect(screen.getByText("Tu anuncio")).toBeInTheDocument();
+  });
+
+  it("a review that requests changes leaves it in 'Requiere cambios', with the corrected version to use", async () => {
+    stubApi({ [AGENT]: () => ({ body: AGENT_CHANGES }) });
+    const user = userEvent.setup();
+    renderAt("/publicar");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Rellenar con un ejemplo" }), "Dos meses de fianza (Madrid)");
+
+    await user.click(screen.getByRole("button", { name: "Enviar a publicar" }));
+
+    await within(reviewPanel()).findByRole("region", { name: "Anuncio corregido" });
+    expect(myListings()[0].status).toBe("changes_requested");
+    expect(screen.getAllByText("Requiere cambios").length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: "Usar esta versión" }));
+
+    expect(screen.getByRole("textbox", { name: "Pega o escribe tu anuncio" })).toHaveValue(AGENT_CHANGES.rewrite!.text);
+    expect(screen.getByText(CHANGED_SINCE_CHECK)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviar a publicar" })).toBeEnabled();
+  });
+
+  it("a paused review leaves it in 'Pendiente de moderación'", async () => {
+    stubApi({ [AGENT]: () => ({ status: 202, body: AGENT_PAUSED }) });
+    const user = userEvent.setup();
+    renderAt("/publicar");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Rellenar con un ejemplo" }), "Tres incumplimientos (Madrid)");
+
+    await user.click(screen.getByRole("button", { name: "Enviar a publicar" }));
+
+    expect(await within(reviewPanel()).findByText(PENDING_MODERATION)).toBeInTheDocument();
+    expect(myListings()[0]).toMatchObject({ status: "pending_moderation", runId: "run-42" });
+    expect(screen.getByRole("button", { name: "Enviar a publicar" })).toBeDisabled();
+  });
+
+  it("says the agent is reviewing while it does", async () => {
+    stubApi({ [AGENT]: never });
+    const user = userEvent.setup();
+    renderAt("/publicar");
+    await user.type(screen.getByRole("textbox", { name: "Pega o escribe tu anuncio" }), "Piso de 2 habitaciones en Ruzafa.");
+
+    await user.click(screen.getByRole("button", { name: "Enviar a publicar" }));
+
+    expect(within(reviewPanel()).getByText(AGENT_REVIEWING)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviando…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Comprobar anuncio" })).toBeDisabled();
   });
 
   it("says so when a draft does not exist", () => {

@@ -48,6 +48,18 @@ def test_forwards_the_listing_review(client: TestClient, api: FakeApi) -> None:
     assert json.loads(sent.content) == listing
 
 
+def test_forwards_the_agent_review_and_passes_a_202_through(client: TestClient, api: FakeApi) -> None:
+    # 202: the agent paused the review and it waits for a person. The frontend reads that status.
+    paused = {"status": "waiting_human", "run_id": "run-1"}
+    api.answer = lambda request: httpx.Response(202, json=paused)
+
+    response = client.post("/api/v1/listings/agent-review", json={"text": "Piso de 2 habitaciones en Chamberí."})
+
+    assert response.status_code == 202
+    assert response.json() == paused
+    assert [str(request.url) for request in api.received] == [f"{API_URL}/api/v1/listings/agent-review"]
+
+
 def test_passes_the_api_status_code_and_error_body_through(client: TestClient, api: FakeApi) -> None:
     body = {"error": {"code": "rate_limited", "message": "Demasiadas consultas seguidas."}}
     api.answer = lambda request: httpx.Response(429, json=body, headers={"Retry-After": "42"})

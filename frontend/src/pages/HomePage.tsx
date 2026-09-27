@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
-import { municipalities, searchListings, type RentalListing } from "../catalogue/catalogue";
+import { municipalities, placeOf, searchListings, type RentalListing } from "../catalogue/catalogue";
 import { formatNumber } from "../components/format";
 import { ArrowRightIcon, CheckIcon, PauseIcon, PinIcon, ScaleIcon, SearchIcon } from "../components/icons";
 
@@ -98,7 +98,9 @@ function CompactCard({ listing }: { listing: RentalListing }) {
         </h3>
         <p className="flex items-center gap-1 text-sm text-muted">
           <PinIcon className="size-4" />
-          {listing.neighbourhood}, {listing.municipality} · {listing.usableSurfaceM2} m² · {listing.rooms} hab.
+          {[placeOf(listing), listing.usableSurfaceM2 > 0 && `${listing.usableSurfaceM2} m²`, listing.rooms > 0 && `${listing.rooms} hab.`]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
     </article>

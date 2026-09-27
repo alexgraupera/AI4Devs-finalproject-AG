@@ -3,7 +3,7 @@
  * which adds the credentials. The browser never sees them, so it never sends them either.
  */
 
-import type { FeedbackVote, Jurisdiction, ListingInput, ListingReview, RegulationAnswer } from "./types";
+import type { AgentReview, FeedbackVote, Jurisdiction, ListingInput, ListingReview, RegulationAnswer } from "./types";
 
 export const UNEXPECTED_ERROR = "No se ha podido contactar con el servicio. Inténtalo de nuevo.";
 
@@ -47,6 +47,14 @@ export function askRegulations(question: string, jurisdictions: Jurisdiction[] |
 /** The quick review: the CAG pipeline, a few seconds and a fraction of a cent, to run as often as needed. */
 export function reviewListing(listing: ListingInput): Promise<ListingReview> {
   return post<ListingReview>("/api/v1/listings/review", listing);
+}
+
+/**
+ * The review before publishing: an agent that consults the regulations, cites each finding and proposes
+ * the listing corrected (about 15 s). A review it cannot stand behind comes back `waiting_human` (202).
+ */
+export function agentReviewListing(listing: ListingInput): Promise<AgentReview> {
+  return post<AgentReview>("/api/v1/listings/agent-review", listing);
 }
 
 export async function sendFeedback(vote: FeedbackVote): Promise<void> {

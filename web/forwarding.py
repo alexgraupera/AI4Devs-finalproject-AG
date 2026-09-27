@@ -23,6 +23,7 @@ ALLOWED: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("POST", re.compile(r"/api/v1/regulations/ask")),
     ("POST", re.compile(r"/api/v1/feedback")),
     ("POST", re.compile(r"/api/v1/listings/review")),
+    ("POST", re.compile(r"/api/v1/listings/agent-review")),
 )
 
 # An agent review runs for up to 90 s in the API, and a sleeping free-tier API takes up to a

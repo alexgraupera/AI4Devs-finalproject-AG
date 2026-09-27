@@ -1,6 +1,9 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { EXAMPLES } from "../landlord/examples";
+import { recordAgentReview, saveDraft } from "../landlord/myListingsStore";
 import { renderAt } from "../renderAt";
+import { AGENT_APPROVED } from "../testing/agentReviews";
 
 const results = () => within(screen.getByRole("list", { name: "Resultados" })).getAllByRole("article");
 const resultTitles = () => results().map((card) => within(card).getByRole("heading", { level: 2 }).textContent);
@@ -65,5 +68,22 @@ describe("search page", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Piso de 3 habitaciones en Abando, junto a la Gran Vía" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows the landlord's published listing with 'Tu anuncio', and only once it is published", () => {
+    const { id } = saveDraft(EXAMPLES.find((example) => example.id === "clean-valencia")!.input);
+    const draftOnly = renderAt("/alquiler?municipio=Valencia");
+    expect(results()).toHaveLength(2);
+    draftOnly.unmount();
+
+    recordAgentReview(id, AGENT_APPROVED);
+    renderAt("/alquiler?municipio=Valencia");
+
+    expect(results()).toHaveLength(3);
+    const mine = results().find((card) => within(card).queryByText("Tu anuncio"))!;
+    expect(within(mine).getByRole("heading", { level: 2 })).toHaveTextContent(
+      // The first sentence of the text, cut short as a title.
+      "Piso de 3 habitaciones y 2 baños en Ruzafa (Valencia), 90 m² útiles, con balcón y aire …",
+    );
   });
 });

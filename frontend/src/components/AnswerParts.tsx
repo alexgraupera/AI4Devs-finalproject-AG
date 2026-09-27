@@ -1,7 +1,7 @@
 /** The pieces of a regulation answer, shared by the `/normativa` page and the listing assistant. */
 
 import type { Citation, RegulationAnswer } from "../api/types";
-import { formatUsage } from "./format";
+import { citationLabel, formatUsage } from "./format";
 
 export const NO_MODEL_CALL = "Sin llamada al modelo: la normativa indexada no cubría la pregunta.";
 
@@ -14,7 +14,7 @@ export function Sources({ citations }: { citations: Citation[] }) {
         {citations.map((citation) => (
           <li key={citation.chunk_id}>
             <a href={citation.url} target="_blank" rel="noreferrer" className="text-accent-strong underline-offset-2 hover:underline">
-              {citation.law_title.replace(/\.$/, "")} · {citation.article}
+              {citationLabel(citation)}
             </a>
           </li>
         ))}
