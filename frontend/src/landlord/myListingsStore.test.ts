@@ -1,7 +1,16 @@
 import { act, renderHook } from "@testing-library/react";
 import type { ListingInput } from "../api/types";
+import { AGENT_APPROVED, AGENT_CHANGES, AGENT_PAUSED } from "../testing/agentReviews";
 import { APPROVED } from "../testing/reviews";
-import { findMyListing, myListings, recordQuickReview, saveDraft, useMyListings } from "./myListingsStore";
+import {
+  findMyListing,
+  myListings,
+  publishedListings,
+  recordAgentReview,
+  recordQuickReview,
+  saveDraft,
+  useMyListings,
+} from "./myListingsStore";
 
 const KEY = "umbral-my-listings";
 
@@ -69,6 +78,55 @@ describe("my listings store", () => {
     });
     expect(myListings()).toEqual([]);
     getItem.mockRestore();
+  });
+
+  it("each outcome of the agent sets its status", () => {
+    const approved = saveDraft(A_LISTING);
+    const changes = saveDraft({ ...A_LISTING, text: "Otro piso. Dos meses de fianza." });
+    const paused = saveDraft({ ...A_LISTING, text: "Un tercer piso. Honorarios al inquilino." });
+
+    recordAgentReview(approved.id, AGENT_APPROVED);
+    recordAgentReview(changes.id, AGENT_CHANGES);
+    recordAgentReview(paused.id, AGENT_PAUSED);
+
+    expect(findMyListing(approved.id)).toMatchObject({ status: "published", lastReview: "agent" });
+    expect(findMyListing(approved.id)?.publishedAt).toBeDefined();
+    expect(findMyListing(changes.id)).toMatchObject({ status: "changes_requested", agentReview: AGENT_CHANGES });
+    expect(findMyListing(changes.id)?.runId).toBeUndefined();
+    // The run the moderation will resume.
+    expect(findMyListing(paused.id)).toMatchObject({ status: "pending_moderation", runId: "run-42" });
+  });
+
+  it("a published listing appears in the catalogue as the landlord's, with nothing made up", () => {
+    const { id } = saveDraft({ ...A_LISTING, energy_rating: null, usable_surface_m2: null });
+    expect(publishedListings()).toEqual([]);
+
+    recordAgentReview(id, AGENT_APPROVED);
+
+    const [published] = publishedListings();
+    expect(published).toMatchObject({
+      id,
+      mine: true,
+      title: "Piso de 2 habitaciones en Ruzafa",
+      municipality: "Valencia",
+      priceEurMonth: 1100,
+      usableSurfaceM2: 0,
+      rooms: 2,
+      energyRating: null,
+      description: A_LISTING.text,
+      features: [],
+    });
+  });
+
+  it("a changed text takes a published listing out of the catalogue until it is reviewed again", () => {
+    const { id } = saveDraft(A_LISTING);
+    recordAgentReview(id, AGENT_APPROVED);
+
+    saveDraft({ ...A_LISTING, price_eur_month: 1300 }, id);
+
+    expect(findMyListing(id)).toMatchObject({ status: "draft" });
+    expect(findMyListing(id)?.agentReview).toBeUndefined();
+    expect(publishedListings()).toEqual([]);
   });
 
   it("tells the pages when a listing is saved", () => {

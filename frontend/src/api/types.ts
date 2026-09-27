@@ -81,3 +81,73 @@ export type ListingReview = {
   // An identical listing was reviewed before: this answer comes from the cache and cost nothing.
   cached: boolean;
 };
+
+export type CitedFinding = Finding & {
+  // The articles the agent read before stating it, as the search returned them: never written by the model.
+  citations: Citation[];
+};
+
+/** A finding the critic did not back, with why: kept for the person deciding (flag mode, ADR 0035). */
+export type RejectedFinding = {
+  message: string;
+  legal_basis: string | null;
+  problem: string;
+  reason: string;
+};
+
+export type ListingRewrite = {
+  text: string;
+  changes: string[];
+  // Data the agent may not invent, left as gaps in square brackets.
+  placeholders: string[];
+  // Figures in the rewrite that the original does not state: to check before publishing.
+  new_figures: string[];
+};
+
+export type TraceStep = {
+  step: number;
+  tool: string;
+  arguments: Record<string, unknown>;
+  result: string;
+  ok: boolean;
+  latency_ms: number;
+  thought: string | null;
+};
+
+export type StepCost = {
+  step: string;
+  calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+  estimated_cost_usd: string | null;
+};
+
+export type HumanReviewRequest = {
+  run_id: string;
+  reason: string;
+  proposed: { findings: CitedFinding[]; verdict: Verdict; summary: string; rewrite: ListingRewrite | null };
+  rejected: RejectedFinding[];
+};
+
+// completed; waiting_human: paused before publishing, for a person to decide; discarded: a person rejected it.
+export type AgentReviewStatus = "completed" | "waiting_human" | "discarded";
+
+export type AgentReview = {
+  request_id: string | null;
+  status: AgentReviewStatus;
+  run_id: string | null;
+  findings: CitedFinding[];
+  verdict: Verdict;
+  summary: string;
+  trace: TraceStep[];
+  stop_reason: string;
+  escalated: boolean;
+  dropped_findings: number;
+  disputed_findings: RejectedFinding[];
+  pending_review: HumanReviewRequest | null;
+  human_decision: { action: "approve" | "adjust" | "reject"; keep: number[] | null; note: string | null } | null;
+  rewrite: ListingRewrite | null;
+  usage: Usage;
+  cost_breakdown: StepCost[];
+};

@@ -10,7 +10,9 @@
  */
 
 import { useSyncExternalStore } from "react";
-import type { ListingInput, ListingReview } from "../api/types";
+import type { AgentReview, ListingInput, ListingReview } from "../api/types";
+import type { EnergyRating, RentalListing } from "../catalogue/catalogue";
+import { listingTitle, regionOf } from "./describe";
 
 const KEY = "umbral-my-listings";
 
@@ -22,7 +24,14 @@ export type MyListing = {
   status: MyListingStatus;
   // The last quick review, of the text as it was then. It says nothing about publishing.
   quickReview?: ListingReview;
-  // ISO timestamp.
+  // The last review of the agent, which decides the status: published, changes requested or paused.
+  agentReview?: AgentReview;
+  // Which of the two ran last, so the page shows the newest.
+  lastReview?: "quick" | "agent";
+  // The paused run the moderation resumes, while the listing waits for a person.
+  runId?: string;
+  // ISO timestamps.
+  publishedAt?: string;
   updatedAt: string;
 };
 
@@ -101,8 +110,10 @@ export function findMyListing(id: string): MyListing | undefined {
 export function saveDraft(input: ListingInput, id?: string): MyListing {
   if (id && findMyListing(id)) {
     return update(id, (listing) =>
-      // The quick review was of the old text: it goes with it.
-      JSON.stringify(listing.input) === JSON.stringify(input) ? listing : { ...listing, input, status: "draft", quickReview: undefined },
+      // The reviews were of the old text: they go with it, and a changed listing is unpublished until reviewed again.
+      JSON.stringify(listing.input) === JSON.stringify(input)
+        ? listing
+        : { id: listing.id, input, status: "draft", updatedAt: listing.updatedAt },
     );
   }
   const created: MyListing = { id: newId(), input, status: "draft", updatedAt: new Date().toISOString() };
@@ -111,7 +122,63 @@ export function saveDraft(input: ListingInput, id?: string): MyListing {
 }
 
 export function recordQuickReview(id: string, review: ListingReview): MyListing {
-  return update(id, (listing) => ({ ...listing, quickReview: review }));
+  return update(id, (listing) => ({ ...listing, quickReview: review, lastReview: "quick" }));
+}
+
+/**
+ * The agent's review decides where the listing goes: approved is published, changes requested goes
+ * back to the landlord, and a review the agent cannot stand behind waits for a person with its run id.
+ */
+export function recordAgentReview(id: string, review: AgentReview): MyListing {
+  const status: MyListingStatus =
+    review.status === "waiting_human"
+      ? "pending_moderation"
+      : review.status === "discarded"
+        ? "draft"
+        : review.verdict === "approve"
+          ? "published"
+          : "changes_requested";
+  return update(id, (listing) => ({
+    ...listing,
+    agentReview: review,
+    lastReview: "agent",
+    status,
+    runId: status === "pending_moderation" ? (review.run_id ?? undefined) : undefined,
+    publishedAt: status === "published" ? new Date().toISOString() : undefined,
+  }));
+}
+
+const ENERGY_RATINGS: EnergyRating[] = ["A", "B", "C", "D", "E", "F", "G", "En trámite", "Exenta"];
+
+/** A published listing as the catalogue shows it: what the landlord gave, and nothing made up. */
+function asRentalListing(listing: MyListing): RentalListing {
+  const { input } = listing;
+  const rating = ENERGY_RATINGS.find((candidate) => candidate === input.energy_rating) ?? null;
+  return {
+    id: listing.id,
+    title: listingTitle(input),
+    municipality: input.municipality ?? "",
+    region: regionOf(input.municipality),
+    neighbourhood: "",
+    priceEurMonth: input.price_eur_month ?? 0,
+    usableSurfaceM2: input.usable_surface_m2 ?? 0,
+    rooms: input.rooms ?? 0,
+    bathrooms: 0,
+    floor: "",
+    energyRating: rating,
+    features: [],
+    agency: { name: "Particular", initials: "P" },
+    photos: ["/photos/no-photos.svg"],
+    description: input.text,
+    publishedAt: (listing.publishedAt ?? listing.updatedAt).slice(0, 10),
+    mine: true,
+  };
+}
+
+export function publishedListings(): RentalListing[] {
+  return myListings()
+    .filter((listing) => listing.status === "published")
+    .map(asRentalListing);
 }
 
 function subscribe(listener: () => void): () => void {

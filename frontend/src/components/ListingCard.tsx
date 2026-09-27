@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import type { RentalListing } from "../catalogue/catalogue";
+import { placeOf, type RentalListing } from "../catalogue/catalogue";
 import { EnergyBadge } from "./EnergyBadge";
 import { formatNumber } from "./format";
 import { HeartIcon, PinIcon } from "./icons";
@@ -34,6 +34,12 @@ export function FavouriteButton({ className = "" }: { className?: string }) {
 }
 
 /** A figure over its unit, as the reference portal shows them; the unit is the term, so it comes first in the markup. */
+export const MINE = "Tu anuncio";
+
+export function MineBadge({ className = "" }: { className?: string }) {
+  return <span className={`rounded-full bg-accent px-2.5 py-1 text-xs font-semibold text-ink ${className}`}>{MINE}</span>;
+}
+
 export function KeyFact({ value, unit }: { value: string; unit: string }) {
   return (
     <div className="flex flex-col-reverse">
@@ -50,12 +56,13 @@ export function ListingCard({ listing }: { listing: RentalListing }) {
       <div className="relative">
         <PhotoGallery photos={listing.photos} title={listing.title} className="h-full" />
         <FavouriteButton className="absolute top-3 right-3" />
+        {listing.mine && <MineBadge className="absolute top-3 left-3" />}
       </div>
       <div className="flex flex-col gap-4 p-5">
         <div className="space-y-1">
           <p className="flex items-center gap-1 text-sm text-muted">
             <PinIcon className="size-4" />
-            {listing.neighbourhood}, {listing.municipality}
+            {placeOf(listing)}
           </p>
           <h2 className="text-lg leading-snug font-semibold text-ink">
             <Link to={`/alquiler/${listing.id}`} className="hover:text-accent-strong">
@@ -64,9 +71,10 @@ export function ListingCard({ listing }: { listing: RentalListing }) {
           </h2>
         </div>
         <dl className="flex gap-8">
-          <KeyFact value={formatNumber(listing.priceEurMonth)} unit="€/mes" />
-          <KeyFact value={formatNumber(listing.usableSurfaceM2)} unit="m²" />
-          <KeyFact value={formatNumber(listing.rooms)} unit="hab." />
+          {/* A landlord's own listing may not state every figure: none is shown as a zero. */}
+          {listing.priceEurMonth > 0 && <KeyFact value={formatNumber(listing.priceEurMonth)} unit="€/mes" />}
+          {listing.usableSurfaceM2 > 0 && <KeyFact value={formatNumber(listing.usableSurfaceM2)} unit="m²" />}
+          {listing.rooms > 0 && <KeyFact value={formatNumber(listing.rooms)} unit="hab." />}
         </dl>
         <ul className="flex flex-wrap gap-2" aria-label="Características">
           {listing.features.slice(0, 4).map((feature) => (

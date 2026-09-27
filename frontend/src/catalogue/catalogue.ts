@@ -2,12 +2,14 @@
  * The marketplace's catalogue: the fictional rentals a tenant browses, and how they are searched.
  *
  * The listings are fake on purpose (see `listings.ts`); the search over them is real, so the pages
- * built on top behave like the ones of a marketplace with a database behind.
+ * built on top behave like the ones of a marketplace with a database behind. The listings the
+ * landlord published in this browser are searched with them.
  */
 
+import { publishedListings } from "../landlord/myListingsStore";
 import { CATALOGUE } from "./listings";
 
-export type EnergyRating = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "En trámite";
+export type EnergyRating = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "En trámite" | "Exenta";
 
 export type Agency = {
   name: string;
@@ -37,6 +39,8 @@ export type RentalListing = {
   description: string;
   // ISO date (YYYY-MM-DD).
   publishedAt: string;
+  // Published by the landlord of this browser, after the agent's review: marked as theirs.
+  mine?: boolean;
 };
 
 export type SearchFilters = {
@@ -63,9 +67,11 @@ const COMPARATORS: Record<SortOrder, (a: RentalListing, b: RentalListing) => num
   surface_desc: (a, b) => b.usableSurfaceM2 - a.usableSurfaceM2,
 };
 
+const allListings = () => [...CATALOGUE, ...publishedListings()];
+
 export function searchListings(filters: SearchFilters, sort: SortOrder = "recent"): RentalListing[] {
   const municipality = filters.municipality ? normalised(filters.municipality) : undefined;
-  return CATALOGUE.filter(
+  return allListings().filter(
     (listing) =>
       (municipality === undefined || normalised(listing.municipality) === municipality) &&
       (filters.maxPrice === undefined || listing.priceEurMonth <= filters.maxPrice) &&
@@ -75,10 +81,16 @@ export function searchListings(filters: SearchFilters, sort: SortOrder = "recent
 }
 
 export function findListing(id: string): RentalListing | undefined {
-  return CATALOGUE.find((listing) => listing.id === id);
+  return allListings().find((listing) => listing.id === id);
 }
 
 /** Every municipality with at least one listing, alphabetically, as the search box offers them. */
 export function municipalities(): string[] {
-  return [...new Set(CATALOGUE.map((listing) => listing.municipality))].sort((a, b) => a.localeCompare(b, "es"));
+  const names = allListings().map((listing) => listing.municipality).filter(Boolean);
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b, "es"));
+}
+
+/** Where a listing is, as far as it says: a landlord's own listing names no neighbourhood. */
+export function placeOf(listing: RentalListing): string {
+  return [listing.neighbourhood, listing.municipality].filter(Boolean).join(", ");
 }

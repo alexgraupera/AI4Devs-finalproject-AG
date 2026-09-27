@@ -1,16 +1,29 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ApiError, reviewListing, UNEXPECTED_ERROR } from "../api/client";
+import { agentReviewListing, ApiError, reviewListing, UNEXPECTED_ERROR } from "../api/client";
 import type { ListingInput } from "../api/types";
+import { AgentReviewResult } from "../components/AgentReviewResult";
 import { ReviewResult } from "../components/ReviewResult";
 import { ServiceBanner } from "../components/ServiceBanner";
+import { StatusBadge } from "../components/StatusBadge";
 import { EXAMPLES } from "../landlord/examples";
-import { STATUS_LABELS } from "../landlord/labels";
-import { findMyListing, recordQuickReview, saveDraft, useMyListings } from "../landlord/myListingsStore";
+import {
+  findMyListing,
+  recordAgentReview,
+  recordQuickReview,
+  saveDraft,
+  useMyListings,
+  type MyListing,
+} from "../landlord/myListingsStore";
 
 export const EMPTY_LISTING = "El anuncio está vacío";
 export const DRAFT_SAVED = "Guardado en Mis anuncios.";
-export const CHANGED_SINCE_CHECK = "Has cambiado el anuncio desde la última comprobación: vuelve a comprobarlo.";
+export const CHANGED_SINCE_CHECK = "Has cambiado el anuncio desde la última revisión: vuelve a comprobarlo antes de enviarlo.";
+export const AGENT_REVIEWING = "El agente está revisando tu anuncio: consulta la normativa y tarda unos 15 segundos.";
+export const PUBLISHED = "Tu anuncio está publicado.";
+export const CHANGES_REQUESTED = "El agente pide cambios antes de publicarlo: corrige las incidencias, o usa la versión corregida, y vuelve a enviarlo.";
+export const PENDING_MODERATION =
+  "Tu anuncio espera moderación: el agente no puede respaldar todas sus conclusiones y una persona del equipo lo revisará.";
 
 const ENERGY_RATINGS = ["A", "B", "C", "D", "E", "F", "G", "En trámite", "Exenta"];
 // The listing guardrail refuses more than this (app/foundation/guardrails/input.py).
@@ -55,6 +68,28 @@ function inputOf(form: Form): ListingInput {
 
 const sameInput = (a: ListingInput, b: ListingInput) => JSON.stringify(a) === JSON.stringify(b);
 
+/** Where the agent's review left the listing, said to the landlord in one line. */
+function Outcome({ listing }: { listing: MyListing }) {
+  if (listing.status === "published") {
+    return (
+      <p role="status" className="rounded-xl bg-ok-soft px-4 py-3 text-sm text-ok">
+        {PUBLISHED}{" "}
+        <Link to={`/alquiler/${listing.id}`} className="font-medium underline-offset-2 hover:underline">
+          Verlo en la búsqueda
+        </Link>
+      </p>
+    );
+  }
+  const message = { changes_requested: CHANGES_REQUESTED, pending_moderation: PENDING_MODERATION, draft: null }[
+    listing.status
+  ];
+  return message ? (
+    <p role="status" className="rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">
+      {message}
+    </p>
+  ) : null;
+}
+
 const fieldClass = "w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink";
 
 function Field({ label, children }: { label: string; children: (id: string) => ReactNode }) {
@@ -81,6 +116,7 @@ export function PublishPage() {
   const [urlId, setUrlId] = useState(id);
   const [form, setForm] = useState<Form>(() => formOf(id ? findMyListing(id)?.input : undefined));
   const [checking, setChecking] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const listing = useMyListings().find((mine) => mine.id === draftId);
@@ -148,6 +184,26 @@ export function PublishPage() {
     }
   };
 
+  const publish = async () => {
+    const savedId = save();
+    if (!savedId) return;
+    setNotice(null);
+    setPublishing(true);
+    try {
+      recordAgentReview(savedId, await agentReviewListing(inputOf(form)));
+    } catch (failure) {
+      setError(failure instanceof ApiError ? failure.message : UNEXPECTED_ERROR);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  // The corrected listing goes into the form, to finish (its gaps) and send again: nothing is saved yet.
+  const useRewrite = (text: string) => {
+    setForm((current) => ({ ...current, text }));
+    setNotice(null);
+  };
+
   const fillWith = (exampleId: string) => {
     const example = EXAMPLES.find((candidate) => candidate.id === exampleId);
     if (example) setForm(formOf(example.input));
@@ -155,8 +211,13 @@ export function PublishPage() {
     setError(null);
   };
 
-  const review = listing?.quickReview;
-  const changedSinceCheck = review && listing && !sameInput(inputOf(form), listing.input);
+  const busy = checking || publishing;
+  const unchanged = listing !== undefined && sameInput(inputOf(form), listing.input);
+  const agentReview = listing?.lastReview === "agent" ? listing.agentReview : undefined;
+  const quickReview = agentReview ? undefined : listing?.quickReview;
+  const changedSinceCheck = (agentReview || quickReview) && !unchanged;
+  // Sending an unchanged listing again would pay for the same answer.
+  const alreadySent = unchanged && (listing?.status === "published" || listing?.status === "pending_moderation");
 
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
@@ -164,9 +225,7 @@ export function PublishPage() {
         <header className="space-y-3">
           {listing && (
             <p className="text-sm text-muted">
-              <span className="rounded-full bg-canvas-sunken px-2.5 py-1 text-xs font-medium text-ink-soft">
-                {STATUS_LABELS[listing.status]}
-              </span>
+              <StatusBadge status={listing.status} />
             </p>
           )}
           <h1 className="text-4xl font-semibold tracking-tight">Publica tu anuncio</h1>
@@ -190,7 +249,7 @@ export function PublishPage() {
         </Field>
 
         <form onSubmit={check} className="space-y-4">
-          <fieldset disabled={checking} className="space-y-4">
+          <fieldset disabled={busy} className="space-y-4">
             <Field label="Pega o escribe tu anuncio">
               {(fieldId) => (
                 <textarea
@@ -240,17 +299,25 @@ export function PublishPage() {
 
           <div className="flex flex-wrap items-center gap-3">
             <button
-              type="submit"
-              disabled={checking}
+              type="button"
+              disabled={busy || alreadySent}
+              onClick={() => void publish()}
               className="rounded-lg bg-ink px-5 py-3 text-sm font-medium text-white hover:bg-ink-soft disabled:opacity-60"
+            >
+              {publishing ? "Enviando…" : "Enviar a publicar"}
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="rounded-lg border border-line bg-canvas px-5 py-3 text-sm font-medium text-ink hover:border-ink-soft disabled:opacity-60"
             >
               {checking ? "Comprobando…" : "Comprobar anuncio"}
             </button>
             <button
               type="button"
-              disabled={checking}
+              disabled={busy}
               onClick={saveOnly}
-              className="rounded-lg border border-line bg-canvas px-5 py-3 text-sm font-medium text-ink hover:border-ink-soft disabled:opacity-60"
+              className="px-2 py-3 text-sm font-medium text-ink-soft hover:text-ink disabled:opacity-60"
             >
               Guardar borrador
             </button>
@@ -264,7 +331,8 @@ export function PublishPage() {
             )}
           </div>
           <p className="text-xs text-muted">
-            Próximamente: enviar a publicar, con una revisión a fondo de un agente antes de que el anuncio aparezca en la búsqueda.
+            Comprobar es rápido y puedes repetirlo. Al enviar a publicar, un agente lo revisa a fondo (unos 15 segundos):
+            lo publica, te pide cambios o, si duda, lo deja en manos del equipo de moderación.
           </p>
         </form>
       </div>
@@ -282,17 +350,21 @@ export function PublishPage() {
             Revisando el anuncio contra la normativa…
           </p>
         )}
-        {changedSinceCheck && !checking && (
+        {publishing && (
+          <p role="status" className="rounded-xl bg-canvas-sunken px-4 py-3 text-sm text-ink-soft">
+            {AGENT_REVIEWING}
+          </p>
+        )}
+        {!busy && listing && agentReview && <Outcome listing={listing} />}
+        {changedSinceCheck && !busy && (
           <p className="rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{CHANGED_SINCE_CHECK}</p>
         )}
-        {review && !checking ? (
-          <ReviewResult review={review} />
-        ) : (
-          !checking && (
-            <p className="text-sm text-muted">
-              Aquí verás el veredicto y cada incidencia, con su gravedad, qué hacer y la norma que la respalda.
-            </p>
-          )
+        {!busy && agentReview && <AgentReviewResult review={agentReview} onUseRewrite={useRewrite} />}
+        {!busy && quickReview && <ReviewResult review={quickReview} />}
+        {!busy && !agentReview && !quickReview && (
+          <p className="text-sm text-muted">
+            Aquí verás el veredicto y cada incidencia, con su gravedad, qué hacer y la norma que la respalda.
+          </p>
         )}
       </aside>
     </div>
