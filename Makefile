@@ -1,13 +1,18 @@
-.PHONY: install api ui up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache evals eval-answers eval-listings eval-gate eval-promote verify
+.PHONY: install api ui frontend up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache evals eval-answers eval-listings eval-gate eval-promote verify
 
 install:
 	uv sync
+	npm --prefix frontend ci
 
 api:
 	uv run uvicorn app.main:app --reload --port 8000
 
 ui:
 	uv run streamlit run streamlit_app.py --server.port 8501
+
+# The marketplace (fictional listings, real tools) on :5173, with hot reload.
+frontend:
+	npm --prefix frontend run dev
 
 up:
 	docker compose up --build
@@ -62,3 +67,4 @@ verify:
 	uv run ruff format --check .
 	uv run mypy
 	uv run pytest
+	npm --prefix frontend run verify

@@ -16,7 +16,8 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
 
 - Python 3.12+ managed with `uv`.
 - FastAPI + Uvicorn (AI service), Pydantic (contracts and LLM output validation).
-- Streamlit (UI).
+- Streamlit (UI), being replaced by the marketplace frontend of #83.
+- Marketplace frontend in `frontend/`: Vite + React + TypeScript, React Router, Tailwind CSS, Vitest + Testing Library (jsdom), ESLint. Node 22 (`frontend/.nvmrc`); `frontend/.npmrc` enables `legacy-peer-deps` to work around an npm 10 peer resolution bug with Vitest 5.
 - PostgreSQL + pgvector (vector store).
 - Docker Compose for the local environment.
 - LLM access through a wrapper built with LiteLLM (`Router` with primary + fallback) and Instructor (validated structured output with re-prompting). Anthropic primary, OpenAI fallback, switchable by configuration. Cheap models by default (cost matters: API credits only). `litellm` is pinned to an exact version.
@@ -24,10 +25,11 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
 
 ## Commands
 
-- `make install`: install dependencies (`uv sync`).
+- `make install`: install dependencies (`uv sync` and `npm --prefix frontend ci`).
 - `make up` / `make down`: start / stop the whole stack with Docker Compose (API on `:8000`, UI on `:8501`).
 - `make api` / `make ui`: run the API or the UI locally with hot reload.
-- `make verify`: lint (ruff), format check (ruff), typecheck (mypy strict) and tests (pytest). Run it before every commit; CI runs it on every pull request.
+- `make frontend`: run the marketplace frontend locally on `:5173` with hot reload.
+- `make verify`: lint (ruff), format check (ruff), typecheck (mypy strict) and tests (pytest), then the frontend's typecheck, lint, tests and build (`npm --prefix frontend run verify`). Run it before every commit; CI runs it on every pull request.
 
 ## Project structure
 
@@ -38,6 +40,7 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
   - `generation/`: the AI architectures (`cag/` caches, `rag/` retrieval, `agentic/` agents). They never import each other: they compose only through the conductor.
   - `api/`: thin routers (transport), no business logic.
 - `streamlit_app.py`: Streamlit client; it only talks to the API over HTTP.
+- `frontend/`: the marketplace (Umbral) that replaces the Streamlit client (#83). Fictional listings, agencies and photos (`src/catalogue/listings.ts`, `public/photos/` with `CREDITS.md`), real tools. Tests live next to the code (`*.test.ts(x)`).
 - `tests/`: tests mirroring the package structure.
 - `docs/decisions/`: architecture decision records.
 - `docs/data-sources/`: data source guides and runnable examples.
@@ -52,6 +55,7 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
 - Tests never call real LLM APIs: mock the provider. Evals are the only code allowed to call real models.
 - Secrets only through environment variables (`.env`, never committed; keep `.env.example` updated).
 - Relevant prompts used to build the project with AI are logged in `prompts.md`.
+- Frontend styles use only the design tokens of `frontend/src/index.css` (Tailwind's default palette is switched off): add a new colour there, never in a class. The marketplace never uses a real portal's name, logo or photos, and every page shows the demo notice.
 
 ## Documentation
 
