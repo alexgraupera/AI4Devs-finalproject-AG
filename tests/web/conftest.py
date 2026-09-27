@@ -45,9 +45,22 @@ def dist(tmp_path: Path) -> Path:
     return build
 
 
+def settings(**overrides: object) -> Settings:
+    """Everything a test does not name is set here, never read from a developer's `.env`."""
+    values: dict[str, object] = {
+        "environment": "development",
+        "api_url": API_URL,
+        "service_token": SERVICE_TOKEN,
+        "api_key": API_KEY,
+        "ui_username": "",
+        "ui_password": "",
+        "session_secret": "",
+    }
+    return Settings(**{**values, **overrides})  # type: ignore[arg-type]
+
+
 @pytest.fixture
 def client(api: FakeApi, dist: Path) -> Iterator[TestClient]:
-    settings = Settings(api_url=API_URL, service_token=SERVICE_TOKEN, api_key=API_KEY)
-    app = create_app(settings, dist_dir=dist, transport=httpx.MockTransport(api.handle))
+    app = create_app(settings(), dist_dir=dist, transport=httpx.MockTransport(api.handle))
     with TestClient(app) as test_client:
         yield test_client

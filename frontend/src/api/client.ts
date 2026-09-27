@@ -1,6 +1,10 @@
 /**
  * How the frontend talks to the AI service: always through the marketplace's web server (`web/`),
  * which adds the credentials. The browser never sees them, so it never sends them either.
+ *
+ * The web server asks for the demo's login before any tool call. When it does (401 with
+ * `sign_in_required`), the call fails as usual and the app is told, so it can take the person to
+ * `/acceso` and back to where they were.
  */
 
 import type {
@@ -14,6 +18,9 @@ import type {
 } from "./types";
 
 export const UNEXPECTED_ERROR = "No se ha podido contactar con el servicio. Inténtalo de nuevo.";
+export const SIGN_IN_REQUIRED_EVENT = "umbral:sign-in-required";
+
+export type SignInRequired = CustomEvent<{ returnTo: string }>;
 
 /** A failed call, with the message to show: the API's own words when it gave any. */
 export class ApiError extends Error {
@@ -26,9 +33,19 @@ export class ApiError extends Error {
   }
 }
 
+type ErrorBody = { error?: { code?: unknown; message?: unknown } } | null;
+
 function messageOf(body: unknown): string | undefined {
-  const message = (body as { error?: { message?: unknown } } | null)?.error?.message;
+  const message = (body as ErrorBody)?.error?.message;
   return typeof message === "string" ? message : undefined;
+}
+
+// Only the web server's own 401 is about the login. The API's (a wrong key between the web server and
+// the API) is a deployment fault: sending the person to sign in again would not fix it.
+function askForSignIn(status: number, body: unknown): void {
+  if (status !== 401 || (body as ErrorBody)?.error?.code !== "sign_in_required") return;
+  const returnTo = `${window.location.pathname}${window.location.search}`;
+  window.dispatchEvent(new CustomEvent(SIGN_IN_REQUIRED_EVENT, { detail: { returnTo } }));
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -39,7 +56,10 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(UNEXPECTED_ERROR, 0);
   }
   const body: unknown = await response.json().catch(() => null);
-  if (!response.ok) throw new ApiError(messageOf(body) ?? UNEXPECTED_ERROR, response.status);
+  if (!response.ok) {
+    askForSignIn(response.status, body);
+    throw new ApiError(messageOf(body) ?? UNEXPECTED_ERROR, response.status);
+  }
   if (body === null) throw new ApiError(UNEXPECTED_ERROR, response.status);
   return body as T;
 }
@@ -87,4 +107,36 @@ export async function serviceStatus(): Promise<"up" | "down"> {
   } catch {
     return "down";
   }
+}
+
+export type Session = { login_required: boolean; signed_in: boolean };
+
+export function session(): Promise<Session> {
+  return call<Session>("/bff/session");
+}
+
+/** Signing in and out answer 204: there is no body to read, only whether it worked. */
+async function send(path: string, init: RequestInit): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(path, init);
+  } catch {
+    throw new ApiError(UNEXPECTED_ERROR, 0);
+  }
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
+    throw new ApiError(messageOf(body) ?? UNEXPECTED_ERROR, response.status);
+  }
+}
+
+export function signIn(username: string, password: string): Promise<void> {
+  return send("/bff/session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export function signOut(): Promise<void> {
+  return send("/bff/session", { method: "DELETE" });
 }

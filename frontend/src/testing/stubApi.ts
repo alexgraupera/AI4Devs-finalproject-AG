@@ -1,6 +1,6 @@
 /**
  * A fake of the web server for the tests: `fetch` answers from a table of routes and records every
- * call. `/bff/service` answers "up" unless a test says otherwise; a route nobody declared fails the
+ * call. `/bff/service` answers "up" and `/bff/session` "no login" unless a test says otherwise; a route nobody declared fails the
  * test loudly instead of reaching the network.
  */
 
@@ -11,7 +11,11 @@ export type ApiCall = { method: string; path: string; payload: unknown };
 
 export function stubApi(routes: Record<string, Handler> = {}): ApiCall[] {
   const calls: ApiCall[] = [];
-  const table: Record<string, Handler> = { "GET /bff/service": () => ({ body: { api: "up" } }), ...routes };
+  const table: Record<string, Handler> = {
+    "GET /bff/service": () => ({ body: { api: "up" } }),
+    "GET /bff/session": () => ({ body: { login_required: false, signed_in: false } }),
+    ...routes,
+  };
 
   vi.stubGlobal(
     "fetch",
@@ -23,6 +27,8 @@ export function stubApi(routes: Record<string, Handler> = {}): ApiCall[] {
       const handler = table[`${method} ${path}`];
       if (!handler) throw new Error(`Unexpected call in a test: ${method} ${path}`);
       const { status = 200, body } = await handler(payload);
+      // A 204 has no body: the Response constructor refuses one.
+      if (status === 204) return new Response(null, { status });
       return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
     }),
   );

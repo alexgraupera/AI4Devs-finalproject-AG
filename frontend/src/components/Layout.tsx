@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { useEffect, useEffectEvent, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { SIGN_IN_REQUIRED_EVENT, signOut } from "../api/client";
+import { markSignedIn, useSession } from "../api/sessionStore";
 import { pendingModeration, useMyListings } from "../landlord/myListingsStore";
 import { DoorIcon } from "./icons";
 
@@ -52,6 +54,51 @@ const menuLinkClass = ({ isActive }: { isActive: boolean }) => `block rounded-md
 const primaryButtonClass =
   "rounded-lg bg-ink px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-sm transition-colors hover:bg-ink-soft";
 
+/** A tool call the web server refused for lack of a session: to the login, and back here afterwards. */
+function SignInRedirect() {
+  const navigate = useNavigate();
+  const { pathname, search } = useLocation();
+  // The router's own location, always the current one: the browser's matches it in the app, and a
+  // test's memory router has only this one.
+  const toSignIn = useEffectEvent(() => {
+    markSignedIn(false);
+    navigate(`/acceso?volver=${encodeURIComponent(`${pathname}${search}`)}`);
+  });
+  useEffect(() => {
+    const onRequired = () => toSignIn();
+    window.addEventListener(SIGN_IN_REQUIRED_EVENT, onRequired);
+    return () => window.removeEventListener(SIGN_IN_REQUIRED_EVENT, onRequired);
+  }, []);
+  return null;
+}
+
+/** "Acceder" or "Cerrar sesión", when the demo asks for its login at all. */
+function Account({ className }: { className: string }) {
+  const current = useSession();
+  const { pathname, search } = useLocation();
+  if (!current?.login_required) return null;
+  if (!current.signed_in) {
+    const here = pathname === "/acceso" ? "/" : `${pathname}${search}`;
+    return (
+      <Link to={`/acceso?volver=${encodeURIComponent(here)}`} className={className}>
+        Acceder
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={className}
+      onClick={async () => {
+        await signOut().catch(() => undefined);
+        markSignedIn(false);
+      }}
+    >
+      Cerrar sesión
+    </button>
+  );
+}
+
 /** On a phone the links do not fit in one row: they go behind a menu button, closed on every navigation. */
 function MobileMenu() {
   const { pathname, hash } = useLocation();
@@ -90,6 +137,9 @@ function MobileMenu() {
               <ModerationLink className={menuLinkClass} />
             </li>
             <li>
+              <Account className={`w-full text-left ${menuLinkClass({ isActive: false })}`} />
+            </li>
+            <li>
               <Link to="/#como-funciona" className={menuLinkClass({ isActive: false })}>
                 Cómo funciona
               </Link>
@@ -125,9 +175,12 @@ function Header() {
             Cómo funciona
           </Link>
         </nav>
-        <Link to="/publicar" className={`hidden md:block ${primaryButtonClass}`}>
-          Publicar anuncio
-        </Link>
+        <div className="hidden items-center gap-2 md:flex">
+          <Account className="rounded-md px-3 py-2 text-sm whitespace-nowrap text-ink-soft hover:text-ink" />
+          <Link to="/publicar" className={primaryButtonClass}>
+            Publicar anuncio
+          </Link>
+        </div>
         <MobileMenu />
       </div>
     </header>
@@ -175,6 +228,7 @@ export function Layout() {
   return (
     <div className="flex min-h-screen flex-col font-sans">
       <p className="bg-accent-soft px-4 py-2 text-center text-xs text-accent-strong">{DEMO_NOTICE}</p>
+      <SignInRedirect />
       <Header />
       <main className="flex flex-1 flex-col">
         <Outlet />

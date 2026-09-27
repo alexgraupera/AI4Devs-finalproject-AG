@@ -1,3 +1,12 @@
+# The marketplace frontend, built once from its lockfile. Only its output reaches the final image:
+# no Node, no node_modules, nothing that runs at request time.
+FROM node:22-slim AS frontend
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
@@ -9,11 +18,9 @@ RUN uv sync --locked --no-install-project
 
 COPY README.md ./
 COPY app ./app
-COPY streamlit_app.py ui_api.py ui_auth.py ui_feedback.py ./
-# Streamlit discovers the pages next to the entry point: without them the UI is a landing page.
-COPY pages ./pages
-# The UI's theme (the accent colour of focused fields and buttons).
-COPY .streamlit ./.streamlit
+# The marketplace's web server, and the frontend it serves (built in the stage above).
+COPY web ./web
+COPY --from=frontend /frontend/dist ./frontend/dist
 # The schema travels with the code that expects it, so the container can migrate itself.
 COPY alembic.ini ./
 COPY migrations ./migrations

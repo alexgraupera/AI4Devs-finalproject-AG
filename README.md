@@ -29,7 +29,7 @@ Alex Graupera
 
 ### **0.3. Descripción breve del proyecto:**
 
-Quien publica un anuncio de alquiler lo pega y recibe una revisión estructurada: qué falta, qué se contradice y qué incumple la normativa, cada incumplimiento con el artículo del BOE que lo respalda. Puede preguntar sobre la normativa y recibir una respuesta con citas que se pueden comprobar, o pedir la revisión a un agente que consulta la normativa, propone el anuncio corregido y se detiene para que una persona decida cuando no puede sostener sus conclusiones. Está construido en las tres capas del programa (CAG → RAG → agentes), medido con evaluaciones que han decidido cada cambio y desplegado en Render.
+Quien publica un anuncio de alquiler lo pega y recibe una revisión estructurada: qué falta, qué se contradice y qué incumple la normativa, cada incumplimiento con el artículo del BOE que lo respalda. Puede preguntar sobre la normativa y recibir una respuesta con citas que se pueden comprobar, o pedir la revisión a un agente que consulta la normativa, propone el anuncio corregido y se detiene para que una persona decida cuando no puede sostener sus conclusiones. Todo se usa dentro de **Umbral**, un marketplace de alquiler ficticio (anuncios, agencias y fotos inventados; herramientas reales) que pone cada herramienta donde la usaría un portal: el inquilino pregunta desde el anuncio, el anunciante comprueba y publica, y el equipo de moderación decide lo dudoso. Está construido en las tres capas del programa (CAG → RAG → agentes), medido con evaluaciones que han decidido cada cambio y desplegado en Render.
 
 ### **0.4. URL del proyecto:**
 
@@ -37,7 +37,7 @@ Quien publica un anuncio de alquiler lo pega y recibe una revisión estructurada
 
 **https://ai4devs-rental-ui-ag.onrender.com**
 
-Protegida con un usuario y una contraseña compartidos, que se envían al evaluador por un enlace de un solo uso ([ADR 0034](docs/decisions/0034-shared-login-for-the-ui.md)). Está en el plan gratuito de Render: si nadie la ha usado en los últimos 15 minutos, la primera visita tarda hasta un minuto en despertar el servicio (la interfaz lo avisa mientras espera).
+Los anuncios se ven sin entrar; las herramientas (que llaman a modelos de pago) piden un usuario y una contraseña compartidos, que se envían al evaluador por un enlace de un solo uso ([ADR 0034](docs/decisions/0034-shared-login-for-the-ui.md), [ADR 0036](docs/decisions/0036-marketplace-frontend.md)). Está en el plan gratuito de Render: si nadie la ha usado en los últimos 15 minutos, la primera consulta tarda hasta un minuto en despertar el servicio (el marketplace lo avisa mientras espera).
 
 ### 0.5. URL o archivo comprimido del repositorio
 
@@ -68,6 +68,7 @@ https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `final
 
 | Funcionalidad | Qué hace | Capa |
 |---|---|---|
+| **Marketplace de demostración** | Umbral: portada, búsqueda con filtros y fichas de 16 pisos ficticios, un asistente en cada ficha, publicar anuncio, "Mis anuncios" y la cola de moderación. Las herramientas de abajo, en el flujo de un portal | Cliente |
 | **Revisión de anuncios** | Revisa el texto y los datos estructurados contra un checklist de cinco puntos normativos (etiqueta energética, fianza, garantías, honorarios, información del precio) y de calidad. Devuelve incidencias con gravedad, sugerencia y base legal, un veredicto y lo que ha costado | CAG |
 | **Consulta de normativa** | Responde preguntas sobre la LAU, la Ley 12/2023, el RD 390/2021, la ley catalana de vivienda y las zonas tensionadas, citando el artículo exacto con su enlace al BOE; si la normativa indexada no lo cubre, lo dice | RAG |
 | **Revisión con agente** | Un agente con herramientas (`check_listing_fields`, `search_regulations`) consulta la normativa antes de afirmar nada, incluida la autonómica; un crítico comprueba cada incidencia contra el anuncio y el artículo citado; y propone el anuncio corregido, sin inventar datos | Agentes |
@@ -81,19 +82,33 @@ https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `final
 
 > Proporciona imágenes y/o videotutorial mostrando la experiencia del usuario desde que aterriza en la aplicación, pasando por todas las funcionalidades principales.
 
-La interfaz es un cliente Streamlit de tres páginas sobre la API. Al entrar pide el usuario y la contraseña compartidos; después, la portada comprueba que el servicio responde (en el plan gratuito puede estar dormido y lo avisa mientras lo despierta) y el menú lateral lleva a cada funcionalidad. Las capturas son de una ejecución real con el anuncio de Madrid del set de evaluación (dos meses de fianza, honorarios al inquilino y sin calificación energética).
+La interfaz es **Umbral**, un marketplace de alquiler ficticio con el diseño de un portal real: los anuncios, las agencias y las fotos (de dominio público) son inventados, y un aviso en cada página lo dice; las revisiones y las respuestas las genera el sistema de verdad. Cada herramienta está donde la usaría un portal: el inquilino pregunta desde el anuncio que lee, el anunciante comprueba y publica, y el equipo de calidad decide lo que el agente no puede respaldar ([ADR 0036](docs/decisions/0036-marketplace-frontend.md)). Las capturas son de una ejecución real sobre el stack de `make up` desde cero.
 
-**1. Revisión de anuncios.** Se pega el anuncio y, si se quiere, los datos estructurados. En unos segundos llega el veredicto, un resumen y las incidencias ordenadas por gravedad: las altas abiertas, cada una con su sugerencia y su base legal. Debajo, el modelo que respondió, los tokens, el tiempo y el coste, y la valoración 👍/👎.
+**1. Portada y búsqueda.** La portada presenta las tres herramientas con un ejemplo de cada una; la búsqueda filtra por municipio, precio, habitaciones y superficie, con los filtros en la URL. Ver anuncios no pide acceso.
 
-![Revisión de anuncios](docs/images/1-revision.png)
+![Portada](docs/images/1-portada.jpg)
 
-**2. Consulta de normativa.** Una pregunta en lenguaje natural, con el ámbito opcional (toda España o Cataluña). La respuesta cita el artículo con un enlace que abre el BOE en ese artículo, y los fragmentos recuperados se pueden desplegar para ver de dónde salió.
+![Búsqueda](docs/images/2-busqueda.jpg)
 
-![Consulta de normativa](docs/images/2-consulta.png)
+**2. El inquilino pregunta por sus derechos (RAG).** En cada ficha, el asistente de la esquina propone preguntas sacadas del anuncio (la fianza que pide, los honorarios que cobra, si le falta la calificación energética) y busca solo en las leyes que aplican al municipio: un piso en Barcelona consulta también la ley catalana. La respuesta enlaza el artículo del BOE; si la normativa indexada no lo cubre, dice que no lo sabe. Los fragmentos recuperados, el modelo y el coste están en "Detalles técnicos", y 👍/👎 bajo cada respuesta. También en `/normativa`, sin partir de un anuncio.
 
-**3. Revisión con agente.** El mismo anuncio, revisado por el agente: cada incidencia legal con sus citas al BOE, el **anuncio corregido** editable (con los datos que no puede inventar marcados como huecos: `[indica la calificación energética]`), los pasos que dio, lo que descartó el revisor y el **coste por paso**. Cuando el crítico no respalda las conclusiones, la página muestra en su lugar la revisión propuesta, lo descartado con su motivo y tres botones: aprobar, ajustar (marcando qué incidencias quedan) o descartar.
+![Asistente de la ficha](docs/images/3-asistente.jpg)
 
-![Revisión con agente](docs/images/3-agente.png)
+**3. El anunciante comprueba su anuncio (CAG).** En `/publicar` se escribe el anuncio (o se parte de uno de los ejemplos del set de evaluación) y "Comprobar anuncio" devuelve en unos segundos el veredicto y las incidencias, las graves primero, cada una con su sugerencia y su base legal. Se puede repetir tras cada corrección: cuesta menos de medio céntimo.
+
+![Comprobar anuncio](docs/images/4-comprobar.jpg)
+
+**4. Publicar pasa por el agente.** "Enviar a publicar" lo revisa el agente: consulta la normativa, cita el artículo de cada incidencia y propone el **anuncio corregido**, con los datos que no puede inventar marcados como huecos. Si aprueba, el anuncio se publica y aparece en la búsqueda como "Tu anuncio"; si pide cambios, "Usar esta versión" pasa la corrección al formulario; si no puede respaldar sus conclusiones, queda "Pendiente de moderación". Los pasos del agente y el coste por paso están en "Detalles técnicos".
+
+![Revisión del agente](docs/images/5-agente.jpg)
+
+**5. Una persona decide lo dudoso.** En `/moderacion`, la cola del equipo de calidad, cada revisión pausada muestra el motivo, las incidencias propuestas y las dudas del crítico con su razón. Se aprueba, se mantienen solo las marcadas o se descarta, con una nota para el anunciante; la revisión se reanuda en la API donde se quedó y el anuncio sigue el resultado: sin incidencias graves se publica, con ellas vuelve a su anunciante.
+
+![Moderación](docs/images/6-moderacion.jpg)
+
+**6. Acceso.** La primera herramienta que se usa sin sesión lleva a "Acceso a la demo", y al entrar se vuelve a la página que lo pidió.
+
+![Acceso a la demo](docs/images/7-acceso.jpg)
 
 ### **1.4. Instrucciones de instalación:**
 > Documenta de manera precisa las instrucciones para instalar y poner en marcha el proyecto en local (librerías, backend, frontend, servidor, base de datos, migraciones y semillas de datos, etc.)
@@ -109,7 +124,7 @@ cp .env.example .env    # añade tus API keys cuando las fases que usan LLM lo r
 make up                 # equivale a: docker compose up --build
 ```
 
-- Interfaz (Streamlit): http://localhost:8501
+- Marketplace: http://localhost:8080
 - API (FastAPI): http://localhost:8000 · documentación OpenAPI en http://localhost:8000/docs
 - Base de datos (PostgreSQL + pgvector): `localhost:5432`, usuario/contraseña/base `rental`
 
@@ -123,21 +138,20 @@ informa del estado del almacén, de la caché y del presupuesto del día (`GET /
 el proceso está vivo, a propósito). Todos los puertos se publican solo en `127.0.0.1`.
 
 Para probar la seguridad en local, define en `.env` `API_KEY` y `SERVICE_TOKEN`: la API los exige
-y la interfaz los envía. Vacíos, la API queda abierta y avisa en cada petición.
+y el servidor web del marketplace los envía. Vacíos, la API queda abierta y avisa en cada petición.
+Con `UI_USERNAME` y `UI_PASSWORD` (y `SESSION_SECRET`, obligatorio en producción) las herramientas
+piden el acceso de la demo.
 
 **Sin Docker (desarrollo):**
 
 ```bash
 make install   # uv sync y las dependencias del frontend (npm ci)
 make api       # API con recarga automática en :8000
-make ui        # en otra terminal: interfaz en :8501
 make web       # en otra terminal: el servidor web del marketplace en :8080, que llama a la API con las credenciales
-make frontend  # en otra terminal: el marketplace de demostración en :5173
+make frontend  # en otra terminal: el marketplace con recarga automática en :5173
 make migrate   # aplica las migraciones (necesita DATABASE_URL)
 make verify    # lint, formato, tipos y tests, del backend y del frontend
 ```
-
-El marketplace de demostración (Umbral) se está construyendo en [#83](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/83) para sustituir a la interfaz Streamlit: anuncios, agencias y fotos ficticios, herramientas reales. Ya se navega por los anuncios (portada, búsqueda y ficha) y el inquilino puede preguntar por sus derechos al asistente de cada ficha (el botón de la esquina: una conversación con preguntas sugeridas a partir del anuncio, que busca solo en las leyes de su municipio), o en `/normativa`. El anunciante redacta su anuncio en `/publicar` (o parte de uno de los ejemplos del set de evaluación), lo comprueba con la revisión rápida (el pipeline CAG, unos 3 s) tantas veces como quiera y lo **envía a publicar**: lo revisa el agente (unos 15 s), que cita el artículo de cada incidencia y propone el anuncio corregido. Si aprueba, el anuncio se publica y aparece en la búsqueda como "Tu anuncio"; si pide cambios, vuelve al anunciante con la versión corregida para usarla; si no puede respaldar sus conclusiones, queda "Pendiente de moderación" y pasa a la cola del equipo de calidad en `/moderacion`, donde una persona aprueba la revisión, mantiene solo las incidencias que marque o la descarta, con una nota para el anunciante; la revisión pausada se reanuda en el API donde se quedó (checkpointer de LangGraph en Postgres) y el anuncio sigue el resultado. Todo se ve en `/mis-anuncios`, que se guarda en el navegador porque la demo no tiene base de datos del marketplace.
 
 El navegador nunca tiene el token de servicio ni la clave de la API: el frontend llama a su propio servidor web ([`web/`](web/)), que solo reenvía a la API las llamadas que el marketplace usa, una a una, añadiendo las dos credenciales. En desarrollo, Vite reenvía `/api` y `/bff` a ese servidor, así que el recorrido es el mismo que en producción: `make api`, `make web` y `make frontend`, con las mismas `API_KEY` y `SERVICE_TOKEN` en `.env` para la API y el servidor web.
 
@@ -189,8 +203,9 @@ migraciones, que hacen `downgrade` y borran las tablas, corren contra una base a
 
 ```mermaid
 flowchart TB
-    user([Propietario o agencia]) --> ui[Interfaz Streamlit<br/>3 páginas + 👍/👎]
-    ui -->|HTTP · token de servicio + clave| api
+    user([Inquilino, anunciante<br/>o equipo de moderación]) --> front[Marketplace Umbral<br/>React · búsqueda, asistente,<br/>publicar, moderación · 👍/👎]
+    front -->|mismo origen · sesión de la demo| web[Servidor web del marketplace<br/>sirve el frontend · acceso de la demo<br/>lista cerrada de llamadas]
+    web -->|HTTP · token de servicio + clave| api
 
     subgraph api[Servicio de IA · FastAPI]
         mw[request_id · token de servicio<br/>clave · límite de peticiones]
@@ -232,7 +247,7 @@ flowchart TB
 
 **El patrón: capas con un conductor por caso de uso.** El paquete se organiza por responsabilidad (`api/` → `domain/` → `generation/` → `foundation/`), y cada caso de uso tiene un **servicio conductor** en `domain/` que es el único sitio donde se componen las piezas: guardrails, caché, prompts, modelo y comprobaciones. Las arquitecturas de IA de `generation/` (CAG, RAG, agente) no se importan entre sí; el agente usa el RAG a través de un puerto (`RegulationSearch`) que el conductor conecta ([ADR 0001](docs/decisions/0001-stack-and-project-structure.md)). La ingesta del corpus es un proceso aparte que nada del camino de una petición importa.
 
-**Por qué esta arquitectura.** Porque el producto se construyó en el orden del programa (CAG → RAG → agentes) y cada capa tenía que poder medirse contra la anterior sin reescribirla: el pipeline CAG sigue vivo al lado del agente, y la comparación de los dos con los mismos anuncios es la que decide ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)). Y porque la interfaz y el servicio de IA separados por HTTP permiten probar, desplegar y ofrecer la IA a otro cliente (el backend de un marketplace) sin tocar la interfaz.
+**Por qué esta arquitectura.** Porque el producto se construyó en el orden del programa (CAG → RAG → agentes) y cada capa tenía que poder medirse contra la anterior sin reescribirla: el pipeline CAG sigue vivo al lado del agente, y la comparación de los dos con los mismos anuncios es la que decide ([ADR 0031](docs/decisions/0031-agent-vs-pipeline.md)). Y porque la interfaz y el servicio de IA separados por HTTP permiten probar, desplegar y ofrecer la IA a otro cliente sin tocar la interfaz: el marketplace es precisamente eso, un cliente con su propio backend (`web/`) que guarda las credenciales y solo reenvía las llamadas que usa, como lo haría el de un portal real ([ADR 0036](docs/decisions/0036-marketplace-frontend.md)).
 
 **Beneficios.** Cada pieza se prueba sin red (el modelo es un protocolo que los tests simulan: 570 tests sin una sola llamada real); cambiar de modelo o de proveedor es configuración, no código (y se probó sin querer: con Anthropic en su límite, todo siguió funcionando con OpenAI); y cada decisión de IA tiene un sitio donde medirse.
 
@@ -247,7 +262,8 @@ flowchart TB
 
 | Componente | Tecnología | Qué hace |
 |---|---|---|
-| **Interfaz** | Streamlit | Tres páginas (revisión, consulta, agente) y la valoración; habla con la API solo por HTTP, con el token de servicio y la clave ([`ui_api.py`](ui_api.py)) |
+| **Marketplace** | React, TypeScript, Vite, Tailwind | Umbral: catálogo ficticio con búsqueda y fichas, asistente de derechos en cada ficha, publicar (comprobación rápida y revisión del agente), "Mis anuncios" y moderación; los anuncios del anunciante se guardan en el navegador ([`frontend/`](frontend/)) |
+| **Servidor web** | FastAPI, httpx | El backend del marketplace: sirve el frontend compilado, pide el acceso de la demo (cookie firmada) y reenvía a la API solo las llamadas de una lista cerrada, con el token de servicio y la clave; el navegador nunca los ve ([`web/`](web/)) |
 | **API** | FastAPI, Pydantic | Routers finos: validan, llaman al conductor y responden. Middleware de `request_id`, token de servicio, clave de acceso y límite de peticiones por router |
 | **Conductores** | Python | `ListingReviewService`, `RegulationQAService`, `AgentReviewService` y `FeedbackService`: el orden de las piezas de cada caso de uso, en un solo sitio |
 | **CAG** | Prompts Jinja2 versionados, Redis | El checklist normativo vive en el prompt de sistema (versión `v3`, elegida midiendo); una caché exacta por anuncio, versión de prompt y modelo evita pagar dos veces la misma revisión. La caché semántica se midió y **no se construyó** ([ADR 0019](docs/decisions/0019-no-semantic-cache.md)) |
@@ -257,7 +273,7 @@ flowchart TB
 | **Guardrails** | Regex, moderación de OpenAI, código | Tamaño, moderación, inyección y datos personales antes de llamar a nadie; guardrail de salida sobre las bases legales; comprobación en código de citas y de las frases que la incidencia dice citar; tope de gasto diario en Redis |
 | **Ingesta** | httpx, lxml, Alembic | Descarga el XML consolidado del BOE, valida, trocea por artículo y escribe de forma idempotente; `corpus.lock.json` fija las versiones y un workflow semanal detecta cuándo el BOE cambia |
 | **Evaluación** | Scripts propios, GitHub Actions | Recuperación (recall@k, MRR), respuestas (al estilo RAGAS con juez de otro proveedor), revisiones de anuncios (precisión y recall por artículo), agente contra pipeline, puerta de regresión y casos de regresión simulados en cada PR ([`docs/evals.md`](docs/evals.md)) |
-| **Despliegue** | Docker, Render Blueprint, GitHub Actions | Una imagen para la API y la interfaz; despliegue en cada merge a `main`; CI con lint, tipos, tests contra Postgres real y escaneo de secretos ([`docs/deployment.md`](docs/deployment.md)) |
+| **Despliegue** | Docker, Render Blueprint, GitHub Actions | Una imagen para la API y el marketplace (Node compila el frontend en una etapa previa); despliegue en cada merge a `main`; CI con lint, tipos, tests contra Postgres real y escaneo de secretos ([`docs/deployment.md`](docs/deployment.md)) |
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
 
@@ -273,23 +289,20 @@ flowchart TB
 │   ├── generation/           # Arquitecturas de IA: cag/ (cachés), rag/, agentic/
 │   ├── ingestion/            # Corpus del BOE: descarga, validación, troceo y escritura
 │   └── api/                  # Routers finos (transporte)
-├── frontend/                 # Marketplace de demostración (Vite + React + TypeScript): anuncios ficticios, herramientas reales (#83)
-├── web/                      # Servidor web del marketplace: sirve el frontend y reenvía sus llamadas a la API con las credenciales
-├── streamlit_app.py          # Cliente Streamlit: portada y estado de la API
-├── pages/                    # Páginas del cliente: revisión, consulta de normativa y revisión con agente
-├── ui_api.py, ui_feedback.py # Cómo habla la interfaz con la API, y la valoración 👍/👎
+├── frontend/                 # Marketplace Umbral (Vite + React + TypeScript): anuncios ficticios, herramientas reales
+├── web/                      # Servidor web del marketplace: sirve el frontend, acceso de la demo y reenvío a la API
 ├── migrations/               # Migraciones Alembic: corpus, embeddings y valoraciones, revisadas como código
 ├── alembic.ini               # Configuración de Alembic (la URL sale de DATABASE_URL, no de aquí)
 ├── tests/                    # Tests, con la misma estructura que el paquete
 ├── evals/                    # Evaluación: runners, datasets anotados, juez, puerta de regresión y línea base
 ├── docs/
 │   ├── data-sources/         # Guías y ejemplos ejecutables de las fuentes de datos públicas
-│   ├── decisions/            # Registro de decisiones de arquitectura (ADR 0001-0035)
+│   ├── decisions/            # Registro de decisiones de arquitectura (ADR 0001-0036)
 │   ├── evals.md              # Qué se mide, los resultados y cada iteración que decidieron
 │   ├── deployment.md         # Despliegue en Render, paso a paso
 │   └── scope.md              # Alcance: qué cubre el sistema, qué no y por qué
-├── Dockerfile                # Imagen única para la API y la interfaz
-├── docker-compose.yml        # Servicios api (:8000), ui (:8501), cache (Redis) y db (pgvector)
+├── Dockerfile                # Imagen única para la API y el marketplace (el frontend se compila en una etapa de Node)
+├── docker-compose.yml        # Servicios api (:8000), web (:8080), cache (Redis) y db (pgvector)
 ├── docker/entrypoint.sh      # Arranque de la API: migraciones, corpus si hace falta, servidor
 ├── render.yaml               # Despliegue en Render como código (Blueprint)
 ├── benchmarks/               # Set dorado de preguntas, métricas de recuperación y medida de la caché semántica
@@ -298,7 +311,7 @@ flowchart TB
 └── .github/workflows/        # CI en cada pull request, deriva semanal del BOE y evaluaciones con modelos reales
 ```
 
-La aplicación separa la interfaz (Streamlit) del servicio de IA (FastAPI): la interfaz solo consume la API por HTTP, de modo que la lógica de IA se puede probar, desplegar y reutilizar de forma independiente.
+La aplicación separa la interfaz (el marketplace y su servidor web) del servicio de IA (FastAPI): el marketplace solo consume la API por HTTP a través de su servidor, de modo que la lógica de IA se puede probar, desplegar y reutilizar de forma independiente.
 
 El paquete `app/` está organizado en capas por responsabilidad: `foundation/` (plomería: LLM, prompts, guardrails, observabilidad), `domain/` (el contrato y el servicio conductor), `generation/` (las arquitecturas de IA: CAG, RAG y agentes) y `api/` (transporte). Cada capa solo importa de las que tiene por encima, y la regla clave es que las arquitecturas de `generation/` no se conocen entre sí: **solo componen a través del conductor**. Eso es lo que evita que el proyecto degenere en carpetas acopladas según se van apilando. Decisión detallada en [ADR 0001](docs/decisions/0001-stack-and-project-structure.md).
 
@@ -313,7 +326,7 @@ flowchart LR
     user([Navegador]) -->|HTTPS| ui
 
     subgraph render[Render, Frankfurt]
-        ui[Interfaz<br/>Streamlit]
+        ui[Marketplace<br/>servidor web + frontend]
         api[Servicio de IA<br/>FastAPI]
         db[(Postgres + pgvector)]
         cache[(Key Value · Redis)]
@@ -326,9 +339,9 @@ flowchart LR
     api -->|HTTPS, al arrancar| boe[API de datos abiertos del BOE]
 ```
 
-**Una imagen, dos servicios.** La API y la interfaz se construyen desde el mismo `Dockerfile`; solo cambia el comando. Postgres y Redis solo son accesibles desde la red privada.
+**Una imagen, dos servicios.** La API y el marketplace se construyen desde el mismo `Dockerfile` (una etapa de Node compila el frontend desde su lockfile y solo su resultado llega a la imagen); solo cambia el comando. El marketplace conserva el nombre y la URL del servicio que antes servía la interfaz Streamlit. Postgres y Redis solo son accesibles desde la red privada.
 
-**El despliegue es hacer merge a `main`.** El CI pasa lint, tipos, tests contra Postgres real y un escaneo de secretos (gitleaks) en cada pull request; Render construye y despliega tras el merge. Ningún secreto vive en el repositorio, en la imagen ni en el CI: las claves de los proveedores se escriben una vez en Render, y la clave y el token los genera la propia plataforma.
+**El despliegue es hacer merge a `main`.** El CI pasa lint, tipos, tests contra Postgres real y un escaneo de secretos (gitleaks) en cada pull request; Render construye y despliega tras el merge. Ningún secreto vive en el repositorio, en la imagen ni en el CI: las claves de los proveedores y el acceso de la demo se escriben una vez en Render, y la clave, el token y el secreto de la sesión los genera la propia plataforma.
 
 **Al arrancar, la API se prepara sola.** Aplica las migraciones y reconstruye el corpus desde el BOE si hace falta: la primera vez descarga las seis fuentes y las embebe (~10 s, 0,02 $); las siguientes ve que nada ha cambiado y no hace nada. Si el BOE no responde, arranca igual con lo que tiene.
 
@@ -357,8 +370,9 @@ Ninguna capa corrige el texto: todas rechazan y explican el motivo, porque quita
 
 | Guarda | Dónde | Qué hace |
 |---|---|---|
-| Usuario y contraseña | La interfaz, en cada página | Nadie sin la contraseña compartida ve la interfaz, la única puerta en la que confía la API. En producción, sin usuario o contraseña configurados, la interfaz no muestra nada ([ADR 0034](docs/decisions/0034-shared-login-for-the-ui.md)) |
-| `X-Service-Token` | Middleware sobre toda la API | ¿Puedes hablar con este servicio? Solo lo tiene la interfaz, como lo tendría el backend de un marketplace |
+| Usuario y contraseña | El servidor web del marketplace, antes de cada herramienta | Las páginas son públicas; ninguna llamada a la API sale sin la sesión de la demo: una cookie firmada con HMAC (`HttpOnly`, `SameSite=Strict`, `Secure`), cinco fallos bloquean un minuto, y en producción, sin usuario, contraseña o secreto configurados, se niega todo ([ADR 0034](docs/decisions/0034-shared-login-for-the-ui.md), [ADR 0036](docs/decisions/0036-marketplace-frontend.md)) |
+| Lista cerrada de llamadas | El servidor web del marketplace | Solo reenvía los endpoints que el frontend usa, uno a uno; cualquier otra ruta es un 404 que no llega a la API, y un `run_id` con un `../` codificado no sale de su segmento |
+| `X-Service-Token` | Middleware sobre toda la API | ¿Puedes hablar con este servicio? Solo lo tiene el servidor web del marketplace, como lo tendría el backend de un portal; el navegador nunca lo ve |
 | `X-API-Key` | Cada router de negocio, revisión incluida | ¿Qué endpoints puedes usar? Un endpoint nuevo bajo un router protegido queda protegido por estar ahí |
 | Límite de peticiones | Los mismos routers | Ventana fija sobre Redis, 30/minuto por clave, con `Retry-After` en el 429 |
 | Tope de gasto diario | Antes de cada llamada a un modelo | Al llegar a `DAILY_SPEND_CAP_USD` (2 $ por defecto) deja de llamar a modelos hasta medianoche UTC y responde 503 |
@@ -379,7 +393,7 @@ El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la pe
 
 > Describe brevemente algunos de los tests realizados
 
-**Casi 600 tests, y ninguno llama a un modelo.** El modelo entra en el código como un protocolo (`StructuredLLM`, `ToolCallingLLM`), así que los tests lo sustituyen por respuestas guionizadas y comprueban lo que el código hace con ellas; lo que hace el modelo real lo miden las evaluaciones ([sección 8](#8--evaluación-evals)). `make verify` (ruff, mypy estricto y pytest; y para el frontend, TypeScript, ESLint, Vitest y el build) pasa antes de cada commit, y el CI lo repite en cada pull request contra un PostgreSQL real.
+**Más de 600 tests de Python y más de 100 del frontend, y ninguno llama a un modelo.** El modelo entra en el código como un protocolo (`StructuredLLM`, `ToolCallingLLM`), así que los tests lo sustituyen por respuestas guionizadas y comprueban lo que el código hace con ellas; lo que hace el modelo real lo miden las evaluaciones ([sección 8](#8--evaluación-evals)). `make verify` (ruff, mypy estricto y pytest; y para el frontend, TypeScript, ESLint, Vitest y el build) pasa antes de cada commit, y el CI lo repite en cada pull request contra un PostgreSQL real.
 
 | Tipo | Dónde | Ejemplos |
 |---|---|---|
@@ -388,9 +402,8 @@ El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la pe
 | Persistencia, contra Postgres real | `tests/persistence/`, `tests/ingestion/`, `tests/generation/rag/` | Las migraciones suben y bajan en una base de datos propia (nunca la del desarrollador); escribir dos veces el mismo corpus no cambia nada; la búsqueda nunca compara con vectores de otro modelo de embeddings; un voto se guarda y la tabla rechaza un tipo que no conoce |
 | Casos de regresión | `tests/evals/test_regressions.py` | El bug #34 (una primera frase que la conclusión contradice), una cita inventada y las dos inyecciones del set de anuncios, cada uno con el nombre del bug o del riesgo |
 | Lógica de evaluación | `tests/evals/` | La puerta de regresión falla con cualquier empeoramiento en seguridad y nunca con una mejora; un anuncio anotado se valida contra el esquema |
-| Interfaz | `tests/ui/` | Con el `AppTest` de Streamlit: el voto sale con el `request_id` de la revisión y la revisión sigue en pantalla |
-| Servidor web del marketplace | `tests/web/` | Con la API sustituida por un transporte falso: una llamada permitida llega con el token y la clave; el estado y el error de la API vuelven tal cual; `/api/v1/regulations/search` no se reenvía porque el marketplace no la usa (la pregunta, el voto, la revisión rápida, la del agente con su 202, la pausa y la decisión sí); un `run_id` con un `../` codificado no llega a otro endpoint; nunca sirve un fichero fuera del build |
-| Marketplace | `frontend/src/**/*.test.ts(x)` | Con Vitest y Testing Library, la aplicación entera en una URL: los filtros de la URL deciden los resultados y su número; "malaga" encuentra "Málaga"; ordenar por precio reordena; un anuncio que no existe lo dice; el asistente de un piso en Barcelona pregunta también a la ley catalana y conserva la conversación al cerrarlo; el voto sale con el `request_id` de la respuesta; comprobar un anuncio guarda el borrador con su revisión y la incidencia grave sale primero; un texto cambiado pierde la revisión del texto anterior; cada desenlace del agente (aprobado, cambios, pausa) deja el anuncio en su estado, y solo el publicado aparece en la búsqueda; moderar reanuda con `approve`, `adjust` y las posiciones marcadas o `reject` y la nota, y una pausa que el API ya no tiene devuelve el anuncio a borrador |
+| Servidor web del marketplace | `tests/web/` | Con la API sustituida por un transporte falso: una llamada permitida llega con el token y la clave; el estado y el error de la API vuelven tal cual; `/api/v1/regulations/search` no se reenvía porque el marketplace no la usa (la pregunta, el voto, la revisión rápida, la del agente con su 202, la pausa y la decisión sí); un `run_id` con un `../` codificado no llega a otro endpoint; nunca sirve un fichero fuera del build; sin sesión ninguna herramienta llega a la API, una cookie manipulada o caducada no vale, cinco fallos bloquean un minuto y producción sin credenciales o secreto se niega a todo; la imagen lleva el servidor web y el frontend compilado desde su lockfile |
+| Marketplace | `frontend/src/**/*.test.ts(x)` | Con Vitest y Testing Library, la aplicación entera en una URL: los filtros de la URL deciden los resultados y su número; "malaga" encuentra "Málaga"; ordenar por precio reordena; un anuncio que no existe lo dice; el asistente de un piso en Barcelona pregunta también a la ley catalana y conserva la conversación al cerrarlo; el voto sale con el `request_id` de la respuesta; comprobar un anuncio guarda el borrador con su revisión y la incidencia grave sale primero; un texto cambiado pierde la revisión del texto anterior; cada desenlace del agente (aprobado, cambios, pausa) deja el anuncio en su estado, y solo el publicado aparece en la búsqueda; moderar reanuda con `approve`, `adjust` y las posiciones marcadas o `reject` y la nota, y una pausa que el API ya no tiene devuelve el anuncio a borrador; una herramienta sin sesión lleva al acceso y, al entrar, de vuelta a la página que la pidió, nunca fuera del sitio |
 
 ### **2.7. 🆕 Arquitectura de IA: CAG → RAG → agentes**
 
@@ -673,7 +686,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 
 | ADR | Decisión |
 |---|---|
-| [0001](docs/decisions/0001-stack-and-project-structure.md) | Python + FastAPI + Streamlit, capas por responsabilidad y arquitecturas de IA que solo se componen en el conductor |
+| [0001](docs/decisions/0001-stack-and-project-structure.md) | Python + FastAPI + Streamlit (la interfaz, sustituida por el marketplace en la 0036), capas por responsabilidad y arquitecturas de IA que solo se componen en el conductor |
 | [0002](docs/decisions/0002-prompt-strategy-and-checklist.md) | El checklist normativo va en el prompt (CAG); la pregunta abierta, a recuperación |
 | [0003](docs/decisions/0003-review-output-schema.md) | Esquema de la revisión: hallazgos antes que veredicto, severidad como enum |
 | [0004](docs/decisions/0004-guardrails.md) | Cuatro capas de entrada, de la más barata a la más cara, que rechazan y nunca corrigen |
@@ -708,6 +721,7 @@ Cada decisión tiene su registro con el contexto, las alternativas, lo que se mi
 | [0033](docs/decisions/0033-observability-without-a-tracing-platform.md) | Observabilidad con eventos estructurados, la traza del agente y un `request_id`, sin plataforma de trazas: Langfuse recibiría el texto de los anuncios |
 | [0034](docs/decisions/0034-shared-login-for-the-ui.md) | Un usuario y una contraseña compartidos delante de la interfaz, que en producción no se abre sin ellos |
 | [0035](docs/decisions/0035-the-critic-flags-it-does-not-filter.md) | El crítico del agente avisa en vez de filtrar: medido en el otro proveedor, seguía quitando hallazgos correctos |
+| [0036](docs/decisions/0036-marketplace-frontend.md) | Un marketplace ficticio (React) con su propio servidor web en vez de Streamlit: las herramientas en el flujo de un portal, las credenciales fuera del navegador y el acceso de la demo en el servidor |
 
 ---
 
@@ -1084,8 +1098,8 @@ Lo que no se ha construido no se ha olvidado: cada punto tiene la señal que dir
 
 ### Cómo se integraría en un marketplace real
 
-- **Detrás del backend del portal, no del navegador.** El backend del marketplace llama a `POST /api/v1/listings/review` con el anuncio antes de publicarlo, con su propia clave (hoy la API ya exige token de servicio y clave, y cada petición devuelve su `request_id` para cruzarla con sus registros).
-- **El veredicto decide el flujo, no la publicación.** `approve` publica; `request_changes` devuelve las incidencias a quien publica, con la sugerencia y el artículo; una revisión escalada por el agente va a la cola del equipo de calidad, que decide con la misma API de pausa.
+- **Detrás del backend del portal, no del navegador.** Es lo que hace ya el marketplace de la demo: su servidor web ([`web/`](web/)) guarda el token de servicio y la clave, y solo reenvía las llamadas que el frontend usa. Un portal real haría lo mismo desde su backend: llamar a `POST /api/v1/listings/review` mientras se redacta y a `/agent-review` antes de publicar, con su propia clave, y guardar el `request_id` de cada respuesta para cruzarla con los registros.
+- **El veredicto decide el flujo, no la publicación.** `approve` publica; `request_changes` devuelve las incidencias a quien publica, con la sugerencia y el artículo; una revisión escalada por el agente va a la cola del equipo de calidad, que decide con la misma API de pausa. Es el flujo de Umbral, de `/publicar` a `/moderacion`; lo que un portal real añadiría es su base de datos para los anuncios, que la demo guarda en el navegador.
 - **El texto del anuncio no se guarda.** El servicio no conserva anuncios ([ADR 0018](docs/decisions/0018-data-privacy-and-providers.md)); lo que queda son los eventos (sin el texto) y las valoraciones (sin el texto).
 - **El gasto tiene tope.** Un límite diario corta las llamadas al alcanzarlo, y la caché exacta sirve gratis el anuncio que se reenvía sin cambios.
 

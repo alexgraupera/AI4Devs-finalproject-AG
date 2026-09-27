@@ -36,6 +36,14 @@ Se validaron el BOE, el Catastro y SERPAVI con peticiones reales antes de escrib
 
 Resultado: el documento [`docs/scope.md`](docs/scope.md), con las capacidades cubiertas, las que quedan fuera y por qué.
 
+**Prompt 4:**
+
+> El proyecto de final de master tiene actualmente una interfaz de streamlit, pero creo que las utilidades desarrolladas se verían mucho más consolidadas si se hiciera un frontend que simule un marketplace inmobiliario y que adapte estas herramientas a un flujo. El marketplace puede (de hecho debe) tener datos y diseño fake, pero las herramientas deben funcionar y tener un flujo y utilidad coherente. Me gusta mucho el diseño de esta web: https://novavoice.app/ y para mostrar anuncios (listings) de ejemplos este diseño también me gusta https://www.immobilienscout24.de/en/search/es/balearische-inseln/mallorca/apartments-for-sale?enteredFrom=one_step_search
+
+Se planificó como seis fases ([#83](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/83)) y el resultado es Umbral: cada herramienta donde la usaría un portal, con un servidor web propio que guarda las credenciales ([ADR 0036](docs/decisions/0036-marketplace-frontend.md)). Tras la segunda fase, un ajuste del mismo usuario convirtió el bloque de preguntas de la ficha en el asistente flotante:
+
+> La verdad es que está muy bien, pero, en la ficha se podría hacer como el típico asistente que aparece siempre en la posición derecha final de la página y al hacer clic se abre una caja que puedas preguntarle?
+
 ---
 
 ## 2. Arquitectura del Sistema
