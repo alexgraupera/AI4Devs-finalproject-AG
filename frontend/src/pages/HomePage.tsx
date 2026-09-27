@@ -125,9 +125,10 @@ type ToolSectionProps = {
   facts: string[];
   preview: ReactNode;
   reversed?: boolean;
+  action?: { to: string; label: string };
 };
 
-function ToolSection({ eyebrow, title, children, facts, preview, reversed = false }: ToolSectionProps) {
+function ToolSection({ eyebrow, title, children, facts, preview, reversed = false, action }: ToolSectionProps) {
   return (
     <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
       <div className={`space-y-5 ${reversed ? "lg:order-2" : ""}`}>
@@ -141,6 +142,15 @@ function ToolSection({ eyebrow, title, children, facts, preview, reversed = fals
             </li>
           ))}
         </ul>
+        {action && (
+          <Link
+            to={action.to}
+            className="inline-flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-sm font-medium text-white hover:bg-ink-soft"
+          >
+            {action.label}
+            <ArrowRightIcon className="size-4" />
+          </Link>
+        )}
       </div>
       {preview}
     </div>
@@ -255,6 +265,7 @@ function Tools() {
           title="Tus derechos, con el artículo que los respalda"
           facts={["Ley de Arrendamientos Urbanos", "Ley de vivienda", "Normativa catalana"]}
           preview={<RightsPreview />}
+          action={{ to: "/normativa", label: "Pregunta a la normativa" }}
         >
           <p>
             Pregunta desde cualquier anuncio si te pueden pedir dos meses de fianza o cobrarte los honorarios. La respuesta

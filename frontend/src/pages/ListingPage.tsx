@@ -6,6 +6,8 @@ import { formatDate, formatNumber } from "../components/format";
 import { ChevronLeftIcon, PinIcon } from "../components/icons";
 import { AgencyBadge, FavouriteButton, KeyFact } from "../components/ListingCard";
 import { PhotoGallery } from "../components/PhotoGallery";
+import { RegulationQuestion } from "../components/RegulationQuestion";
+import { jurisdictionsOf, suggestedQuestions } from "../regulations/questions";
 
 export const LISTING_NOT_FOUND = "Este anuncio no existe o ya no está publicado.";
 
@@ -111,6 +113,16 @@ export function ListingPage() {
                 </li>
               ))}
             </ul>
+          </section>
+
+          <section aria-labelledby="rights-title" className="space-y-4 rounded-2xl border border-accent-line bg-accent-soft/40 p-5 sm:p-6">
+            <div className="space-y-1">
+              <h2 id="rights-title" className="text-xl font-semibold tracking-tight">
+                Tus derechos sobre este anuncio
+              </h2>
+              <p className="text-sm text-ink-soft">Pregunta sobre la fianza, los gastos o la información que te tienen que dar.</p>
+            </div>
+            <RegulationQuestion jurisdictions={jurisdictionsOf(listing)} suggestions={suggestedQuestions(listing)} />
           </section>
         </div>
 
