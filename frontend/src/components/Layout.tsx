@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router";
+import { pendingModeration, useMyListings } from "../landlord/myListingsStore";
 import { DoorIcon } from "./icons";
 
 export const DEMO_NOTICE =
@@ -21,6 +22,27 @@ const NAV = [
   { to: "/normativa", label: "Normativa" },
   { to: "/mis-anuncios", label: "Mis anuncios" },
 ];
+
+/** The quality team's queue, with how many reviews wait in it: the other side of the same marketplace. */
+function ModerationLink({ className }: { className: (state: { isActive: boolean }) => string }) {
+  const waiting = pendingModeration(useMyListings()).length;
+  return (
+    <NavLink to="/moderacion" className={className}>
+      Moderación
+      <span className="ml-1.5 rounded bg-panel px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-panel-text uppercase">
+        Equipo
+      </span>
+      {waiting > 0 && (
+        <span
+          aria-label={`${waiting} pendientes`}
+          className="ml-1 rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-bold text-ink"
+        >
+          {waiting}
+        </span>
+      )}
+    </NavLink>
+  );
+}
 
 const linkState = (isActive: boolean) => (isActive ? "text-ink font-semibold" : "text-ink-soft hover:text-ink");
 const navLinkClass = ({ isActive }: { isActive: boolean }) => `rounded-md px-3 py-2 text-sm transition-colors ${linkState(isActive)}`;
@@ -65,6 +87,9 @@ function MobileMenu() {
               </li>
             ))}
             <li>
+              <ModerationLink className={menuLinkClass} />
+            </li>
+            <li>
               <Link to="/#como-funciona" className={menuLinkClass({ isActive: false })}>
                 Cómo funciona
               </Link>
@@ -94,7 +119,9 @@ function Header() {
               {item.label}
             </NavLink>
           ))}
-          <Link to="/#como-funciona" className="rounded-md px-3 py-2 text-sm text-ink-soft hover:text-ink">
+          <ModerationLink className={navLinkClass} />
+          {/* Not enough room for it next to the rest until the header is wide; the landing links to it. */}
+          <Link to="/#como-funciona" className="hidden rounded-md px-3 py-2 text-sm text-ink-soft hover:text-ink lg:block">
             Cómo funciona
           </Link>
         </nav>

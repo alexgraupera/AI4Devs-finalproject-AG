@@ -60,6 +60,34 @@ def test_forwards_the_agent_review_and_passes_a_202_through(client: TestClient, 
     assert [str(request.url) for request in api.received] == [f"{API_URL}/api/v1/listings/agent-review"]
 
 
+def test_forwards_the_pending_review_and_the_decision_with_the_run_id_in_the_path(
+    client: TestClient, api: FakeApi
+) -> None:
+    run_id = "2f1c0b8e-5a4d-4c3b-9e2f-1a2b3c4d5e6f"
+    decision = {"action": "adjust", "keep": [0, 2], "note": "La fianza sí es un problema."}
+
+    pending = client.get(f"/api/v1/listings/agent-review/{run_id}")
+    resumed = client.post(f"/api/v1/listings/agent-review/{run_id}/resume", json=decision)
+
+    assert pending.status_code == resumed.status_code == 200
+    first, second = api.received
+    assert (first.method, str(first.url)) == ("GET", f"{API_URL}/api/v1/listings/agent-review/{run_id}")
+    assert (second.method, str(second.url)) == ("POST", f"{API_URL}/api/v1/listings/agent-review/{run_id}/resume")
+    assert json.loads(second.content) == decision
+    assert second.headers["X-Service-Token"] == SERVICE_TOKEN
+
+
+def test_refuses_a_run_id_that_tries_to_reach_another_endpoint(client: TestClient, api: FakeApi) -> None:
+    for path in (
+        "/api/v1/listings/agent-review/%2E%2E%2F%2E%2E%2Fregulations%2Fsearch",
+        "/api/v1/listings/agent-review/run-1%2F..%2F..%2Fregulations%2Fask/resume",
+        "/api/v1/listings/agent-review/run-1/resume/extra",
+    ):
+        assert client.get(path).status_code == 404
+        assert client.post(path, json={"action": "approve"}).status_code == 404
+    assert api.received == []
+
+
 def test_passes_the_api_status_code_and_error_body_through(client: TestClient, api: FakeApi) -> None:
     body = {"error": {"code": "rate_limited", "message": "Demasiadas consultas seguidas."}}
     api.answer = lambda request: httpx.Response(429, json=body, headers={"Retry-After": "42"})

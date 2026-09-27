@@ -148,6 +148,26 @@ export function recordAgentReview(id: string, review: AgentReview): MyListing {
   }));
 }
 
+/** The listings waiting for a person, oldest first: the queue of the moderation team. */
+export function pendingModeration(listings: MyListing[] = myListings()): MyListing[] {
+  return listings
+    .filter((listing) => listing.status === "pending_moderation" && listing.runId)
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+}
+
+/**
+ * The review as a person left it: the listing follows it as it follows the agent's. Kept findings with
+ * a serious one go back to the landlord, none of them publishes it, a discarded review is a draft again.
+ */
+export function recordModeration(id: string, review: AgentReview): MyListing {
+  return recordAgentReview(id, review);
+}
+
+/** The paused run is gone (the API lost it, or it was decided elsewhere): the landlord sends it again. */
+export function returnToDraft(id: string): MyListing {
+  return update(id, (listing) => ({ ...listing, status: "draft", runId: undefined }));
+}
+
 const ENERGY_RATINGS: EnergyRating[] = ["A", "B", "C", "D", "E", "F", "G", "En trámite", "Exenta"];
 
 /** A published listing as the catalogue shows it: what the landlord gave, and nothing made up. */

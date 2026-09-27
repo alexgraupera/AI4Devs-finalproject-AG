@@ -3,7 +3,15 @@
  * which adds the credentials. The browser never sees them, so it never sends them either.
  */
 
-import type { AgentReview, FeedbackVote, Jurisdiction, ListingInput, ListingReview, RegulationAnswer } from "./types";
+import type {
+  AgentReview,
+  FeedbackVote,
+  HumanDecision,
+  Jurisdiction,
+  ListingInput,
+  ListingReview,
+  RegulationAnswer,
+} from "./types";
 
 export const UNEXPECTED_ERROR = "No se ha podido contactar con el servicio. Inténtalo de nuevo.";
 
@@ -55,6 +63,16 @@ export function reviewListing(listing: ListingInput): Promise<ListingReview> {
  */
 export function agentReviewListing(listing: ListingInput): Promise<AgentReview> {
   return post<AgentReview>("/api/v1/listings/agent-review", listing);
+}
+
+/** A paused review as it stands in the API: the moderation reads it there, not from the browser's copy. */
+export function pendingAgentReview(runId: string): Promise<AgentReview> {
+  return call<AgentReview>(`/api/v1/listings/agent-review/${encodeURIComponent(runId)}`);
+}
+
+/** A person's decision on a paused review; the run resumes where it stopped and finishes the review. */
+export function resumeAgentReview(runId: string, decision: HumanDecision): Promise<AgentReview> {
+  return post<AgentReview>(`/api/v1/listings/agent-review/${encodeURIComponent(runId)}/resume`, decision);
 }
 
 export async function sendFeedback(vote: FeedbackVote): Promise<void> {

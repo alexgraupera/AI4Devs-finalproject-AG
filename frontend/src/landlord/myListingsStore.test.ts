@@ -5,8 +5,11 @@ import { APPROVED } from "../testing/reviews";
 import {
   findMyListing,
   myListings,
+  pendingModeration,
   publishedListings,
   recordAgentReview,
+  recordModeration,
+  returnToDraft,
   recordQuickReview,
   saveDraft,
   useMyListings,
@@ -127,6 +130,48 @@ describe("my listings store", () => {
     expect(findMyListing(id)).toMatchObject({ status: "draft" });
     expect(findMyListing(id)?.agentReview).toBeUndefined();
     expect(publishedListings()).toEqual([]);
+  });
+
+  it("a moderation that approves publishes the listing, and it leaves the queue", () => {
+    const { id } = saveDraft(A_LISTING);
+    recordAgentReview(id, AGENT_PAUSED);
+    expect(pendingModeration().map((listing) => listing.id)).toEqual([id]);
+
+    recordModeration(id, { ...AGENT_APPROVED, human_decision: { action: "adjust", keep: [], note: null } });
+
+    expect(findMyListing(id)).toMatchObject({ status: "published" });
+    expect(findMyListing(id)?.runId).toBeUndefined();
+    expect(pendingModeration()).toEqual([]);
+  });
+
+  it("a moderation that keeps a serious finding sets 'Requiere cambios'", () => {
+    const { id } = saveDraft(A_LISTING);
+    recordAgentReview(id, AGENT_PAUSED);
+
+    recordModeration(id, { ...AGENT_CHANGES, human_decision: { action: "approve", keep: null, note: "Corrige la fianza." } });
+
+    expect(findMyListing(id)).toMatchObject({ status: "changes_requested" });
+    expect(findMyListing(id)?.agentReview?.human_decision?.note).toBe("Corrige la fianza.");
+  });
+
+  it("a discarded review returns the listing to draft", () => {
+    const { id } = saveDraft(A_LISTING);
+    recordAgentReview(id, AGENT_PAUSED);
+
+    recordModeration(id, { ...AGENT_CHANGES, status: "discarded", findings: [] });
+
+    expect(findMyListing(id)).toMatchObject({ status: "draft" });
+    expect(findMyListing(id)?.runId).toBeUndefined();
+  });
+
+  it("a run the API lost returns the listing to draft, out of the queue", () => {
+    const { id } = saveDraft(A_LISTING);
+    recordAgentReview(id, AGENT_PAUSED);
+
+    returnToDraft(id);
+
+    expect(findMyListing(id)).toMatchObject({ status: "draft" });
+    expect(pendingModeration()).toEqual([]);
   });
 
   it("tells the pages when a listing is saved", () => {
