@@ -6,6 +6,7 @@ import { formatDate, formatNumber } from "../components/format";
 import { ChevronLeftIcon, PinIcon } from "../components/icons";
 import { AgencyBadge, FavouriteButton, KeyFact } from "../components/ListingCard";
 import { PhotoGallery } from "../components/PhotoGallery";
+import { ListingAssistant } from "../components/ListingAssistant";
 
 export const LISTING_NOT_FOUND = "Este anuncio no existe o ya no está publicado.";
 
@@ -116,6 +117,8 @@ export function ListingPage() {
 
         <ContactCard listing={listing} />
       </div>
+
+      <ListingAssistant key={listing.id} listing={listing} />
     </div>
   );
 }

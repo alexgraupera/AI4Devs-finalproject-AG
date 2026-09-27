@@ -28,7 +28,8 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
 - `make install`: install dependencies (`uv sync` and `npm --prefix frontend ci`).
 - `make up` / `make down`: start / stop the whole stack with Docker Compose (API on `:8000`, UI on `:8501`).
 - `make api` / `make ui`: run the API or the UI locally with hot reload.
-- `make frontend`: run the marketplace frontend locally on `:5173` with hot reload.
+- `make frontend`: run the marketplace frontend locally on `:5173` with hot reload. Its `/api` and `/bff` calls go to `make web`.
+- `make web`: run the marketplace's web server locally on `:8080`: it serves `frontend/dist` and forwards the frontend's API calls with the credentials.
 - `make verify`: lint (ruff), format check (ruff), typecheck (mypy strict) and tests (pytest), then the frontend's typecheck, lint, tests and build (`npm --prefix frontend run verify`). Run it before every commit; CI runs it on every pull request.
 
 ## Project structure
@@ -40,7 +41,8 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
   - `generation/`: the AI architectures (`cag/` caches, `rag/` retrieval, `agentic/` agents). They never import each other: they compose only through the conductor.
   - `api/`: thin routers (transport), no business logic.
 - `streamlit_app.py`: Streamlit client; it only talks to the API over HTTP.
-- `frontend/`: the marketplace (Umbral) that replaces the Streamlit client (#83). Fictional listings, agencies and photos (`src/catalogue/listings.ts`, `public/photos/` with `CREDITS.md`), real tools. Tests live next to the code (`*.test.ts(x)`).
+- `frontend/`: the marketplace (Umbral) that replaces the Streamlit client (#83). Fictional listings, agencies and photos (`src/catalogue/listings.ts`, `public/photos/` with `CREDITS.md`), real tools. Tests live next to the code (`*.test.ts(x)`); `src/testing/stubApi.ts` fakes the web server, so no frontend test reaches the network. It calls the API only through `src/api/client.ts`.
+- `web/`: the marketplace's own backend (FastAPI + httpx, no new dependency). It serves the built frontend and forwards to the API only the calls listed in `web/forwarding.py`, adding the service token and the API key, so no secret reaches the browser (ADR 0020). Add an endpoint to that list only when the frontend starts using it. Tests in `tests/web/` replace the API with an `httpx.MockTransport`.
 - `tests/`: tests mirroring the package structure.
 - `docs/decisions/`: architecture decision records.
 - `docs/data-sources/`: data source guides and runnable examples.

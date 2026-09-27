@@ -1,4 +1,4 @@
-.PHONY: install api ui frontend up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache evals eval-answers eval-listings eval-gate eval-promote verify
+.PHONY: install api ui frontend web up down migrate ingest embed corpus-report corpus-drift benchmark-retrieval benchmark-semantic-cache evals eval-answers eval-listings eval-gate eval-promote verify
 
 install:
 	uv sync
@@ -10,9 +10,14 @@ api:
 ui:
 	uv run streamlit run streamlit_app.py --server.port 8501
 
-# The marketplace (fictional listings, real tools) on :5173, with hot reload.
+# The marketplace (fictional listings, real tools) on :5173, with hot reload. Its API calls go to
+# the web server below, which adds the credentials: run both, and the API.
 frontend:
 	npm --prefix frontend run dev
+
+# The marketplace's web server on :8080: the built frontend, and its calls to the API.
+web:
+	uv run uvicorn web.main:app --reload --port 8080
 
 up:
 	docker compose up --build

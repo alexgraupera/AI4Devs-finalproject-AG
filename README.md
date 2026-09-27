@@ -131,12 +131,15 @@ y la interfaz los envía. Vacíos, la API queda abierta y avisa en cada petició
 make install   # uv sync y las dependencias del frontend (npm ci)
 make api       # API con recarga automática en :8000
 make ui        # en otra terminal: interfaz en :8501
+make web       # en otra terminal: el servidor web del marketplace en :8080, que llama a la API con las credenciales
 make frontend  # en otra terminal: el marketplace de demostración en :5173
 make migrate   # aplica las migraciones (necesita DATABASE_URL)
 make verify    # lint, formato, tipos y tests, del backend y del frontend
 ```
 
-El marketplace de demostración (Umbral) se está construyendo en [#83](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/83) para sustituir a la interfaz Streamlit: anuncios, agencias y fotos ficticios, herramientas reales. De momento se navega por los anuncios (portada, búsqueda y ficha) sin llamar a la API; cada fase siguiente le conecta una herramienta.
+El marketplace de demostración (Umbral) se está construyendo en [#83](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/83) para sustituir a la interfaz Streamlit: anuncios, agencias y fotos ficticios, herramientas reales. Ya se navega por los anuncios (portada, búsqueda y ficha) y el inquilino puede preguntar por sus derechos al asistente de cada ficha (el botón de la esquina: una conversación con preguntas sugeridas a partir del anuncio, que busca solo en las leyes de su municipio), o en `/normativa`; cada fase siguiente conecta otra herramienta.
+
+El navegador nunca tiene el token de servicio ni la clave de la API: el frontend llama a su propio servidor web ([`web/`](web/)), que solo reenvía a la API las llamadas que el marketplace usa, una a una, añadiendo las dos credenciales. En desarrollo, Vite reenvía `/api` y `/bff` a ese servidor, así que el recorrido es el mismo que en producción: `make api`, `make web` y `make frontend`, con las mismas `API_KEY` y `SERVICE_TOKEN` en `.env` para la API y el servidor web.
 
 **Construir el corpus normativo:**
 
@@ -271,6 +274,7 @@ flowchart TB
 │   ├── ingestion/            # Corpus del BOE: descarga, validación, troceo y escritura
 │   └── api/                  # Routers finos (transporte)
 ├── frontend/                 # Marketplace de demostración (Vite + React + TypeScript): anuncios ficticios, herramientas reales (#83)
+├── web/                      # Servidor web del marketplace: sirve el frontend y reenvía sus llamadas a la API con las credenciales
 ├── streamlit_app.py          # Cliente Streamlit: portada y estado de la API
 ├── pages/                    # Páginas del cliente: revisión, consulta de normativa y revisión con agente
 ├── ui_api.py, ui_feedback.py # Cómo habla la interfaz con la API, y la valoración 👍/👎
@@ -385,7 +389,8 @@ El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la pe
 | Casos de regresión | `tests/evals/test_regressions.py` | El bug #34 (una primera frase que la conclusión contradice), una cita inventada y las dos inyecciones del set de anuncios, cada uno con el nombre del bug o del riesgo |
 | Lógica de evaluación | `tests/evals/` | La puerta de regresión falla con cualquier empeoramiento en seguridad y nunca con una mejora; un anuncio anotado se valida contra el esquema |
 | Interfaz | `tests/ui/` | Con el `AppTest` de Streamlit: el voto sale con el `request_id` de la revisión y la revisión sigue en pantalla |
-| Marketplace | `frontend/src/**/*.test.ts(x)` | Con Vitest y Testing Library, la aplicación entera en una URL: los filtros de la URL deciden los resultados y su número; "malaga" encuentra "Málaga"; ordenar por precio reordena; un anuncio que no existe lo dice |
+| Servidor web del marketplace | `tests/web/` | Con la API sustituida por un transporte falso: una llamada permitida llega con el token y la clave; el estado y el error de la API vuelven tal cual; `/api/v1/regulations/search` no se reenvía porque el marketplace no la usa; nunca sirve un fichero fuera del build |
+| Marketplace | `frontend/src/**/*.test.ts(x)` | Con Vitest y Testing Library, la aplicación entera en una URL: los filtros de la URL deciden los resultados y su número; "malaga" encuentra "Málaga"; ordenar por precio reordena; un anuncio que no existe lo dice; el asistente de un piso en Barcelona pregunta también a la ley catalana y conserva la conversación al cerrarlo; el voto sale con el `request_id` de la respuesta |
 
 ### **2.7. 🆕 Arquitectura de IA: CAG → RAG → agentes**
 

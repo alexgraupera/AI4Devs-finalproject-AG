@@ -29,13 +29,17 @@ function Header() {
           <NavLink to="/alquiler" className={navLinkClass}>
             Alquilar
           </NavLink>
+          <NavLink to="/normativa" className={navLinkClass}>
+            Normativa
+          </NavLink>
           <Link to="/#como-funciona" className="hidden rounded-md px-3 py-2 text-sm text-ink-soft hover:text-ink sm:block">
             Cómo funciona
           </Link>
         </nav>
+        {/* On a phone "Alquilar" already leads there, and the header has no room for both. */}
         <Link
           to="/alquiler"
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-ink-soft"
+          className="hidden rounded-lg bg-ink px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-sm transition-colors hover:bg-ink-soft sm:block"
         >
           Buscar piso
         </Link>

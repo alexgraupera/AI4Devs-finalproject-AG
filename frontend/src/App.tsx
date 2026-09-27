@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { HomePage } from "./pages/HomePage";
 import { ListingPage } from "./pages/ListingPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { RegulationsPage } from "./pages/RegulationsPage";
 import { SearchPage } from "./pages/SearchPage";
 
 /** A new page starts at the top, as on a site served page by page, and a link to a section scrolls to it. */
@@ -26,6 +27,7 @@ export function App() {
           <Route index element={<HomePage />} />
           <Route path="alquiler" element={<SearchPage />} />
           <Route path="alquiler/:id" element={<ListingPage />} />
+          <Route path="normativa" element={<RegulationsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
