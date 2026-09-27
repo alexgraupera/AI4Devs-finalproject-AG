@@ -1,52 +1,17 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { RegulationAnswer } from "../api/types";
-import { renderAt } from "../renderAt";
+import { ANSWERED, NOT_COVERED } from "../testing/answers";
 import { never, stubApi } from "../testing/stubApi";
-import { NO_MODEL_CALL, RegulationQuestion } from "./RegulationQuestion";
+import { NO_MODEL_CALL } from "./AnswerParts";
+import { RegulationQuestion } from "./RegulationQuestion";
 
 const ASK = "POST /api/v1/regulations/ask";
 
-const ANSWERED: RegulationAnswer = {
-  request_id: "req-1",
-  answer: "La fianza es de una mensualidad de renta en el arrendamiento de vivienda.",
-  citations: [
-    {
-      law_id: "BOE-A-1994-26003",
-      law_title: "Ley de Arrendamientos Urbanos",
-      article: "Artículo 36. Fianza",
-      url: "https://www.boe.es/buscar/act.php?id=BOE-A-1994-26003#a36",
-      chunk_id: 7,
-    },
-  ],
-  has_answer: true,
-  usage: {
-    provider: "anthropic",
-    model: "claude-haiku-4-5",
-    input_tokens: 1200,
-    output_tokens: 90,
-    latency_ms: 2100,
-    estimated_cost_usd: "0.0017",
-    attempts: 1,
-  },
-  retrieved: [{ chunk_id: 7, article_title: "Artículo 36. Fianza", law_id: "BOE-A-1994-26003", score: 0.71 }],
-};
-
-const NOT_COVERED: RegulationAnswer = {
-  ...ANSWERED,
-  request_id: "req-2",
-  answer: "No he encontrado la respuesta en la normativa indexada.",
-  citations: [],
-  has_answer: false,
-  usage: { ...ANSWERED.usage, attempts: 0 },
-  retrieved: [],
-};
-
 describe("regulation question", () => {
-  it("sends the question with the listing's jurisdictions", async () => {
+  it("sends the question with the jurisdictions it was given", async () => {
     const calls = stubApi({ [ASK]: () => ({ body: ANSWERED }) });
     const user = userEvent.setup();
-    renderAt("/alquiler/barcelona-gracia-2h");
+    render(<RegulationQuestion jurisdictions={["state", "catalonia"]} suggestions={[]} />);
 
     await user.type(screen.getByRole("textbox", { name: "Tu pregunta" }), "¿Puedo tener mascotas?");
     await user.click(screen.getByRole("button", { name: "Preguntar" }));
@@ -64,18 +29,13 @@ describe("regulation question", () => {
   it("a suggestion fills and sends the question", async () => {
     const calls = stubApi({ [ASK]: () => ({ body: ANSWERED }) });
     const user = userEvent.setup();
-    renderAt("/alquiler/palma-santa-catalina-2h");
+    render(<RegulationQuestion jurisdictions={["state"]} suggestions={["¿Cuál es la fianza legal?"]} />);
 
-    await user.click(screen.getByRole("button", { name: "¿Cuánta fianza y qué garantías adicionales me pueden pedir?" }));
+    await user.click(screen.getByRole("button", { name: "¿Cuál es la fianza legal?" }));
 
     await screen.findByText(ANSWERED.answer);
-    expect(screen.getByRole("textbox", { name: "Tu pregunta" })).toHaveValue(
-      "¿Cuánta fianza y qué garantías adicionales me pueden pedir?",
-    );
-    expect(calls.at(-1)?.payload).toEqual({
-      question: "¿Cuánta fianza y qué garantías adicionales me pueden pedir?",
-      jurisdictions: ["state"],
-    });
+    expect(screen.getByRole("textbox", { name: "Tu pregunta" })).toHaveValue("¿Cuál es la fianza legal?");
+    expect(calls.at(-1)?.payload).toEqual({ question: "¿Cuál es la fianza legal?", jurisdictions: ["state"] });
   });
 
   it("renders the answer with links to the BOE articles", async () => {

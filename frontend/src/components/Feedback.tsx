@@ -42,7 +42,8 @@ export function Feedback({ kind, requestId }: { kind: FeedbackKind; requestId: s
   return (
     <div className="space-y-2">
       <p className="text-sm font-medium text-ink-soft">¿Te ha servido?</p>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      {/* One row where there is room; where there is not (the assistant), the buttons go under the comment, together. */}
+      <div className="flex flex-wrap gap-2">
         <label className="sr-only" htmlFor={`feedback-${requestId}`}>
           Comentario
         </label>
@@ -52,7 +53,7 @@ export function Feedback({ kind, requestId }: { kind: FeedbackKind; requestId: s
           onChange={(event) => setComment(event.target.value)}
           maxLength={500}
           placeholder="¿Qué ha fallado? (opcional)"
-          className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-2 text-sm placeholder:text-muted"
+          className="min-w-0 flex-[1_1_14rem] rounded-lg border border-line bg-canvas px-3 py-2 text-sm placeholder:text-muted"
         />
         <button type="button" disabled={state === "sending"} onClick={() => vote("up")} className={buttonClass}>
           👍 Útil
