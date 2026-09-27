@@ -114,10 +114,12 @@ class Settings(BaseSettings):
     # It sits in front of the API key, which says which endpoints you may use (ADR 0020).
     service_token: str = ""
 
-    # The shared login of the UI (ui_auth.py). Empty in development means no login; in production
-    # the UI refuses to show anything without both.
+    # The shared login of the marketplace's web server (web/session.py, ADR 0034 and 0036). Empty in
+    # development means no login; in production the web server refuses every tool call without the
+    # three, the secret included: it signs the session cookie.
     ui_username: str = ""
     ui_password: str = ""
+    session_secret: str = ""
 
     # Model spend per UTC day. Reaching it stops model calls until midnight instead of alerting:
     # nobody may be watching when a loop, or someone else's script, starts spending.

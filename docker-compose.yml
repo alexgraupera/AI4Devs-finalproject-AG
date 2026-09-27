@@ -29,11 +29,12 @@ services:
       timeout: 3s
       retries: 5
 
-  ui:
+  # The marketplace (#83): the web server serves the built frontend and forwards its tool calls to the
+  # API with the credentials a marketplace backend would hold, and nothing else: no provider keys, no
+  # database. Compose reads them from `.env` in this directory.
+  web:
     build: .
-    command: ["streamlit", "run", "streamlit_app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
-    # The UI holds the credentials a marketplace backend would, and nothing else: no provider
-    # keys, no database. Compose reads them from `.env` in this directory.
+    command: ["uvicorn", "web.main:app", "--host", "0.0.0.0", "--port", "8080"]
     environment:
       API_URL: http://api:8000
       API_KEY: ${API_KEY:-}
@@ -41,8 +42,9 @@ services:
       SERVICE_TOKEN: ${SERVICE_TOKEN:-}
       UI_USERNAME: ${UI_USERNAME:-}
       UI_PASSWORD: ${UI_PASSWORD:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
     ports:
-      - "127.0.0.1:8501:8501"
+      - "127.0.0.1:8080:8080"
     depends_on:
       api:
         condition: service_healthy

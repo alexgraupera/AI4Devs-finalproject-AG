@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from "react-router";
 import { Layout } from "./components/Layout";
 import { HomePage } from "./pages/HomePage";
 import { ListingPage } from "./pages/ListingPage";
+import { LoginPage } from "./pages/LoginPage";
 import { ModerationPage } from "./pages/ModerationPage";
 import { MyListingsPage } from "./pages/MyListingsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -35,6 +36,7 @@ export function App() {
           <Route path="publicar/:id?" element={<PublishPage />} />
           <Route path="mis-anuncios" element={<MyListingsPage />} />
           <Route path="moderacion" element={<ModerationPage />} />
+          <Route path="acceso" element={<LoginPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

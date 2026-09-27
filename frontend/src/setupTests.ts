@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { forgetSession } from "./api/sessionStore";
 import { stubApi } from "./testing/stubApi";
 
 // jsdom has no layout: scrolling is a no-op there, and its default implementation logs an error.
@@ -12,5 +13,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  forgetSession();
   localStorage.clear();
 });

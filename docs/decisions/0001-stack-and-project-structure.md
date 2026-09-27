@@ -1,6 +1,6 @@
 # 0001. Stack and project structure
 
-- **Status**: Accepted
+- **Status**: Accepted; the interface (Streamlit) superseded by [ADR 0036](0036-marketplace-frontend.md) on 2026-09-27
 - **Date**: 2026-09-19
 - **Issue**: #7 (part of #1)
 

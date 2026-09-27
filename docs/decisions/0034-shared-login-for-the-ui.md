@@ -1,6 +1,6 @@
 # 0034. A shared username and password in front of the UI
 
-- **Status**: Accepted
+- **Status**: Accepted; since 2026-09-27 the login lives in the marketplace's web server (`web/session.py`), with the same rules, the pages public and every tool call behind it ([ADR 0036](0036-marketplace-frontend.md))
 - **Date**: 2026-09-26
 - **Issue**: #55 (part of #5)
 

@@ -16,8 +16,7 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
 
 - Python 3.12+ managed with `uv`.
 - FastAPI + Uvicorn (AI service), Pydantic (contracts and LLM output validation).
-- Streamlit (UI), being replaced by the marketplace frontend of #83.
-- Marketplace frontend in `frontend/`: Vite + React + TypeScript, React Router, Tailwind CSS, Vitest + Testing Library (jsdom), ESLint. Node 22 (`frontend/.nvmrc`); `frontend/.npmrc` enables `legacy-peer-deps` to work around an npm 10 peer resolution bug with Vitest 5.
+- Marketplace frontend in `frontend/` (it replaced the Streamlit client in #89, ADR 0036): Vite + React + TypeScript, React Router, Tailwind CSS, Vitest + Testing Library (jsdom), ESLint. Node 22 (`frontend/.nvmrc`); `frontend/.npmrc` enables `legacy-peer-deps` to work around an npm 10 peer resolution bug with Vitest 5.
 - PostgreSQL + pgvector (vector store).
 - Docker Compose for the local environment.
 - LLM access through a wrapper built with LiteLLM (`Router` with primary + fallback) and Instructor (validated structured output with re-prompting). Anthropic primary, OpenAI fallback, switchable by configuration. Cheap models by default (cost matters: API credits only). `litellm` is pinned to an exact version.
@@ -26,8 +25,8 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
 ## Commands
 
 - `make install`: install dependencies (`uv sync` and `npm --prefix frontend ci`).
-- `make up` / `make down`: start / stop the whole stack with Docker Compose (API on `:8000`, UI on `:8501`).
-- `make api` / `make ui`: run the API or the UI locally with hot reload.
+- `make up` / `make down`: start / stop the whole stack with Docker Compose (API on `:8000`, marketplace on `:8080`).
+- `make api`: run the API locally with hot reload.
 - `make frontend`: run the marketplace frontend locally on `:5173` with hot reload. Its `/api` and `/bff` calls go to `make web`.
 - `make web`: run the marketplace's web server locally on `:8080`: it serves `frontend/dist` and forwards the frontend's API calls with the credentials.
 - `make verify`: lint (ruff), format check (ruff), typecheck (mypy strict) and tests (pytest), then the frontend's typecheck, lint, tests and build (`npm --prefix frontend run verify`). Run it before every commit; CI runs it on every pull request.
@@ -40,9 +39,8 @@ The system stacks the layers of a production AI product: CAG (the regulatory che
   - `domain/`: the contract (`schemas/`) and the conductor service that composes the pipeline.
   - `generation/`: the AI architectures (`cag/` caches, `rag/` retrieval, `agentic/` agents). They never import each other: they compose only through the conductor.
   - `api/`: thin routers (transport), no business logic.
-- `streamlit_app.py`: Streamlit client; it only talks to the API over HTTP.
-- `frontend/`: the marketplace (Umbral) that replaces the Streamlit client (#83). Fictional listings, agencies and photos (`src/catalogue/listings.ts`, `public/photos/` with `CREDITS.md`), real tools. Tests live next to the code (`*.test.ts(x)`); `src/testing/stubApi.ts` fakes the web server, so no frontend test reaches the network. It calls the API only through `src/api/client.ts`. The landlord's listings live in `src/landlord/myListingsStore.ts` (persisted in `localStorage` under `umbral-my-listings`; the demo has no marketplace database); components read them through `useMyListings()`.
-- `web/`: the marketplace's own backend (FastAPI + httpx, no new dependency). It serves the built frontend and forwards to the API only the calls listed in `web/forwarding.py`, adding the service token and the API key, so no secret reaches the browser (ADR 0020). Add an endpoint to that list only when the frontend starts using it. Tests in `tests/web/` replace the API with an `httpx.MockTransport`.
+- `frontend/`: the marketplace (Umbral), the product's interface; it only talks to the API through `web/`. Fictional listings, agencies and photos (`src/catalogue/listings.ts`, `public/photos/` with `CREDITS.md`), real tools. Tests live next to the code (`*.test.ts(x)`); `src/testing/stubApi.ts` fakes the web server, so no frontend test reaches the network. It calls the API only through `src/api/client.ts`. The landlord's listings live in `src/landlord/myListingsStore.ts` (persisted in `localStorage` under `umbral-my-listings`; the demo has no marketplace database); components read them through `useMyListings()`.
+- `web/`: the marketplace's own backend (FastAPI + httpx, no new dependency). It serves the built frontend and forwards to the API only the calls listed in `web/forwarding.py`, adding the service token and the API key, so no secret reaches the browser (ADR 0020). Add an endpoint to that list only when the frontend starts using it. The shared login of the demo lives in `web/session.py` (ADR 0034, 0036): the pages are public, every forwarded call needs a session, and production fails closed without `UI_USERNAME`, `UI_PASSWORD` and `SESSION_SECRET`. Tests in `tests/web/` replace the API with an `httpx.MockTransport` and never read the developer's `.env` for these settings.
 - `tests/`: tests mirroring the package structure.
 - `docs/decisions/`: architecture decision records.
 - `docs/data-sources/`: data source guides and runnable examples.

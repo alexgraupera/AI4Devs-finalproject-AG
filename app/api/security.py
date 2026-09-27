@@ -3,7 +3,7 @@
 Two independent layers, so exposure needs two mistakes rather than one (ADR 0020):
 
 - **The service token** is a middleware over the whole app: may you talk to this service at all.
-  In a real marketplace only the business backend holds it; here, only the Streamlit client does.
+  In a real marketplace only the business backend holds it; here, the marketplace's web server (web/) does.
 - **The API key and the rate limiter** are router dependencies on every business router: which
   endpoints you may use, and how often. A new endpoint under a guarded router is protected by
   being there, not by remembering to protect it.

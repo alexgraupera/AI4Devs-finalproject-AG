@@ -8,13 +8,15 @@ to one origin and needs no CORS.
   another service restarts this one whenever that one is asleep.
 - `GET /bff/service`: is the API up? It waits for a sleeping API to wake, so the frontend can say
   so instead of failing.
+- `/bff/session`: the shared login of the demo (`web/session.py`): read, sign in, sign out.
 - `/api/...`: forwarded to the API with the credentials, only for the calls in
-  `web/forwarding.py`.
+  `web/forwarding.py`, and only with a session when a login is configured.
 - Anything else: a file of `frontend/dist`, or `index.html` for the routes of the frontend.
 
 Run it with `make web`.
 """
 
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,6 +28,7 @@ from fastapi.responses import FileResponse, PlainTextResponse, Response
 from app.config import Settings, get_settings
 from app.foundation.observability.logging import configure_logging
 from web.forwarding import NOT_FOUND, api_is_up, error, forward
+from web.session import Clock, Credentials, SessionGuard
 
 DIST_DIR = Path(__file__).resolve().parents[1] / "frontend" / "dist"
 
@@ -37,10 +40,12 @@ def create_app(
     *,
     dist_dir: Path = DIST_DIR,
     transport: httpx.AsyncBaseTransport | None = None,
+    clock: Clock = time.time,
 ) -> FastAPI:
-    """`transport` replaces the network in the tests, so no test ever calls a real API."""
+    """`transport` replaces the network in the tests, so no test ever calls a real API; `clock`, the time."""
     settings = settings or get_settings()
     dist = dist_dir.resolve()
+    guard = SessionGuard(settings, clock=clock)
 
     # One client for the life of the server: it keeps the connections to the API open between calls.
     @asynccontextmanager
@@ -60,13 +65,25 @@ def create_app(
     async def service(request: Request) -> dict[str, str]:
         return {"api": "up" if await api_is_up(request.app.state.client, settings) else "down"}
 
+    @app.get("/bff/session")
+    async def session(request: Request) -> Response:
+        return guard.state(request)
+
+    @app.post("/bff/session")
+    async def sign_in(request: Request, credentials: Credentials) -> Response:
+        return guard.sign_in(request, credentials)
+
+    @app.delete("/bff/session")
+    async def sign_out() -> Response:
+        return guard.sign_out()
+
     @app.api_route("/bff/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def unknown_bff(path: str) -> Response:
         return error("not_found", NOT_FOUND, status_code=404)
 
     @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     async def api(request: Request) -> Response:
-        return await forward(request, request.app.state.client, settings)
+        return guard.refusal(request) or await forward(request, request.app.state.client, settings)
 
     @app.get("/{path:path}")
     async def frontend(path: str) -> Response:

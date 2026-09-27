@@ -84,6 +84,20 @@ As in the course, CAG is the prompt assembled from stable knowledge plus the cac
 | Daily spend cap that stops model calls, liveness and readiness probes | ✅ #53 |
 | Public deployment on Render from `main`, described as a Blueprint | ✅ #54 (live once the Blueprint is created) |
 
+### Marketplace (Umbral): the tools in a portal's flow
+
+A fictional rental marketplace (listings, agencies and photos invented, tools real) with its own web server, instead of the Streamlit client ([ADR 0036](decisions/0036-marketplace-frontend.md)).
+
+| Capability | Status |
+|---|---|
+| Landing, search with the filters in the URL, listing pages; 16 fictional listings, CC0 photos, a demo notice on every page | ✅ #84 |
+| The tenant's regulation Q&A as the assistant of each listing: questions read from the listing, laws of its municipality only | ✅ #85 |
+| A web server that serves the frontend and forwards only the calls it makes, with credentials the browser never holds | ✅ #85 |
+| The landlord drafts and checks a listing with the pipeline review; "Mis anuncios" kept in the browser | ✅ #86 |
+| Publishing goes through the agent review: published, changes requested with the corrected listing, or paused | ✅ #87 |
+| The moderation queue: a person approves, adjusts or discards a paused review, which resumes in the API | ✅ #88 |
+| The shared login in the web server (pages public, tools behind it), deployed on the same Render service and URL; Streamlit retired | ✅ #89 |
+
 ## Out of scope, and why
 
 - **Semantic cache for listing reviews**: measured in ADR 0019. The same flat with a second month of deposit is more similar to the original (0.996) than the same flat reworded (0.912), so any threshold that saves calls serves a clean review to an illegal listing.
@@ -103,11 +117,11 @@ Each of these is listed in the README as a next step, with the condition that wo
 | `README.md` with domain, architecture, components, setup and limitations | [`README.md`](../README.md) | 🔜 updated by every phase |
 | AI service in FastAPI | `app/` | ✅ #7 |
 | RAG pipeline over real data | `app/ingestion/`, `app/generation/rag/` | ✅ #2 |
-| Agent layer with function calling and orchestration | `app/generation/agentic/`, `app/domain/graph/` | 🔜 #3 |
+| Agent layer with function calling and orchestration | `app/generation/agentic/`, `app/domain/graph/` | ✅ #3 |
 | Documented evals: metrics, test set and at least one regression case | `evals/`, [`docs/evals.md`](evals.md) | ✅ #48, #49, #50, #52 |
-| Deployment: public URL or a 2-3 min video | `docs/deployment.md` | 🔜 #5 |
-| Frontend (recommended) | `streamlit_app.py` | ✅ #7 |
-| Basic CI/CD (recommended) | `.github/workflows/` | ✅ #7, 🔜 #5 |
+| Deployment: public URL or a 2-3 min video | `docs/deployment.md` | ✅ #54, #89 |
+| Frontend (recommended) | `frontend/`, `web/` (the Streamlit client of #7 until #89) | ✅ #83 |
+| Basic CI/CD (recommended) | `.github/workflows/` | ✅ #7, #50, #54 |
 | No secrets or personal data in the repository, `.env.example` up to date | Repository root | ✅ / 🔜 #5 |
 
 ## Layering rules
