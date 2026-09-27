@@ -1,4 +1,5 @@
-import { Link, NavLink, Outlet } from "react-router";
+import { useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router";
 import { DoorIcon } from "./icons";
 
 export const DEMO_NOTICE =
@@ -15,34 +16,92 @@ export function Logo({ inverted = false }: { inverted?: boolean }) {
   );
 }
 
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-md px-3 py-2 text-sm transition-colors ${isActive ? "text-ink font-semibold" : "text-ink-soft hover:text-ink"}`;
+const NAV = [
+  { to: "/alquiler", label: "Alquilar" },
+  { to: "/normativa", label: "Normativa" },
+  { to: "/mis-anuncios", label: "Mis anuncios" },
+];
+
+const linkState = (isActive: boolean) => (isActive ? "text-ink font-semibold" : "text-ink-soft hover:text-ink");
+const navLinkClass = ({ isActive }: { isActive: boolean }) => `rounded-md px-3 py-2 text-sm transition-colors ${linkState(isActive)}`;
+// Larger on a phone: a finger needs more room than a pointer.
+const menuLinkClass = ({ isActive }: { isActive: boolean }) => `block rounded-md px-3 py-3 text-base ${linkState(isActive)}`;
+
+const primaryButtonClass =
+  "rounded-lg bg-ink px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-sm transition-colors hover:bg-ink-soft";
+
+/** On a phone the links do not fit in one row: they go behind a menu button, closed on every navigation. */
+function MobileMenu() {
+  const { pathname, hash } = useLocation();
+  const [open, setOpen] = useState(false);
+  const [openedAt, setOpenedAt] = useState(`${pathname}${hash}`);
+  if (open && openedAt !== `${pathname}${hash}`) {
+    setOpen(false);
+    setOpenedAt(`${pathname}${hash}`);
+  }
+
+  return (
+    <div className="md:hidden">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="mobile-menu"
+        onClick={() => {
+          setOpen((current) => !current);
+          setOpenedAt(`${pathname}${hash}`);
+        }}
+        className="rounded-lg border border-line px-3 py-2 text-sm font-medium"
+      >
+        Menú
+      </button>
+      {open && (
+        <nav id="mobile-menu" aria-label="Menú" className="absolute inset-x-0 top-16 border-b border-line bg-canvas px-4 py-3 shadow-lg">
+          <ul className="flex flex-col">
+            {NAV.map((item) => (
+              <li key={item.to}>
+                <NavLink to={item.to} className={menuLinkClass}>
+                  {item.label}
+                </NavLink>
+              </li>
+            ))}
+            <li>
+              <Link to="/#como-funciona" className={menuLinkClass({ isActive: false })}>
+                Cómo funciona
+              </Link>
+            </li>
+            <li className="pt-2">
+              <Link to="/publicar" className="block rounded-lg bg-ink px-4 py-3 text-center text-base font-medium text-white">
+                Publicar anuncio
+              </Link>
+            </li>
+          </ul>
+        </nav>
+      )}
+    </div>
+  );
+}
 
 function Header() {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-canvas/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
+      <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
         <Link to="/" aria-label="Umbral, inicio">
           <Logo />
         </Link>
-        <nav aria-label="Principal" className="flex items-center gap-1">
-          <NavLink to="/alquiler" className={navLinkClass}>
-            Alquilar
-          </NavLink>
-          <NavLink to="/normativa" className={navLinkClass}>
-            Normativa
-          </NavLink>
-          <Link to="/#como-funciona" className="hidden rounded-md px-3 py-2 text-sm text-ink-soft hover:text-ink sm:block">
+        <nav aria-label="Principal" className="hidden items-center gap-1 md:flex">
+          {NAV.map((item) => (
+            <NavLink key={item.to} to={item.to} className={navLinkClass}>
+              {item.label}
+            </NavLink>
+          ))}
+          <Link to="/#como-funciona" className="rounded-md px-3 py-2 text-sm text-ink-soft hover:text-ink">
             Cómo funciona
           </Link>
         </nav>
-        {/* On a phone "Alquilar" already leads there, and the header has no room for both. */}
-        <Link
-          to="/alquiler"
-          className="hidden rounded-lg bg-ink px-4 py-2 text-sm font-medium whitespace-nowrap text-white shadow-sm transition-colors hover:bg-ink-soft sm:block"
-        >
-          Buscar piso
+        <Link to="/publicar" className={`hidden md:block ${primaryButtonClass}`}>
+          Publicar anuncio
         </Link>
+        <MobileMenu />
       </div>
     </header>
   );

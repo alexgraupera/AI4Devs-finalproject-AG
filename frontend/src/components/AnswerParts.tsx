@@ -1,16 +1,9 @@
 /** The pieces of a regulation answer, shared by the `/normativa` page and the listing assistant. */
 
-import type { Citation, RegulationAnswer, Usage } from "../api/types";
+import type { Citation, RegulationAnswer } from "../api/types";
+import { formatUsage } from "./format";
 
 export const NO_MODEL_CALL = "Sin llamada al modelo: la normativa indexada no cubría la pregunta.";
-
-const COST = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
-
-function usageLine(usage: Usage): string {
-  if (usage.attempts === 0) return NO_MODEL_CALL;
-  const cost = usage.estimated_cost_usd === null ? "no disponible" : `${COST.format(Number(usage.estimated_cost_usd))} USD`;
-  return `Modelo: ${usage.model} · ${usage.input_tokens} + ${usage.output_tokens} tokens · ${usage.latency_ms} ms · Coste estimado: ${cost}`;
-}
 
 /** Every article the answer rests on, as a link to the BOE: the reader checks, never takes it on trust. */
 export function Sources({ citations }: { citations: Citation[] }) {
@@ -59,7 +52,7 @@ export function TechnicalDetails({ answer }: { answer: RegulationAnswer }) {
             </tbody>
           </table>
         )}
-        <p className="text-xs text-muted">{usageLine(answer.usage)}</p>
+        <p className="text-xs text-muted">{answer.usage.attempts === 0 ? NO_MODEL_CALL : formatUsage(answer.usage)}</p>
       </div>
     </details>
   );

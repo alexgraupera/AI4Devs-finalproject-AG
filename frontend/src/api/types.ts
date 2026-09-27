@@ -49,3 +49,35 @@ export type FeedbackVote = {
   rating: "up" | "down";
   comment: string | null;
 };
+
+/** A listing as the review takes it: the text as written, plus the structured fields a portal form has. */
+export type ListingInput = {
+  text: string;
+  price_eur_month: number | null;
+  usable_surface_m2: number | null;
+  rooms: number | null;
+  municipality: string | null;
+  energy_rating: string | null;
+};
+
+export type Severity = "high" | "medium" | "low";
+export type Verdict = "approve" | "request_changes";
+
+export type Finding = {
+  category: string;
+  severity: Severity;
+  message: string;
+  suggestion: string;
+  // The article that backs it, e.g. "LAU art. 36.1"; null when the finding is not a legal one.
+  legal_basis: string | null;
+};
+
+export type ListingReview = {
+  request_id: string | null;
+  findings: Finding[];
+  verdict: Verdict;
+  summary: string;
+  usage: Usage;
+  // An identical listing was reviewed before: this answer comes from the cache and cost nothing.
+  cached: boolean;
+};
