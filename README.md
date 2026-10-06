@@ -33,8 +33,6 @@ Quien publica un anuncio de alquiler lo pega y recibe una revisión estructurada
 
 ### **0.4. URL del proyecto:**
 
-> Puede ser pública o privada, en cuyo caso deberás compartir los accesos de manera segura. Puedes enviarlos a [alvaro@lidr.co](mailto:alvaro@lidr.co) usando algún servicio como [onetimesecret](https://onetimesecret.com/).
-
 **https://ai4devs-rental-ui-ag.onrender.com**
 
 Los anuncios se ven sin entrar; las herramientas (que llaman a modelos de pago) piden un usuario y una contraseña compartidos, que se envían al evaluador por un enlace de un solo uso ([ADR 0034](docs/decisions/0034-shared-login-for-the-ui.md), [ADR 0036](docs/decisions/0036-marketplace-frontend.md)). Está en el plan gratuito de Render: si nadie la ha usado en los últimos 15 minutos, la primera consulta tarda hasta un minuto en despertar el servicio (el marketplace lo avisa mientras espera).
@@ -43,18 +41,11 @@ Los anuncios se ven sin entrar; las herramientas (que llaman a modelos de pago) 
 
 https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `finalproject-AG`, tag: `v1.0-final-AG`)
 
-> Puedes tenerlo alojado en público o en privado, en cuyo caso deberás compartir los accesos de manera segura. Puedes enviarlos a [alvaro@lidr.co](mailto:alvaro@lidr.co) usando algún servicio como [onetimesecret](https://onetimesecret.com/). También puedes compartir por correo un archivo zip con el contenido
-
-
 ---
 
 ## 1. Descripción general del producto
 
-> Describe en detalle los siguientes aspectos del producto:
-
 ### **1.1. Objetivo:**
-
-> Propósito del producto. Qué valor aporta, qué soluciona, y para quién.
 
 **El problema.** En los portales inmobiliarios se publican a diario anuncios de alquiler que incumplen la normativa sin que nadie lo pretenda: sin la calificación energética que exige el RD 390/2021, con dos meses de fianza cuando la LAU fija uno, con los honorarios de la agencia a cargo del inquilino que la ley pone a cargo del propietario, o sin decir qué incluye el precio. El propietario particular no conoce la norma; la agencia la conoce, pero revisa a mano; y el marketplace o revisa con personas (caro) o no revisa (riesgo de sanción, reclamaciones y anuncios retirados).
 
@@ -63,8 +54,6 @@ https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `final
 **El valor.** Una revisión que dice qué artículo incumple cada problema, con el enlace al BOE, en unos segundos y por unos **0,0015 $** (medido sobre 18 anuncios). Una respuesta que no sale de la normativa indexada no se da: el asistente dice que no lo sabe antes que inventar una norma.
 
 ### **1.2. Características y funcionalidades principales:**
-
-> Enumera y describe las características y funcionalidades específicas que tiene el producto para satisfacer las necesidades identificadas.
 
 | Funcionalidad | Qué hace | Capa |
 |---|---|---|
@@ -79,8 +68,6 @@ https://github.com/alexgraupera/AI4Devs-finalproject-AG (rama de entrega: `final
 | **Evaluación** | 32 preguntas y 18 anuncios anotados, un juez de otro proveedor, una puerta de regresión contra una línea base y casos de regresión en cada pull request | Transversal |
 
 ### **1.3. Diseño y experiencia de usuario:**
-
-> Proporciona imágenes y/o videotutorial mostrando la experiencia del usuario desde que aterriza en la aplicación, pasando por todas las funcionalidades principales.
 
 La interfaz es **Umbral**, un marketplace de alquiler ficticio con el diseño de un portal real: los anuncios, las agencias y las fotos (de dominio público) son inventados, y un aviso en cada página lo dice; las revisiones y las respuestas las genera el sistema de verdad. Cada herramienta está donde la usaría un portal: el inquilino pregunta desde el anuncio que lee, el anunciante comprueba y publica, y el equipo de calidad decide lo que el agente no puede respaldar ([ADR 0036](docs/decisions/0036-marketplace-frontend.md)). Las capturas son de una ejecución real sobre el stack de `make up` desde cero.
 
@@ -111,7 +98,6 @@ La interfaz es **Umbral**, un marketplace de alquiler ficticio con el diseño de
 ![Acceso a la demo](docs/images/7-acceso.jpg)
 
 ### **1.4. Instrucciones de instalación:**
-> Documenta de manera precisa las instrucciones para instalar y poner en marcha el proyecto en local (librerías, backend, frontend, servidor, base de datos, migraciones y semillas de datos, etc.)
 
 **Requisitos:** [Docker](https://docs.docker.com/get-docker/) con Docker Compose. Para desarrollar sin Docker: [uv](https://docs.astral.sh/uv/) (instala Python 3.12 automáticamente), [Node.js 22](https://nodejs.org/) para el marketplace y `make`.
 
@@ -199,7 +185,6 @@ migraciones, que hacen `downgrade` y borran las tablas, corren contra una base a
 ## 2. Arquitectura del Sistema
 
 ### **2.1. Diagrama de arquitectura:**
-> Usa el formato que consideres más adecuado para representar los componentes principales de la aplicación y las tecnologías utilizadas. Explica si sigue algún patrón predefinido, justifica por qué se ha elegido esta arquitectura, y destaca los beneficios principales que aportan al proyecto y justifican su uso, así como sacrificios o déficits que implica.
 
 ```mermaid
 flowchart TB
@@ -256,10 +241,6 @@ flowchart TB
 
 ### **2.2. Descripción de componentes principales:**
 
-> Describe los componentes más importantes, incluyendo la tecnología utilizada
-
-> 🆕 Incluir cada capa de IA: CAG, pipeline RAG, capa de agentes, evaluación y despliegue.
-
 | Componente | Tecnología | Qué hace |
 |---|---|---|
 | **Marketplace** | React, TypeScript, Vite, Tailwind | Umbral: catálogo ficticio con búsqueda y fichas, asistente de derechos en cada ficha, publicar (comprobación rápida y revisión del agente), "Mis anuncios" y moderación; los anuncios del anunciante se guardan en el navegador ([`frontend/`](frontend/)) |
@@ -276,8 +257,6 @@ flowchart TB
 | **Despliegue** | Docker, Render Blueprint, GitHub Actions | Una imagen para la API y el marketplace (Node compila el frontend en una etapa previa); despliegue en cada merge a `main`; CI con lint, tipos, tests contra Postgres real y escaneo de secretos ([`docs/deployment.md`](docs/deployment.md)) |
 
 ### **2.3. Descripción de alto nivel del proyecto y estructura de ficheros**
-
-> Representa la estructura del proyecto y explica brevemente el propósito de las carpetas principales, así como si obedece a algún patrón o arquitectura específica.
 
 ```
 .
@@ -316,8 +295,6 @@ La aplicación separa la interfaz (el marketplace y su servidor web) del servici
 El paquete `app/` está organizado en capas por responsabilidad: `foundation/` (plomería: LLM, prompts, guardrails, observabilidad), `domain/` (el contrato y el servicio conductor), `generation/` (las arquitecturas de IA: CAG, RAG y agentes) y `api/` (transporte). Cada capa solo importa de las que tiene por encima, y la regla clave es que las arquitecturas de `generation/` no se conocen entre sí: **solo componen a través del conductor**. Eso es lo que evita que el proyecto degenere en carpetas acopladas según se van apilando. Decisión detallada en [ADR 0001](docs/decisions/0001-stack-and-project-structure.md).
 
 ### **2.4. Infraestructura y despliegue**
-
-> Detalla la infraestructura del proyecto, incluyendo un diagrama en el formato que creas conveniente, y explica el proceso de despliegue que se sigue
 
 Render, en el plan gratuito, descrito como código en [`render.yaml`](render.yaml): coste de infraestructura cero y un despliegue por cada merge a `main` ([ADR 0021](docs/decisions/0021-hosting-on-render.md), guía completa en [`docs/deployment.md`](docs/deployment.md)).
 
@@ -390,8 +367,6 @@ El limitador y el tope **nunca tumban el servicio**: si Redis no responde, la pe
 **Sondas.** `/health` dice si el proceso está vivo y no toca nada: una sonda de vida que consulta la base de datos reinicia un servicio sano cada vez que la base tose. `/ready` dice si puede atender ahora (base de datos, caché y presupuesto) y responde 503 con `Retry-After` cuando no: es motivo para esperar, no para reiniciar.
 
 ### **2.6. Tests**
-
-> Describe brevemente algunos de los tests realizados
 
 **Más de 600 tests de Python y más de 100 del frontend, y ninguno llama a un modelo.** El modelo entra en el código como un protocolo (`StructuredLLM`, `ToolCallingLLM`), así que los tests lo sustituyen por respuestas guionizadas y comprueban lo que el código hace con ellas; lo que hace el modelo real lo miden las evaluaciones ([sección 8](#8--evaluación-evals)). `make verify` (ruff, mypy estricto y pytest; y para el frontend, TypeScript, ESLint, Vitest y el build) pasa antes de cada commit, y el CI lo repite en cada pull request contra un PostgreSQL real.
 
@@ -680,8 +655,6 @@ La capa RAG registra lo suyo con la misma intención de que se pueda **contar**:
 
 ### **2.10. 🆕 Decisiones técnicas**
 
-> Resume las decisiones clave y enlaza su justificación en [`docs/decisions/`](docs/decisions/) (contexto, alternativas, decisión y consecuencias).
-
 Cada decisión tiene su registro con el contexto, las alternativas, lo que se midió y las consecuencias. Varias se tomaron **al revés de lo que se esperaba**, porque la medición lo dijo: están marcadas con ⚠️.
 
 | ADR | Decisión |
@@ -900,8 +873,6 @@ curl -X POST http://localhost:8000/api/v1/listings/review \
 
 ## 5. Historias de Usuario
 
-> Documenta 3 de las historias de usuario principales utilizadas durante el desarrollo, teniendo en cuenta las buenas prácticas de producto al respecto.
-
 Las tres historias son las épicas del proyecto, una por capa de IA, cada una con su plan de fases en GitHub.
 
 **Historia de Usuario 1: revisar un anuncio antes de publicarlo** ([#1](https://github.com/alexgraupera/AI4Devs-finalproject-AG/issues/1), CAG)
@@ -946,8 +917,6 @@ Criterios de aceptación:
 ---
 
 ## 6. Tickets de Trabajo
-
-> Documenta 3 de los tickets de trabajo principales del desarrollo, uno de backend, uno de frontend, y uno de bases de datos. Da todo el detalle requerido para desarrollar la tarea de inicio a fin teniendo en cuenta las buenas prácticas al respecto. 
 
 Los tickets son las fases de los planes, cada una con sus contratos públicos, sus tests y su lista de tareas, y todas se implementaron así. Estos tres, uno de cada tipo, resumidos (el detalle completo, en cada issue).
 
@@ -997,8 +966,6 @@ Los tickets son las fases de los planes, cada una con sus contratos públicos, s
 
 ## 7. Pull Requests
 
-> Documenta 3 de las Pull Requests realizadas durante la ejecución del proyecto
-
 Cada fase se entregó en su propia pull request, con CI verde (lint, tipos, tests contra Postgres y escaneo de secretos), la medida que la justificaba y el cierre de su issue. Tres de ellas:
 
 **Pull Request 1: la primera revisión de principio a fin** ([#16](https://github.com/alexgraupera/AI4Devs-finalproject-AG/pull/16), cierra #8, +1.949 −10 en 28 ficheros)
@@ -1016,8 +983,6 @@ Búsqueda híbrida, reformulación de la consulta y reranking, cada una con su h
 ---
 
 ## 8. 🆕 Evaluación (evals)
-
-> Describe la suite de evaluación: test sets, métricas (retrieval, generación, detección de defectos, latencia y coste), rúbrica del LLM-as-judge, casos de regresión y resultados por iteración. Detalle en [`docs/evals.md`](docs/evals.md).
 
 **Hoy está medida la recuperación.** Un set dorado de 29 preguntas en tres familias (lenguaje legal, paráfrasis y fuera de dominio) con recall@k, MRR y tasa de no-respuesta, ejecutable con `make benchmark-retrieval` ([`benchmarks/retrieval/`](benchmarks/retrieval/README.md)). Con él se ajustaron el umbral y el top-k ([ADR 0012](docs/decisions/0012-retrieval-baseline-and-tuning.md)), se eliminaron la búsqueda híbrida y la reformulación y se conservó el reranking ([ADR 0013](docs/decisions/0013-advanced-retrieval-measured.md)), y se calibró la verificación de citas ([ADR 0014](docs/decisions/0014-grounding-and-retrieval-security.md)). Los resultados están en la sección 2.8.
 
@@ -1055,8 +1020,6 @@ Búsqueda híbrida, reformulación de la consulta y reranking, cada una con su h
 ---
 
 ## 9. 🆕 Limitaciones conocidas y próximos pasos
-
-> Enumera las limitaciones actuales del sistema y cómo se resolverían, incluyendo cómo se integraría en un marketplace inmobiliario real.
 
 **El corpus son cuatro normas.** LAU, Ley 12/2023, RD 390/2021 y la ley catalana de vivienda. La fiscalidad del alquiler (IRPF), las comunidades de propietarios, los procedimientos judiciales y la normativa de las otras quince comunidades autónomas **no están**, y el asistente lo dice en vez de improvisar. Ampliarlo es añadir líneas a `app/ingestion/sources.py`; cada norma nueva cuesta unos milésimos de dólar en embeddings.
 
